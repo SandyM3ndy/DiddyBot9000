@@ -392,8 +392,7 @@ class PostgreSQLDatabase {
     async get(key, defaultValue = null) {
         try {
             if (!this.isAvailable()) {
-                logger.warn('PostgreSQL not available, returning default value');
-                return defaultValue;
+                throw new Error('PostgreSQL database is unavailable');
             }
 
             const canonicalKey = canonicalizeKey(key);
@@ -426,15 +425,14 @@ class PostgreSQLDatabase {
             return structuredValue;
         } catch (error) {
             logger.error(`Error getting value for key ${key}:`, error);
-            return defaultValue;
+            throw error;
         }
     }
 
     async set(key, value, ttl = null) {
         try {
             if (!this.isAvailable()) {
-                logger.warn('PostgreSQL not available, cannot set value');
-                return false;
+                throw new Error('PostgreSQL database is unavailable');
             }
 
             const canonicalKey = canonicalizeKey(key);
@@ -465,15 +463,14 @@ class PostgreSQLDatabase {
             return await this.setStructuredData(parsedKey, value, ttl);
         } catch (error) {
             logger.error(`Error setting value for key ${key}:`, error);
-            return false;
+            throw error;
         }
     }
 
     async delete(key) {
         try {
             if (!this.isAvailable()) {
-                logger.warn('PostgreSQL not available, cannot delete key');
-                return false;
+                throw new Error('PostgreSQL database is unavailable');
             }
 
             const canonicalKey = canonicalizeKey(key);
@@ -501,15 +498,14 @@ class PostgreSQLDatabase {
             return deleted;
         } catch (error) {
             logger.error(`Error deleting key ${key}:`, error);
-            return false;
+            throw error;
         }
     }
 
     async list(prefix) {
         try {
             if (!this.isAvailable()) {
-                logger.warn('PostgreSQL not available, returning empty list');
-                return [];
+                throw new Error('PostgreSQL database is unavailable');
             }
 
             const keys = new Set();
@@ -551,7 +547,7 @@ class PostgreSQLDatabase {
             return [...keys];
         } catch (error) {
             logger.error(`Error listing keys with prefix ${prefix}:`, error);
-            return [];
+            throw error;
         }
     }
 
@@ -781,7 +777,7 @@ class PostgreSQLDatabase {
             }
         } catch (error) {
             logger.error(`Error getting structured data for ${parsedKey.fullKey}:`, error);
-            return defaultValue;
+            throw error;
         }
     }
 
