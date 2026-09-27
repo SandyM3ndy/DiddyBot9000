@@ -3,11 +3,13 @@ import { createEmbed } from '../../utils/embeds.js';
 import { logger } from '../../utils/logger.js';
 
 import { InteractionHelper } from '../../utils/interactionHelper.js';
-const SUPPORT_SERVER_URL = "https://discord.gg/QnWNz2dKCE";
+
+const SUPPORT_SERVER_URL = "https://discord.gg/76N2EM6v6k";
+
 export default {
     data: new SlashCommandBuilder()
     .setName("support")
-    .setDescription("Get link to the support server"),
+    .setDescription("Get help, report an issue, suggest an idea, or ask a question"),
 
   async execute(interaction) {
     try {
@@ -20,7 +22,10 @@ export default {
 
       await InteractionHelper.safeReply(interaction, {
         embeds: [
-          createEmbed({ title: "Need Help?", description: "Join our official support server for assistance, report bugs, or suggest features. If you are customizing this bot, remember to change the link in the code!" }),
+          createEmbed({
+            title: "Need Help?",
+            description: "Need a hand with the bot? Join our support server to report an issue, suggest an idea, ask for help, or let us know about anything that could be improved. We'll do our best to help you out!"
+          }),
         ],
         components: [actionRow],
         flags: MessageFlags.Ephemeral,
