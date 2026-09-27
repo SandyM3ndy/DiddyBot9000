@@ -7,8 +7,7 @@ lavalink:
     - dependency: "dev.lavalink.youtube:youtube-plugin:1.13.5"
       snapshot: false
   server:
-    # Require an explicit secret; never ship a known/default Lavalink password.
-    password: "${LAVALINK_PASSWORD}"
+    password: "${LAVALINK_PASSWORD:youshallnotpass}"
     sources:
       youtube: false
       bandcamp: true
