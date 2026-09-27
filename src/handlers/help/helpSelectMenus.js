@@ -69,7 +69,7 @@ function getCommandAccess(commandData) {
             [2n, "Ban Members"],
             [28n, "Manage Roles"],
             [40n, "Moderate Members"],
-            [6n, "View Audit Log"],
+            [7n, "View Audit Log"],
         ];
         const names = [];
         for (const [bitIndex, label] of flags) {
@@ -286,7 +286,7 @@ async function createCategoryCommandsMenu(category, client) {
 }
 
 export async function createAllCommandsMenu(page = 1, client) {
-    const commandsPerPage = 45;
+    const commandsPerPage = 15;
     const allCommands = [];
 
     const commandsPath = path.join(__dirname, "../../commands");
@@ -355,7 +355,7 @@ export async function createAllCommandsMenu(page = 1, client) {
 
     const embed = createEmbed({
         title: "📋 All Commands",
-        description: `Every command below includes its purpose and who can use it. Use the page buttons to browse the full list.`
+        description: `Simple command list: what each command does and who can use it. Use the buttons to browse pages.`
     });
 
     embed.setFooter({ text: FOOTER_TEXT });
