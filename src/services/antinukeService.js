@@ -142,7 +142,7 @@ export function isRapidActivity(guildId, userId, threshold = 5) {
   return trackAction(guildId, userId, 'security_action').length >= threshold;
 }
 
-export async function punishExecutor(guild, executor, reason = 'Anti-Nuke: destructive activity detected') {
+export async function punishExecutor(guild, executor, reason = 'Anti-Nuke: destructive activity detected', action = 'destructive activity') {
   if (!executor?.id || isTrustedActor(guild, executor.id)) return false;
 
   const key = `${guild.id}:${executor.id}`;
@@ -211,7 +211,8 @@ export async function handleDestructiveAction(guild, executor, action, details =
     const punished = await punishExecutor(
       guild,
       executor,
-      `Anti-Nuke: ${action} threshold exceeded (${result.count} actions in 10 seconds)`
+      `Anti-Nuke: ${action} threshold exceeded (${result.count} actions in 10 seconds)`,
+      action
     );
     return { detected: true, triggered: true, punished, ...result };
   }
