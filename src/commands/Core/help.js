@@ -48,7 +48,10 @@ function formatCategoryName(rawCategory) {
     return rawCategory
         .replace(/_/g, '')
         .replace(/([a-z])([A-Z])/g, '$1 $2')
-        .replace(/\b\w/g, (char) => char.toUpperCase());
+        .replace(/    const supportButton = new ButtonBuilder()
+        .setLabel("Support Server")
+        .setURL("https://discord.gg/76N2EM6v6k")
+        .setStyle(ButtonStyle.Link);b\w/g, (char) => char.toUpperCase());
 }
 
 export async function createInitialHelpMenu(client) {
