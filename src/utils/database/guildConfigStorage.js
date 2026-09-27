@@ -23,16 +23,11 @@ export function unwrapReplitData(data) {
 export async function readGuildConfig(client, guildId, context = {}) {
     try {
         if (!client?.db || typeof client.db.get !== 'function') {
-            logger.warn(`Database unavailable for readGuildConfig in guild ${guildId}`);
-            return normalizeGuildConfig({}, GUILD_CONFIG_DEFAULTS);
+            throw createError('Database client unavailable for guild config read', ErrorTypes.DATABASE, 'Failed to load server configuration. The database is unavailable.', { guildId, ...context });
         }
 
         if (typeof client.db.isAvailable === 'function' && !client.db.isAvailable()) {
-            logger.warn(`PostgreSQL unavailable for readGuildConfig in guild ${guildId}`, {
-                traceId: context.traceId,
-                guildId,
-            });
-            return normalizeGuildConfig({}, GUILD_CONFIG_DEFAULTS);
+            throw createError('Persistent database unavailable for guild config read', ErrorTypes.DATABASE, 'Failed to load server configuration. The database is unavailable.', { guildId, ...context });
         }
 
         const rawConfig = await client.db.get(getGuildConfigKey(guildId), null);
@@ -51,7 +46,7 @@ export async function readGuildConfig(client, guildId, context = {}) {
             userId: context.userId,
             command: context.command,
         });
-        return normalizeGuildConfig({}, GUILD_CONFIG_DEFAULTS);
+        throw error;
     }
 }
 
