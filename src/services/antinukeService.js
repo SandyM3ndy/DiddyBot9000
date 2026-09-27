@@ -1,17 +1,22 @@
-import {
-  AuditLogEvent,
-  PermissionFlagsBits,
-} from 'discord.js';
+import { AuditLogEvent, PermissionFlagsBits } from 'discord.js';
 import { logger } from '../utils/logger.js';
 
 const configurations = new Map();
 const recentActions = new Map();
+const punishedActors = new Set();
 
 export const ANTINUKE_LEVELS = {
   LOW: 'low',
   MEDIUM: 'medium',
   HIGH: 'high',
   MAXIMUM: 'maximum',
+};
+
+const THRESHOLDS = {
+  [ANTINUKE_LEVELS.LOW]: 8,
+  [ANTINUKE_LEVELS.MEDIUM]: 5,
+  [ANTINUKE_LEVELS.HIGH]: 3,
+  [ANTINUKE_LEVELS.MAXIMUM]: 2,
 };
 
 export const DANGEROUS_PERMISSIONS = [
@@ -51,9 +56,12 @@ export function getAntiNukeLevel(guildId) {
   return getAntiNukeConfig(guildId).level;
 }
 
+export function getThreshold(level = ANTINUKE_LEVELS.MEDIUM) {
+  return THRESHOLDS[level] ?? THRESHOLDS[ANTINUKE_LEVELS.MEDIUM];
+}
+
 export function recordThreat(guildId) {
   const config = getAntiNukeConfig(guildId);
-
   configurations.set(guildId, {
     ...config,
     threats: config.threats + 1,
@@ -61,122 +69,154 @@ export function recordThreat(guildId) {
   });
 }
 
-export function recordBlockedAction(guildId) {
+export function recordBlockedAction(guildId, amount = 1) {
   const config = getAntiNukeConfig(guildId);
-
   configurations.set(guildId, {
     ...config,
-    blockedActions: config.blockedActions + 1,
+    blockedActions: config.blockedActions + amount,
     lastIncident: Date.now(),
   });
 }
 
 export function isDangerousPermissionChange(oldPermissions, newPermissions) {
   return DANGEROUS_PERMISSIONS.some(
-    (permission) =>
-      !oldPermissions.has(permission) &&
-      newPermissions.has(permission)
+    (permission) => !oldPermissions.has(permission) && newPermissions.has(permission)
   );
 }
 
 export function getDangerousPermissions(oldPermissions, newPermissions) {
   return DANGEROUS_PERMISSIONS.filter(
-    (permission) =>
-      !oldPermissions.has(permission) &&
-      newPermissions.has(permission)
+    (permission) => !oldPermissions.has(permission) && newPermissions.has(permission)
   );
 }
 
 export function isTrustedActor(guild, userId) {
-  if (!userId) return false;
-
-  // The server owner is trusted.
-  if (guild.ownerId === userId) {
-    return true;
-  }
-
-  // The bot owner is NOT automatically trusted here.
-  // Discord server permissions still determine what the bot can undo.
-  return false;
+  return Boolean(userId && guild.ownerId === userId);
 }
 
-export async function findRoleUpdateExecutor(guild, roleId) {
+export async function findRecentAuditEntry(guild, type, targetId = null, maxAge = 10_000) {
   try {
-    const logs = await guild.fetchAuditLogs({
-      type: AuditLogEvent.RoleUpdate,
-      limit: 10,
-    });
+    const logs = await guild.fetchAuditLogs({ type, limit: 10 });
+    const now = Date.now();
 
-    const entry = logs.entries.find(
-      (entry) =>
-        entry.target?.id === roleId &&
-        Date.now() - entry.createdTimestamp < 10_000
-    );
-
-    return entry || null;
+    return logs.entries.find((entry) => {
+      if (now - entry.createdTimestamp > maxAge) return false;
+      if (targetId && entry.target?.id !== targetId) return false;
+      return Boolean(entry.executor?.id);
+    }) || null;
   } catch (error) {
-    logger.error('Failed to fetch role update audit logs:', error);
+    logger.error(`Failed to fetch audit logs for ${guild.id}:`, error);
     return null;
   }
 }
 
+export const findRoleUpdateExecutor = (guild, roleId) =>
+  findRecentAuditEntry(guild, AuditLogEvent.RoleUpdate, roleId);
+
 export function trackAction(guildId, userId, action) {
   const key = `${guildId}:${userId}`;
-
-  if (!recentActions.has(key)) {
-    recentActions.set(key, []);
-  }
-
-  const actions = recentActions.get(key);
   const now = Date.now();
+  const actions = recentActions.get(key) || [];
 
-  actions.push({
-    action,
-    timestamp: now,
-  });
+  actions.push({ action, timestamp: now });
 
-  const recent = actions.filter(
-    (entry) => now - entry.timestamp <= 10_000
-  );
-
+  const recent = actions.filter((entry) => now - entry.timestamp <= 10_000);
   recentActions.set(key, recent);
-
   return recent;
 }
 
-export function isRapidActivity(guildId, userId, threshold = 5) {
-  const actions = trackAction(guildId, userId, 'security_action');
+export function registerSecurityAction(guildId, userId, action) {
+  const actions = trackAction(guildId, userId, action);
+  const threshold = getThreshold(getAntiNukeLevel(guildId));
 
-  return actions.length >= threshold;
+  return {
+    actions,
+    count: actions.length,
+    threshold,
+    triggered: actions.length >= threshold,
+  };
+}
+
+export function isRapidActivity(guildId, userId, threshold = 5) {
+  return trackAction(guildId, userId, 'security_action').length >= threshold;
+}
+
+export async function punishExecutor(guild, executor, reason = 'Anti-Nuke: destructive activity detected') {
+  if (!executor?.id || isTrustedActor(guild, executor.id)) return false;
+
+  const key = `${guild.id}:${executor.id}`;
+  if (punishedActors.has(key)) return false;
+
+  const member = guild.members.cache.get(executor.id) ||
+    await guild.members.fetch(executor.id).catch(() => null);
+
+  if (!member || member.id === guild.ownerId || !member.bannable) return false;
+
+  punishedActors.add(key);
+
+  try {
+    await member.ban({ reason });
+    recordBlockedAction(guild.id);
+    logger.warn(`Anti-Nuke banned ${executor.tag || executor.id} in ${guild.name}: ${reason}`);
+    return true;
+  } catch (error) {
+    punishedActors.delete(key);
+    logger.error(`Anti-Nuke failed to ban ${executor.tag || executor.id} in ${guild.name}:`, error);
+    return false;
+  }
+}
+
+export async function handleDestructiveAction(guild, executor, action, details = '') {
+  if (!isAntiNukeEnabled(guild.id) || !executor?.id) {
+    return { detected: false, triggered: false };
+  }
+
+  if (isTrustedActor(guild, executor.id)) {
+    return { detected: false, trusted: true, triggered: false };
+  }
+
+  recordThreat(guild.id);
+  const result = registerSecurityAction(guild.id, executor.id, action);
+
+  logger.warn(
+    `Anti-Nuke detected ${action} in ${guild.name}: executor=${executor.tag || executor.id}, count=${result.count}/${result.threshold}${details ? `, details=${details}` : ''}`
+  );
+
+  if (result.triggered) {
+    const punished = await punishExecutor(
+      guild,
+      executor,
+      `Anti-Nuke: ${action} threshold exceeded (${result.count} actions in 10 seconds)`
+    );
+    return { detected: true, triggered: true, punished, ...result };
+  }
+
+  return { detected: true, triggered: false, ...result };
 }
 
 export async function revertRolePermissions(role, oldPermissions) {
   try {
-    await role.setPermissions(oldPermissions, 'Anti-Nuke: reverted dangerous permission escalation');
-
+    await role.setPermissions(
+      oldPermissions,
+      'Anti-Nuke: reverted dangerous permission escalation'
+    );
     recordBlockedAction(role.guild.id);
-
     logger.warn(
       `Anti-Nuke reverted dangerous permissions on role ${role.name} (${role.id}) in ${role.guild.name}`
     );
-
     return true;
   } catch (error) {
-    logger.error(
-      `Anti-Nuke failed to revert permissions on role ${role.name}:`,
-      error
-    );
-
+    logger.error(`Anti-Nuke failed to revert permissions on role ${role.name}:`, error);
     return false;
   }
 }
 
 export function clearAntiNukeData(guildId) {
   configurations.delete(guildId);
-
+  punishedActors.forEach((key) => {
+    if (key.startsWith(`${guildId}:`)) punishedActors.delete(key);
+  });
   for (const key of recentActions.keys()) {
-    if (key.startsWith(`${guildId}:`)) {
-      recentActions.delete(key);
-    }
+    if (key.startsWith(`${guildId}:`)) recentActions.delete(key);
   }
 }

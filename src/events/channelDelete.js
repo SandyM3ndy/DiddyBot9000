@@ -7,6 +7,13 @@ import {
 } from '../utils/database.js';
 import { getServerCounters, saveServerCounters } from '../services/serverstatsService.js';
 import { logger } from '../utils/logger.js';
+import { AuditLogEvent } from 'discord.js';
+import {
+    isAntiNukeEnabled,
+    findRecentAuditEntry,
+    handleDestructiveAction,
+} from '../services/antinukeService.js';
+
 
 export default {
     name: 'channelDelete',

@@ -1,4 +1,4 @@
-import { Events, EmbedBuilder, PermissionFlagsBits } from 'discord.js';
+import { Events, EmbedBuilder, PermissionFlagsBits, AuditLogEvent } from 'discord.js';
 import { getColor, botConfig } from '../config/bot.js';
 import { getWelcomeConfig, getUserApplications, deleteApplication } from '../utils/database.js';
 import { formatWelcomeMessage } from '../utils/welcome.js';
@@ -7,6 +7,11 @@ import { getServerCounters, updateCounter } from '../services/serverstatsService
 import { getGuildBirthdays, deleteBirthday } from '../utils/database.js';
 import { deleteUserLevelData } from '../services/leveling/leveling.js';
 import { logger } from '../utils/logger.js';
+import {
+  isAntiNukeEnabled,
+  findRecentAuditEntry,
+  handleDestructiveAction,
+} from '../services/antinukeService.js';
 
 export default {
   name: Events.GuildMemberRemove,
@@ -15,6 +20,23 @@ export default {
   async execute(member) {
     try {
         const { guild, user } = member;
+
+        if (isAntiNukeEnabled(guild.id)) {
+            const auditEntry = await findRecentAuditEntry(
+                guild,
+                AuditLogEvent.MemberKick,
+                user.id
+            );
+
+            if (auditEntry?.executor) {
+                await handleDestructiveAction(
+                    guild,
+                    auditEntry.executor,
+                    'member kick',
+                    `target=${user.tag || user.id}`
+                );
+            }
+        }
         
         const welcomeConfig = await getWelcomeConfig(member.client, guild.id);
         
