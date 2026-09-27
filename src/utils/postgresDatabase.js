@@ -628,21 +628,21 @@ class PostgreSQLDatabase {
     async exists(key) {
         try {
             if (!this.isAvailable()) {
-                return false;
+                throw new Error('PostgreSQL database is unavailable');
             }
 
             const value = await this.get(key);
             return value !== null;
         } catch (error) {
             logger.error(`Error checking if key exists ${key}:`, error);
-            return false;
+            throw error;
         }
     }
 
     async increment(key, amount = 1) {
         try {
             if (!this.isAvailable()) {
-                return amount;
+                throw new Error('PostgreSQL database is unavailable');
             }
 
             const currentValue = await this.get(key, 0);
@@ -651,14 +651,14 @@ class PostgreSQLDatabase {
             return newValue;
         } catch (error) {
             logger.error(`Error incrementing key ${key}:`, error);
-            return amount;
+            throw error;
         }
     }
 
     async decrement(key, amount = 1) {
         try {
             if (!this.isAvailable()) {
-                return -amount;
+                throw new Error('PostgreSQL database is unavailable');
             }
 
             const currentValue = await this.get(key, 0);
@@ -667,7 +667,7 @@ class PostgreSQLDatabase {
             return newValue;
         } catch (error) {
             logger.error(`Error decrementing key ${key}:`, error);
-            return -amount;
+            throw error;
         }
     }
 
