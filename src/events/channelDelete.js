@@ -39,6 +39,28 @@ if (channel.type !== 2 && channel.type !== 4) {
 
         const guildId = channel.guild.id;
 
+        // Anti-Nuke must run for ALL guild channel types, including text channels.
+        // The old handler returned early for text channels before reaching the
+        // audit-log based Anti-Nuke check, so normal channel nuking was invisible.
+        try {
+            if (isAntiNukeEnabled(guildId)) {
+                const auditEntry = await findRecentAuditEntry(
+                    channel.guild,
+                    AuditLogEvent.ChannelDelete,
+                    channel.id
+                );
+
+                await handleDestructiveAction(
+                    channel.guild,
+                    auditEntry?.executor,
+                    'channel deletion',
+                    `channel=${channel.name}`
+                );
+            }
+        } catch (error) {
+            logger.error('Error in channelDelete Anti-Nuke event:', error);
+        }
+
         try {
             
             const counters = await getServerCounters(client, guildId);
