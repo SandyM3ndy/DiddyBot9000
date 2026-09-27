@@ -33,11 +33,7 @@ export default {
             }
         }
 
-if (channel.type !== 2 && channel.type !== 4) {
-            return;
-        }
-
-        const guildId = channel.guild.id;
+const guildId = channel.guild.id;
 
         // Anti-Nuke must run for ALL guild channel types, including text channels.
         // The old handler returned early for text channels before reaching the
