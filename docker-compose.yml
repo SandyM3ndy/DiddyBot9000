@@ -45,7 +45,7 @@ services:
     container_name: titanbot-lavalink
     restart: unless-stopped
     environment:
-      - LAVALINK_PASSWORD=${LAVALINK_PASSWORD:-youshallnotpass}
+      - LAVALINK_PASSWORD=${LAVALINK_PASSWORD:?LAVALINK_PASSWORD must be set}
     volumes:
       - ./lavalink/application.yml:/opt/Lavalink/application.yml
     networks:
