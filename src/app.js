@@ -3,6 +3,7 @@ import { Client, Collection, GatewayIntentBits } from 'discord.js';
 import { REST } from '@discordjs/rest';
 import express from 'express';
 import cron from 'node-cron';
+import { spawn } from 'node:child_process';
 
 import config from './config/application.js';
 import { initializeDatabase } from './utils/database.js';
@@ -101,6 +102,8 @@ class TitanBot extends Client {
       );
       
       this.setupCronJobs();
+      // Run one backup shortly after startup so a restart does not reset the backup cadence.
+      setTimeout(() => this.runDatabaseBackup(), 30 * 1000).unref?.();
     } catch (error) {
       logger.error('Failed to start bot:', error);
       process.exit(1);
@@ -248,6 +251,55 @@ class TitanBot extends Client {
   setupCronJobs() {
     cron.schedule('* * * * *', runSafeTask('giveaway_check', () => checkGiveaways(this)));
     cron.schedule('*/15 * * * *', runSafeTask('counter_update', () => this.updateAllCounters()));
+    cron.schedule('0 */6 * * *', runSafeTask('database_backup', () => this.runDatabaseBackup()));
+  }
+
+  async runDatabaseBackup() {
+    if (process.env.POSTGRES_URL === undefined) {
+      logger.warn('Skipping scheduled database backup: POSTGRES_URL is not configured');
+      return;
+    }
+
+    if (this.databaseBackupRunning) {
+      logger.warn('Skipping scheduled database backup: previous backup is still running');
+      return;
+    }
+
+    this.databaseBackupRunning = true;
+    try {
+      await new Promise((resolve, reject) => {
+        const child = spawn(process.execPath, ['scripts/backup.js'], {
+          cwd: process.cwd(),
+          env: process.env,
+          stdio: ['ignore', 'pipe', 'pipe'],
+        });
+
+        let stdout = '';
+        let stderr = '';
+        child.stdout.on('data', (chunk) => { stdout += chunk.toString(); });
+        child.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
+
+        child.once('error', reject);
+        child.once('close', (code) => {
+          if (code === 0) {
+            logger.info('Scheduled PostgreSQL backup completed', {
+              event: 'backup.scheduled.completed',
+              output: stdout.trim().split('\n').pop() || null,
+            });
+            resolve();
+          } else {
+            reject(new Error(stderr.trim() || stdout.trim() || `Backup exited with code ${code}`));
+          }
+        });
+      });
+    } catch (error) {
+      logger.error('Scheduled PostgreSQL backup failed', {
+        event: 'backup.scheduled.failed',
+        error: error.message,
+      });
+    } finally {
+      this.databaseBackupRunning = false;
+    }
   }
 
   async updateAllCounters() {
