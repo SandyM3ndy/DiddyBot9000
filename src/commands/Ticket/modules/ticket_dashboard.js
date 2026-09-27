@@ -1001,7 +1001,7 @@ async function handleDeleteSystem(btnInteraction, rootInteraction, guildConfig, 
         embeds: [
             successEmbed(
                 '✅ Ticket System Deleted',
-                'All ticket system configuration has been cleared. Run `/ticket setup` to set it up again.',
+                'All ticket system configuration has been cleared. Open `/configwizard` → **Ticket System** to set it up again.',
             ),
         ],
         flags: MessageFlags.Ephemeral,
