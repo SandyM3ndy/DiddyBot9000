@@ -1,16 +1,13 @@
 import {
     canonicalizeKey,
     getEconomyPrefix,
-    getUserLevelPrefix,
     getWarningsPrefix,
     getReactionRolesPrefix,
     getApplicationsPrefix,
     getTicketCounterKey,
     getServerCountersKey,
     getGuildConfigKey,
-    getGuildBirthdaysKey,
     getWelcomeConfigKey,
-    getLevelingKey,
 } from './keys.js';
 
 const TEMP_BACKED_TYPES = new Set([
@@ -24,8 +21,6 @@ const TEMP_BACKED_TYPES = new Set([
     'application_users',
     'jointocreate_config',
     'jointocreate_channels',
-    'birthday_left',
-    'birthday_tracking',
     'invite_data',
     'giveaway_entry',
     'giveaway_lock',
@@ -57,29 +52,11 @@ export function parseKey(key) {
         if (parts[2] === 'config') {
             return { type: 'guild_config', guildId, fullKey };
         }
-        if (parts[2] === 'birthdays') {
-            if (parts[3] === 'left') {
-                return { type: 'birthday_left', guildId, fullKey };
-            }
-            if (parts[3] === 'tracking') {
-                return { type: 'birthday_tracking', guildId, fullKey };
-            }
-            return { type: 'guild_birthdays', guildId, fullKey };
-        }
         if (parts[2] === 'giveaways') {
             return { type: 'guild_giveaways', guildId, fullKey };
         }
         if (parts[2] === 'welcome') {
             return { type: 'welcome_config', guildId, fullKey };
-        }
-        if (parts[2] === 'leveling') {
-            if (parts[3] === 'config') {
-                return { type: 'leveling_config', guildId, fullKey };
-            }
-            if (parts[3] === 'users' && parts[4]) {
-                return { type: 'user_level', guildId, userId: parts[4], fullKey };
-            }
-            return { type: 'leveling_data', guildId, fullKey };
         }
         if (parts[2] === 'economy' && parts[3]) {
             return { type: 'economy', guildId, userId: parts[3], fullKey };
@@ -175,14 +152,6 @@ export function getStructuredListPlan(prefix, tables) {
         });
     };
 
-    const addUserLevels = (guildId) => {
-        plan.queries.push({
-            sql: `SELECT user_id FROM ${tables.user_levels} WHERE guild_id = $1`,
-            params: [guildId],
-            mapKey: (row) => `guild:${guildId}:leveling:users:${row.user_id}`,
-        });
-    };
-
     const addTickets = (guildId) => {
         plan.queries.push({
             sql: `SELECT channel_id FROM ${tables.tickets} WHERE guild_id = $1`,
@@ -195,9 +164,7 @@ export function getStructuredListPlan(prefix, tables) {
     const addGuildScopedSingletons = (guildId) => {
         plan.staticKeys.push(
             getGuildConfigKey(guildId),
-            getGuildBirthdaysKey(guildId),
             getWelcomeConfigKey(guildId),
-            getLevelingKey(guildId),
             getServerCountersKey(guildId),
             `guild:${guildId}:applications:roles`,
             `guild:${guildId}:applications:settings`,
@@ -205,11 +172,8 @@ export function getStructuredListPlan(prefix, tables) {
             `guild:${guildId}:jointocreate:channels`,
             `guild:${guildId}:invites`,
             `guild:${guildId}:usernotes:list`,
-            `guild:${guildId}:birthdays:left`,
-            `guild:${guildId}:birthdays:tracking`,
         );
         addEconomy(guildId);
-        addUserLevels(guildId);
         addTickets(guildId);
     };
 
@@ -222,18 +186,6 @@ export function getStructuredListPlan(prefix, tables) {
     match = normalizedPrefix.match(/^guild:([^:]+):economy:$/);
     if (match) {
         addEconomy(match[1]);
-        return plan;
-    }
-
-    match = normalizedPrefix.match(/^([^:]+):leveling:users:$/);
-    if (match && match[1] !== 'guild') {
-        addUserLevels(match[1]);
-        return plan;
-    }
-
-    match = normalizedPrefix.match(/^guild:([^:]+):leveling:users:$/);
-    if (match) {
-        addUserLevels(match[1]);
         return plan;
     }
 
