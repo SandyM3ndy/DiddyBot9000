@@ -2,8 +2,6 @@ import {
   SlashCommandBuilder,
   PermissionFlagsBits,
 } from 'discord.js';
-import { isBotOwner } from '../../config/bot.js';
-
 // Server IDs that should NOT receive broadcasts.
 const DISABLED_GUILD_IDS = [
   '1533146166965964943',
@@ -23,8 +21,8 @@ export default {
   category: 'Core',
 
   async execute(interaction, config, client) {
-    // Only configured bot owners can use this command.
-    if (!isBotOwner(interaction.user.id)) {
+    // Broadcast is restricted to Sandy's Discord account only.
+    if (interaction.user.id !== '1022691434974957618') {
       return interaction.reply({
         content: '❌ Only the bot owner can use this command.',
         ephemeral: true,
@@ -49,13 +47,22 @@ export default {
         continue;
       }
 
-      const channel = guild.channels.cache.find(
-        (channel) =>
-          channel.isTextBased() &&
-          channel.permissionsFor(guild.members.me)?.has(
-            PermissionFlagsBits.SendMessages,
-          ),
-      );
+      const sendableChannels = guild.channels.cache
+        .filter(
+          (channel) =>
+            channel.isTextBased() &&
+            channel.permissionsFor(guild.members.me)?.has(
+              PermissionFlagsBits.SendMessages,
+            ),
+        )
+        .sort((a, b) => a.position - b.position);
+
+      // Prefer a normal chat/general channel when one exists.
+      const channel =
+        sendableChannels.find((channel) =>
+          /^(general|chat|main|lobby|general-chat|server-chat)$/i.test(channel.name),
+        ) ||
+        sendableChannels.first();
 
       if (!channel) {
         failed++;
