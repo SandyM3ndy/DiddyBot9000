@@ -42,7 +42,6 @@ class TitanBot extends Client {
     this.buttons = new Collection();
     this.selectMenus = new Collection();
     this.modals = new Collection();
-    this.cooldowns = new Collection();
     this.db = null;
     this.rest = new REST({ version: '10' }).setToken(config.bot.token);
   }
