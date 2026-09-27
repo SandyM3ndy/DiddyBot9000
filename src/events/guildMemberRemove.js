@@ -4,8 +4,6 @@ import { getWelcomeConfig, getUserApplications, deleteApplication } from '../uti
 import { formatWelcomeMessage } from '../utils/welcome.js';
 import { logEvent, EVENT_TYPES } from '../services/loggingService.js';
 import { getServerCounters, updateCounter } from '../services/serverstatsService.js';
-import { getGuildBirthdays, deleteBirthday } from '../utils/database.js';
-import { deleteUserLevelData } from '../services/leveling/leveling.js';
 import { logger } from '../utils/logger.js';
 import {
   isAntiNukeEnabled,
@@ -134,20 +132,6 @@ export default {
         }
 
         try {
-            const birthdays = await getGuildBirthdays(member.client, guild.id);
-            if (birthdays[user.id]) {
-                const backupKey = `guild:${guild.id}:birthdays:left`;
-                const backup = (await member.client.db.get(backupKey)) || {};
-                backup[user.id] = birthdays[user.id];
-                await member.client.db.set(backupKey, backup);
-                await deleteBirthday(member.client, guild.id, user.id);
-                logger.debug(`Birthday backed up and removed for user ${user.id} in guild ${guild.id}`);
-            }
-        } catch (error) {
-            logger.debug('Error handling birthday on member leave:', error);
-        }
-
-        try {
             const userApplications = await getUserApplications(member.client, guild.id, user.id);
             if (userApplications && userApplications.length > 0) {
                 for (const app of userApplications) {
@@ -159,12 +143,6 @@ export default {
             logger.debug('Error handling applications on member leave:', error);
         }
 
-        try {
-            await deleteUserLevelData(member.client, guild.id, user.id);
-            logger.debug(`Removed leveling data for user ${user.id} in guild ${guild.id}`);
-        } catch (error) {
-            logger.debug('Error handling leveling data on member leave:', error);
-        }
         
     } catch (error) {
         logger.error('Error in guildMemberRemove event:', error);
