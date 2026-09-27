@@ -1,4 +1,8 @@
-import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
+import {
+  SlashCommandBuilder,
+  PermissionFlagsBits,
+} from 'discord.js';
+import { isBotOwner } from '../../config/bot.js';
 
 export default {
   data: new SlashCommandBuilder()
@@ -7,15 +11,15 @@ export default {
     .addStringOption((option) =>
       option
         .setName('message')
-        .setDescription('The message to send')
+        .setDescription('The message to broadcast')
         .setRequired(true),
     ),
 
   category: 'Core',
 
   async execute(interaction, config, client) {
-    // Only the bot owner can use this command.
-    if (interaction.user.id !== client.application.owner?.id) {
+    // Only configured bot owners can use this command.
+    if (!isBotOwner(interaction.user.id)) {
       return interaction.reply({
         content: '❌ Only the bot owner can use this command.',
         ephemeral: true,
@@ -33,10 +37,12 @@ export default {
     let failed = 0;
 
     for (const guild of client.guilds.cache.values()) {
-      let channel = guild.channels.cache.find(
+      const channel = guild.channels.cache.find(
         (channel) =>
           channel.isTextBased() &&
-          channel.permissionsFor(guild.members.me)?.has(PermissionFlagsBits.SendMessages),
+          channel.permissionsFor(guild.members.me)?.has(
+            PermissionFlagsBits.SendMessages,
+          ),
       );
 
       if (!channel) {
@@ -48,7 +54,7 @@ export default {
         await channel.send(message);
         sent++;
 
-        // Small delay to avoid hammering Discord's API.
+        // Wait between servers to stay friendly with Discord rate limits.
         await new Promise((resolve) => setTimeout(resolve, 1000));
       } catch (error) {
         failed++;
@@ -56,7 +62,10 @@ export default {
     }
 
     await interaction.editReply({
-      content: `📡 **Broadcast complete!**\n\n✅ Sent: **${sent}** servers\n❌ Failed/skipped: **${failed}** servers`,
+      content:
+        `📡 **Broadcast complete!**\n\n` +
+        `✅ Sent: **${sent}** servers\n` +
+        `❌ Failed/skipped: **${failed}** servers`,
     });
   },
 };
