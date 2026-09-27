@@ -43,7 +43,7 @@ export default {
     await InteractionHelper.safeReply(interaction, { embeds: [first], ephemeral: true });
 
     for (let i = 1; i < chunks.length; i += 1) {
-      await InteractionHelper.safeFollowUp(interaction, {
+      await interaction.followUp({
         embeds: [createEmbed({ title: `📊 Servers (${i + 1}/${chunks.length})`, description: chunks[i] })],
         ephemeral: true,
       });
