@@ -667,8 +667,12 @@ export default {
                         const selected = componentInteraction.values[0];
 
                         if (selected === 'ticketSystem') {
+                            // Hand the existing dashboard message over to the ticket dashboard.
+                            // The select interaction itself is not the dashboard root interaction;
+                            // using it caused the ticket dashboard to fail when opened from /configwizard.
+                            componentCollector.stop('ticket_system');
                             await ticketDashboard.execute(
-                                componentInteraction,
+                                interaction,
                                 await getGuildConfig(interaction.client, interaction.guildId),
                                 interaction.client,
                             );
