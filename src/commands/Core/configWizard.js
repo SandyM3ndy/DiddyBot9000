@@ -707,7 +707,10 @@ async function handleSettingModalSubmit(selectInteraction, rootInteraction, sett
             throw new Error('Only the server owner can enable or disable Server Progression.');
         }
 
-        const value = resolveSettingModalValue(setting, submitted);
+        let value = resolveSettingModalValue(setting, submitted);
+        if (setting === 'updatesChannelId' && value !== null) {
+            value = await validateGuildChannelId(submitted.guild, value);
+        }
         const configKey = setting === 'serverProgressionEnabled'
             ? 'serverProgression'
             : setting === 'updatesChannelId'
