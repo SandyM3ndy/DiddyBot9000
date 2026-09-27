@@ -64,6 +64,17 @@ export default {
       `${quest.completed ? '✅' : '▫️'} **${quest.title}** — ${Math.min(quest.progress, quest.target)}/${quest.target} · +${quest.reward} XP`
     );
 
+    const perks = [];
+    if (data.level >= 2) perks.push('📣 Level-up announcements');
+    if (data.level >= 5) perks.push('🎯 4 daily quests');
+    if (data.level >= 10) perks.push('⚡ 5% Server XP boost');
+    if (data.level >= 15) perks.push('🎯 5 daily quests');
+    if (data.level >= 20) perks.push('💎 Veteran Server milestone');
+    if (data.level >= 25) perks.push('⚡ 10% Server XP boost');
+    if (data.level >= 30) perks.push('🎯 6 daily quests');
+    if (data.level >= 40) perks.push('🏆 Elite Server milestone');
+    if (data.level >= 50) perks.push('👑 Legendary Server milestone');
+
     const embed = createEmbed({
       title: `📈 ${interaction.guild.name} Progression`,
       description: `**Level ${data.level}**\n` +
@@ -76,8 +87,9 @@ export default {
         { name: '🔥 Daily Quests', value: questLines.join('\n').slice(0, 1024) || 'No quests available.', inline: false },
         { name: '💬 Total Messages', value: data.totalMessages.toLocaleString(), inline: true },
         { name: '🤖 Bot Commands', value: data.totalCommands.toLocaleString(), inline: true },
+        { name: '✨ Unlocked Perks', value: perks.join('\n') || 'Keep leveling to unlock server perks!', inline: false },
       ],
-      footer: subcommand === 'quests' ? 'Daily quests reset every day.' : 'Complete quests to push your server up the global leaderboard.',
+      footer: subcommand === 'quests' ? 'Daily quests reset every day.' : 'Level up to unlock server-wide progression perks.',
     });
 
     if (subcommand === 'quests') {
