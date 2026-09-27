@@ -7,6 +7,20 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const activityBuckets = new Map();
 const guildLocks = new Map();
 
+// Keep inactive per-user activity buckets from accumulating forever.
+const activityCleanupTimer = setInterval(() => {
+  const cutoff = Date.now() - 60_000;
+  for (const [key, timestamps] of activityBuckets) {
+    const active = timestamps.filter(timestamp => timestamp > cutoff);
+    if (active.length) {
+      activityBuckets.set(key, active);
+    } else {
+      activityBuckets.delete(key);
+    }
+  }
+}, 5 * 60_000);
+activityCleanupTimer.unref?.();
+
 const QUEST_POOL = [
   {
     id: 'chatterbox',
