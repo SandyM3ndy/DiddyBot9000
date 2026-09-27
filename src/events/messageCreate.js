@@ -10,6 +10,7 @@ import { getCommandPrefix, getBotMessage, isBotOwner, isCommandCategoryEnabled, 
 import { enforceAbuseProtection, formatCooldownDuration } from '../utils/abuseProtection.js';
 import { createEmbed } from '../utils/embeds.js';
 import { isCommandEnabled } from '../services/commandAccessService.js';
+import { getTicketData, saveTicketData } from '../utils/database.js';
 import {
   getCountingGameConfig,
   saveCountingGameConfig,
@@ -26,6 +27,13 @@ export default {
       logger.debug(`Message received from ${message.author.tag}: ${message.content}`);
 
       await handleBasicAutoMod(message, client);
+      if (message.channel?.name?.startsWith('ticket-') || message.channel?.name?.match(/^[^ ]+ ticket-\d+/)) {
+        const ticket = await getTicketData(message.guild.id, message.channel.id).catch(() => null);
+        if (ticket?.status === 'open') {
+          ticket.lastActivityAt = new Date().toISOString();
+          await saveTicketData(message.guild.id, message.channel.id, ticket).catch(() => {});
+        }
+      }
 
       const countingProcessed = await handleCountingGame(message, client);
       if (countingProcessed) {
