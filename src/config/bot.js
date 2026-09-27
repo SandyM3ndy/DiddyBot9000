@@ -38,9 +38,6 @@ export const botConfig = {
     // Owners can access owner/admin-level bot commands.
     owners: process.env.OWNER_IDS?.split(",").map((id) => id.trim()).filter(Boolean) || [],
 
-    // Default wait time between command uses (in seconds).
-    defaultCooldown: 3,
-
     // If true, old commands are removed before re-registering.
     deleteCommands: false,
 
@@ -183,14 +180,6 @@ export const botConfig = {
     // Beg command random payout range.
     begMin: 5,
     begMax: 50,
-
-    // Command cooldowns (milliseconds).
-    cooldowns: {
-      daily: 24 * 60 * 60 * 1000,
-      work: 60 * 60 * 1000,
-      crime: 2 * 60 * 60 * 1000,
-      rob: 4 * 60 * 60 * 1000,
-    },
 
     // Chance to succeed when robbing (0.4 = 40%).
     robSuccessRate: 0.4,
@@ -429,7 +418,6 @@ export const botConfig = {
   // =========================
   messages: {
     noPermission: "You do not have permission to use this command.",
-    cooldownActive: "Please wait {time} before using this command again.",
     errorOccurred: "An error occurred while executing the command.",
     missingPermissions:
       "I am missing required permissions to perform this action.",
