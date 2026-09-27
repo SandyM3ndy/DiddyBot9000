@@ -11,6 +11,7 @@ import { enforceAbuseProtection, formatCooldownDuration } from '../utils/abusePr
 import { createEmbed } from '../utils/embeds.js';
 import { isCommandEnabled } from '../services/commandAccessService.js';
 import { getTicketData, saveTicketData } from '../utils/database.js';
+import { recordMessageActivity } from '../services/serverProgressionService.js';
 import {
   getCountingGameConfig,
   saveCountingGameConfig,
@@ -26,7 +27,10 @@ export default {
 
       logger.debug(`Message received from ${message.author.tag}: ${message.content}`);
 
-      await handleBasicAutoMod(message, client);
+      const autoModTriggered = await handleBasicAutoMod(message, client);
+      if (!autoModTriggered) {
+        await recordMessageActivity(client, message).catch(() => {});
+      }
       if (message.channel?.name?.startsWith('ticket-') || message.channel?.name?.match(/^[^ ]+ ticket-\d+/)) {
         const ticket = await getTicketData(message.guild.id, message.channel.id).catch(() => null);
         if (ticket?.status === 'open') {
