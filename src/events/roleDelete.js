@@ -1,4 +1,4 @@
-import { Events } from 'discord.js';
+import { Events, AuditLogEvent } from 'discord.js';
 import { logEvent, EVENT_TYPES } from '../services/loggingService.js';
 import { logger } from '../utils/logger.js';
 import { buildRoleAuditLines } from '../utils/logging/logEmbeds.js';
@@ -33,7 +33,7 @@ export default {
 
       const auditEntry = await findRecentAuditEntry(
         role.guild,
-        Events.GuildRoleDelete ? 32 : 32,
+        AuditLogEvent.RoleDelete,
         role.id
       );
 
