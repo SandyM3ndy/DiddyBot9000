@@ -58,9 +58,13 @@ const appConfig = {
   },
 
   api: {
+    // Bind to loopback by default. Public deployments must explicitly opt in
+    // with WEB_HOST=0.0.0.0 (Docker/managed hosts can override this safely).
     port: process.env.PORT || 3000,
     cors: {
-      origin: process.env.CORS_ORIGIN?.split(",") || "*",
+      // No cross-origin access by default. Set CORS_ORIGIN explicitly when a
+      // trusted dashboard/origin actually needs browser access.
+      origin: process.env.CORS_ORIGIN?.split(",").map((value) => value.trim()).filter(Boolean) || [],
       methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       allowedHeaders: ["Content-Type", "Authorization"],
     },
