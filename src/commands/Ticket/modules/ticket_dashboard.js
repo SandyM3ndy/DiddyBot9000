@@ -180,6 +180,11 @@ function buildSelectMenu(guildId) {
         .setPlaceholder('Select a setting to configure...')
         .addOptions(
             new StringSelectMenuOptionBuilder()
+                .setLabel('Set Panel Channel')
+                .setDescription('Choose where the Create Ticket panel will be posted')
+                .setValue('panel_channel')
+                .setEmoji('📢'),
+            new StringSelectMenuOptionBuilder()
                 .setLabel('Edit Panel Message')
                 .setDescription('Change the message displayed on the ticket creation panel')
                 .setValue('panel_message')
@@ -262,14 +267,6 @@ export default {
             const guildId = interaction.guild.id;
             const guildConfig = await getGuildConfig(client, guildId);
 
-            if (!guildConfig.ticketPanelChannelId) {
-                throw new TitanBotError(
-                    'Ticket system not configured',
-                    ErrorTypes.CONFIGURATION,
-                    'The ticket system has not been set up yet. Run `/ticket setup` first to configure it.',
-                );
-            }
-
             const panelStatus = await getTicketPanelStatus(client, interaction.guild, guildConfig);
             if (panelStatus.recoveredId) {
                 await persistPanelMessageId(client, guildId, guildConfig, panelStatus.recoveredId);
@@ -293,6 +290,9 @@ export default {
                 onSelect: async (selectInteraction) => {
                     const selectedOption = selectInteraction.values[0];
                     switch (selectedOption) {
+                        case 'panel_channel':
+                            await handlePanelChannel(selectInteraction, interaction, guildConfig, guildId, client);
+                            break;
                         case 'panel_message':
                             await handlePanelMessage(selectInteraction, interaction, guildConfig, guildId, client);
                             break;
@@ -343,6 +343,40 @@ export default {
     },
 };
 
+async function handlePanelChannel(selectInteraction, rootInteraction, guildConfig, guildId, client) {
+    await selectInteraction.deferUpdate();
+    const channelSelect = new ChannelSelectMenuBuilder()
+        .setCustomId('ticket_cfg_panel_channel')
+        .setPlaceholder('Select the ticket panel channel...')
+        .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
+        .setMaxValues(1);
+    await selectInteraction.followUp({
+        embeds: [new EmbedBuilder().setTitle('📢 Ticket Panel Channel').setDescription('Choose where users will see the **Create Ticket** button.').setColor(getColor('info'))],
+        components: [new ActionRowBuilder().addComponents(channelSelect)],
+        flags: MessageFlags.Ephemeral,
+    });
+    const collector = rootInteraction.channel.createMessageComponentCollector({
+        componentType: ComponentType.ChannelSelect,
+        filter: i => i.user.id === selectInteraction.user.id && i.customId === 'ticket_cfg_panel_channel',
+        time: 60_000, max: 1,
+    });
+    collector.on('collect', async channelInteraction => {
+        await channelInteraction.deferUpdate();
+        const channel = channelInteraction.channels.first();
+        guildConfig.ticketPanelChannelId = channel.id;
+        guildConfig.ticketPanelMessageId = null;
+        await setGuildConfig(client, guildId, guildConfig);
+        try {
+            const sentPanel = await repostTicketPanel(client, rootInteraction.guild, guildConfig, guildId);
+            await channelInteraction.followUp({ embeds: [successEmbed('Ticket System Ready', `The ticket panel has been posted in ${channel}.\n\nUsers can now create tickets from that panel.`)], flags: MessageFlags.Ephemeral });
+            logger.info('Ticket panel created from config wizard', { guildId, channelId: channel.id, messageId: sentPanel.id });
+        } catch (error) {
+            await channelInteraction.followUp({ embeds: [infoEmbed('Panel Channel Saved', `The panel channel is set to ${channel}, but I could not post the panel yet.\n\nMake sure I have **View Channel**, **Send Messages**, and **Embed Links** there, then use **Repost Panel**.`)], flags: MessageFlags.Ephemeral });
+            logger.warn('Failed to post ticket panel during setup', { guildId, channelId: channel.id, error: error.message });
+        }
+        await refreshDashboard(rootInteraction, guildConfig, guildId, client);
+    });
+}
 async function handlePanelMessage(selectInteraction, rootInteraction, guildConfig, guildId, client) {
     const modal = new ModalBuilder()
         .setCustomId('ticket_cfg_panel_msg')
