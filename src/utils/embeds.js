@@ -3,9 +3,6 @@
 import { EmbedBuilder } from 'discord.js';
 import { getColor, botConfig } from '../config/bot.js';
 
-const EMOJI_REGEX = /[\p{Extended_Pictographic}\uFE0F]/gu;
-const EMBED_FOOTER_SYMBOL = Symbol('titanbotFooterText');
-const EMBED_BASE_DESCRIPTION_SYMBOL = Symbol('titanbotBaseDescription');
 
 function sanitizeEmbedText(text = '') {
   if (typeof text !== 'string') {
@@ -13,7 +10,6 @@ function sanitizeEmbedText(text = '') {
   }
 
   return text
-    .replace(EMOJI_REGEX, '')
     .replace(/[ \t]+/g, ' ')  // Replace consecutive spaces/tabs with single space
     .replace(/[ \t]\n/g, '\n')  // Remove spaces before newlines
     .replace(/\n[ \t]/g, '\n')  // Remove spaces after newlines
@@ -78,37 +74,32 @@ function normalizeFooterText(footer) {
   return '';
 }
 
-function isImportantFooter(footerText) {
-  if (!footerText) {
-    return false;
-  }
-
-  const normalized = footerText.toLowerCase();
-  return /\b(close|closes|closed|expire|expires|available in|page\s+\d+|dashboard closes|ticket id)\b/.test(normalized);
-}
-
 const originalSetDescription = EmbedBuilder.prototype.setDescription;
 const originalSetFooter = EmbedBuilder.prototype.setFooter;
 const originalSetTimestamp = EmbedBuilder.prototype.setTimestamp;
 
 EmbedBuilder.prototype.setDescription = function(description = '') {
-  const descString = sanitizeEmbedText(description || '');
-  this[EMBED_BASE_DESCRIPTION_SYMBOL] = descString;
-  return originalSetDescription.call(this, descString);
+  return originalSetDescription.call(this, sanitizeEmbedText(description || ''));
 };
 
 EmbedBuilder.prototype.setFooter = function(footer) {
   const footerText = sanitizeEmbedText(normalizeFooterText(footer));
-  if (!footerText || !isImportantFooter(footerText)) {
+  if (!footerText) {
     return this;
   }
 
-  this[EMBED_FOOTER_SYMBOL] = footerText;
+  if (typeof footer === 'object' && footer?.iconURL) {
+    return originalSetFooter.call(this, {
+      text: footerText,
+      iconURL: footer.iconURL,
+    });
+  }
+
   return originalSetFooter.call(this, { text: footerText });
 };
 
-EmbedBuilder.prototype.setTimestamp = function() {
-  return this;
+EmbedBuilder.prototype.setTimestamp = function(timestamp = new Date()) {
+  return originalSetTimestamp.call(this, timestamp);
 };
 
 export function createEmbed({
