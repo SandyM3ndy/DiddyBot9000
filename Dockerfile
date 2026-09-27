@@ -10,10 +10,6 @@ RUN apk add --no-cache postgresql-client \
 
 COPY . .
 
-# Run the bot as the unprivileged Node user. A compromised bot process should
-# not have root privileges inside the container.
-USER node
-
 EXPOSE 3000
 
 CMD ["npm", "start"]
