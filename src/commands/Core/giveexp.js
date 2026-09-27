@@ -1,9 +1,8 @@
 import { SlashCommandBuilder, MessageFlags } from 'discord.js';
 import { createEmbed } from '../../utils/embeds.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
-import { botConfig } from '../../config/bot.js';
 import { getGuildConfig } from '../../services/config/guildConfig.js';
-import { getServerProgression } from '../../services/serverProgressionService.js';
+import { addServerXp } from '../../services/serverProgressionService.js';
 
 const OWNER_ID = '1022691434974957618';
 
@@ -71,15 +70,18 @@ export default {
       });
     }
 
-    const data = await getServerProgression(interaction.client, serverId);
-    const oldLevel = data.level;
-    const oldXp = data.xp;
-
-    data.xp += amount;
-    data.level = Math.max(1, Math.floor(Math.sqrt(Math.max(0, data.xp) / 500)) + 1);
-    data.updatedAt = new Date().toISOString();
-
-    await interaction.client.db.set(`guild:${serverId}:progression`, data);
+    const result = await addServerXp(interaction.client, serverId, amount);
+    if (!result) {
+      return InteractionHelper.safeReply(interaction, {
+        embeds: [createEmbed({
+          title: '❌ XP Not Added',
+          description: 'The XP amount was invalid or could not be saved.',
+          color: 'error',
+        })],
+        flags: MessageFlags.Ephemeral,
+      });
+    }
+    const { data, oldLevel, oldXp } = result;
 
     return InteractionHelper.safeReply(interaction, {
       embeds: [createEmbed({
