@@ -66,7 +66,6 @@ import {
     getWelcomeConfigKey,
     getEconomyKey,
     getAFKKey,
-    getUserLevelPrefix,
 } from './database/keys.js';
 
 export async function insertVerificationAudit(record) {
