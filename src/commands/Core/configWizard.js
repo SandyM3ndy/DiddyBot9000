@@ -125,6 +125,11 @@ function buildDashboardEmbed(config, guild) {
                 inline: true,
             },
             {
+                name: '📢 Update Announcements',
+                value: config.updates?.channelId ? `🟢 ${formatChannelMention(guild, config.updates.channelId)}` : '🔴 Disabled',
+                inline: true,
+            },
+            {
                 name: '💚 Bot Status',
                 value: getBotPresenceText(),
                 inline: false,
@@ -182,6 +187,11 @@ function buildSettingsSelect(guildId) {
                     .setDescription('Enable daily quests, server XP and the global leaderboard')
                     .setValue('serverProgressionEnabled')
                     .setEmoji('📈'),
+                new StringSelectMenuOptionBuilder()
+                    .setLabel('Update Announcements')
+                    .setDescription('Choose where bot updates are announced, or disable them')
+                    .setValue('updatesChannelId')
+                    .setEmoji('📢'),
                 new StringSelectMenuOptionBuilder()
                     .setLabel('Log Channel')
                     .setDescription('Channel for system log messages')
@@ -525,6 +535,23 @@ async function showSettingModal(selectInteraction, guildId, setting) {
         return;
     }
 
+    if (setting === 'updatesChannelId') {
+        const modal = new ModalBuilder()
+            .setCustomId(modalCustomId)
+            .setTitle('📢 Update Announcements');
+
+        const input = new TextInputBuilder()
+            .setCustomId('value')
+            .setLabel('Channel ID / mention, or none')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('#updates or none')
+            .setRequired(true)
+            .setMaxLength(100);
+        modal.addComponents(new ActionRowBuilder().addComponents(input));
+        await selectInteraction.showModal(modal);
+        return;
+    }
+
     if (setting === 'logChannelId') {
         const modal = new ModalBuilder()
             .setCustomId(modalCustomId)
@@ -599,6 +626,15 @@ function resolveSettingModalValue(setting, submitted) {
         return value === 'on';
     }
 
+    if (setting === 'updatesChannelId') {
+        const value = submitted.fields.getTextInputValue('value')?.trim();
+        if (!value) throw new Error('Provide a channel mention, channel ID, or `none`.');
+        if (value.toLowerCase() === 'none') return null;
+        const channelId = extractId(value);
+        if (!channelId) throw new Error('Provide a valid channel mention or ID from this server, or `none`.');
+        return channelId;
+    }
+
     if (setting === 'logChannelId') {
         const channelId = submitted.fields.getField('log_channel')?.values?.[0];
         if (!channelId) {
@@ -629,6 +665,12 @@ function buildSettingSuccessMessage(setting, value, guild) {
 
     if (setting === 'autoModEnabled') {
         return `Basic AutoMod is now **${value ? 'enabled' : 'disabled'}**.`;
+    }
+
+    if (setting === 'updatesChannelId') {
+        if (value === null) return 'Update announcements are now **disabled** for this server.';
+        const channel = guild.channels.cache.get(value);
+        return `Bot update announcements will now be posted in ${channel ?? `<#${value}>`}.`;
     }
 
     if (setting === 'logChannelId') {
@@ -666,8 +708,16 @@ async function handleSettingModalSubmit(selectInteraction, rootInteraction, sett
         }
 
         const value = resolveSettingModalValue(setting, submitted);
-        const configKey = setting === 'serverProgressionEnabled' ? 'serverProgression' : setting;
-        const configValue = setting === 'serverProgressionEnabled' ? { enabled: value } : value;
+        const configKey = setting === 'serverProgressionEnabled'
+            ? 'serverProgression'
+            : setting === 'updatesChannelId'
+                ? 'updates'
+                : setting;
+        const configValue = setting === 'serverProgressionEnabled'
+            ? { enabled: value }
+            : setting === 'updatesChannelId'
+                ? { channelId: value }
+                : value;
         await ConfigService.updateSetting(client, guildId, configKey, configValue, submitted.user.id);
 
         await submitted.reply({
