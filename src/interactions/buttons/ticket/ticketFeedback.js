@@ -124,6 +124,30 @@ const feedbackHandler = {
             components: [],
         });
 
+        if (ticketData.claimedBy) {
+            try {
+                const claimer = await client.users.fetch(ticketData.claimedBy);
+                await claimer.send({
+                    embeds: [
+                        new EmbedBuilder()
+                            .setTitle('⭐ Ticket Rating Received')
+                            .setDescription(
+                                `Ticket **#${ticketData.id}** received a **${rating}/5** rating from <@${interaction.user.id}>.${ticketData.feedback?.comment ? `\\n\\n**Comment:** ${ticketData.feedback.comment}` : ''}`,
+                            )
+                            .setColor(getColor(rating >= 4 ? 'success' : rating <= 2 ? 'error' : 'warning'))
+                            .setTimestamp(),
+                    ],
+                });
+            } catch (dmError) {
+                logger.debug('Could not DM ticket claimer about rating', {
+                    guildId,
+                    channelId,
+                    claimedBy: ticketData.claimedBy,
+                    error: dmError.message,
+                });
+            }
+        }
+
         logger.info('Ticket feedback submitted', {
             guildId,
             channelId,
