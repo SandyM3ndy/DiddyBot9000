@@ -37,6 +37,9 @@ export const DEFAULT_GUILD_CONFIG = {
     },
     verification: {
         enabled: false
+    },
+    serverProgression: {
+        enabled: false
     }
 };
 
