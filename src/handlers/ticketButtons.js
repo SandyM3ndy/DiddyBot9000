@@ -132,8 +132,18 @@ const createTicketHandler = {
         .setRequired(true)
         .setMaxLength(1000);
 
-      const actionRow = new ActionRowBuilder().addComponents(reasonInput);
-      modal.addComponents(actionRow);
+      const typeInput = new TextInputBuilder()
+        .setCustomId('ticket_type')
+        .setLabel('Type: support, report, bug, or other')
+        .setStyle(TextInputStyle.Short)
+        .setPlaceholder('support')
+        .setRequired(false)
+        .setMaxLength(20);
+
+      modal.addComponents(
+        new ActionRowBuilder().addComponents(typeInput),
+        new ActionRowBuilder().addComponents(reasonInput),
+      );
 
       await interaction.showModal(modal);
     } catch (error) {
@@ -155,6 +165,8 @@ const createTicketModalHandler = {
       if (!deferSuccess) return;
       
       const reason = interaction.fields.getTextInputValue('reason');
+      const rawType = interaction.fields.getTextInputValue('ticket_type')?.trim().toLowerCase() || 'support';
+      const ticketType = ['support', 'report', 'bug', 'other'].includes(rawType) ? rawType : 'other';
       const config = await getGuildConfig(client, interaction.guildId);
       const categoryId = config.ticketCategoryId || null;
       
@@ -162,7 +174,9 @@ const createTicketModalHandler = {
         interaction.guild,
         interaction.member,
         categoryId,
-        reason
+        reason,
+        'none',
+        ticketType
       );
       await interaction.editReply({
         embeds: [successEmbed(
