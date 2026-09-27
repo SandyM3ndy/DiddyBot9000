@@ -30,8 +30,8 @@ export default {
       components: [{
         type: 1,
         components: [
-          { type: 2, custom_id: `lockdown:stage1:yes:${interaction.user.id}`, label: 'Yes', style: 4 },
-          { type: 2, custom_id: `lockdown:stage1:no:${interaction.user.id}`, label: 'No', style: 2 },
+          { type: 2, custom_id: `lockdown_stage1:yes:${interaction.user.id}`, label: 'Yes', style: 4 },
+          { type: 2, custom_id: `lockdown_stage1:no:${interaction.user.id}`, label: 'No', style: 2 },
         ],
       }],
       ephemeral: true,
