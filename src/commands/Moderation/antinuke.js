@@ -8,6 +8,8 @@ import {
   ANTINUKE_LEVELS,
   getAntiNukeConfig,
   setAntiNukeConfig,
+  loadPersistedAntiNukeConfig,
+  savePersistedAntiNukeConfig,
 } from '../../services/antinukeService.js';
 
 export default {
@@ -71,12 +73,13 @@ export default {
       });
     }
 
+    await loadPersistedAntiNukeConfig(interaction.client, guildId);
+
     const subcommand = interaction.options.getSubcommand();
 
     if (subcommand === 'enable') {
-      setAntiNukeConfig(guildId, {
-        enabled: true,
-      });
+      setAntiNukeConfig(guildId, { enabled: true });
+      await savePersistedAntiNukeConfig(interaction.client, guildId);
 
       const config = getAntiNukeConfig(guildId);
 
@@ -94,9 +97,8 @@ export default {
     }
 
     if (subcommand === 'disable') {
-      setAntiNukeConfig(guildId, {
-        enabled: false,
-      });
+      setAntiNukeConfig(guildId, { enabled: false });
+      await savePersistedAntiNukeConfig(interaction.client, guildId);
 
       return interaction.reply({
         embeds: [
@@ -113,9 +115,8 @@ export default {
     if (subcommand === 'level') {
       const level = interaction.options.getString('level', true);
 
-      setAntiNukeConfig(guildId, {
-        level,
-      });
+      setAntiNukeConfig(guildId, { level });
+      await savePersistedAntiNukeConfig(interaction.client, guildId);
 
       return interaction.reply({
         embeds: [
