@@ -82,10 +82,20 @@ export default {
                 pageCases.forEach(case_ => {
                     const date = new Date(case_.createdAt).toLocaleDateString();
                     const time = new Date(case_.createdAt).toLocaleTimeString();
-                    
+                    const targetId = case_.targetUserId || case_.metadata?.userId || 'Unknown';
+                    const moderatorId = case_.moderatorId || case_.metadata?.moderatorId || 'Unknown';
+                    const source = case_.metadata?.source || 'Moderation';
+
                     embed.addFields({
                         name: `Case #${case_.caseId} - ${case_.action}`,
-                        value: `**Target:** ${case_.target}\n**Moderator:** ${case_.executor}\n**Date:** ${date} at ${time}\n**Reason:** ${case_.reason || 'No reason provided'}`,
+                        value:
+                            `**Target:** ${case_.target || 'Unknown'}\n` +
+                            `**Target ID:** \`${targetId}\`\n` +
+                            `**Moderator:** ${case_.executor || 'Unknown'}\n` +
+                            `**Moderator ID:** \`${moderatorId}\`\n` +
+                            `**Source:** ${source}\n` +
+                            `**Date:** ${date} at ${time}\n` +
+                            `**Reason:** ${case_.reason || 'No reason provided'}`,
                         inline: false
                     });
                 });
