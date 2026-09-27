@@ -18,6 +18,7 @@ import { isCollectorManagedComponent } from '../utils/collectorComponents.js';
 import { ResponseCoordinator } from '../utils/responseCoordinator.js';
 import { enforceDefaultCommandPermissions } from '../utils/permissionGuard.js';
 import { isLockdownActive } from '../services/lockdownService.js';
+import { recordCommandActivity } from '../services/serverProgressionService.js';
 
 const COMMAND_ERROR_SUBTYPES = {
   warn: 'warn_failed',
@@ -160,6 +161,10 @@ export default {
 
             if (!permissionAllowed) {
               return;
+            }
+
+            if (interaction.guild) {
+              await recordCommandActivity(client, interaction, guildConfig).catch(() => {});
             }
 
             await command.execute(interaction, guildConfig, client);
