@@ -17,6 +17,7 @@ import { resolveSlashAccessKey } from '../utils/messageAdapter.js';
 import { isCollectorManagedComponent } from '../utils/collectorComponents.js';
 import { ResponseCoordinator } from '../utils/responseCoordinator.js';
 import { enforceDefaultCommandPermissions } from '../utils/permissionGuard.js';
+import { isLockdownActive } from '../services/lockdownService.js';
 
 const COMMAND_ERROR_SUBTYPES = {
   warn: 'warn_failed',
@@ -72,6 +73,20 @@ export default {
             }, interactionTraceContext));
 
             const command = client.commands.get(interaction.commandName);
+
+            // Emergency lockdown blocks every slash command except /unlockdown.
+            // Only the server owner can use /unlockdown while lockdown is active.
+            if (
+              interaction.guild &&
+              isLockdownActive(client, interaction.guild.id) &&
+              interaction.commandName !== 'unlockdown'
+            ) {
+              await InteractionHelper.safeReply(interaction, {
+                content: '🔒 **SERVER LOCKDOWN ACTIVE** — Commands are disabled until the server owner uses /unlockdown.',
+                ephemeral: true,
+              });
+              return;
+            }
 
             if (!command) {
               throw createError(
