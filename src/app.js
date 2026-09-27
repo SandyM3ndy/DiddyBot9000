@@ -18,6 +18,7 @@ import { initializeMusic } from './services/music/riffySetup.js';
 import { shutdownMusic } from './services/music/playerHandler.js';
 import pkg from '../package.json' with { type: 'json' };
 import { EXPECTED_SCHEMA_VERSION, EXPECTED_SCHEMA_LABEL } from './config/database/schemaVersion.js';
+import { startSystemHealthMonitor, scheduleAutomaticRestart } from './services/systemHealthService.js';
 
 class TitanBot extends Client {
   constructor() {
@@ -103,6 +104,8 @@ class TitanBot extends Client {
       );
       
       this.setupCronJobs();
+      startSystemHealthMonitor(this);
+      scheduleAutomaticRestart(this);
       // Immediately recover giveaways whose deadlines passed while the bot was offline.
       await checkGiveaways(this);
       // Run one backup shortly after startup so a restart does not reset the backup cadence.
@@ -219,6 +222,7 @@ class TitanBot extends Client {
       const server = app.listen(port, host, () => {
         hasStartedListening = true;
         this.webServer = server;
+        this.webPort = port;
         startupLog(`✅ Web Server running on ${host}:${port}`);
         startupLog(`Health endpoint: http://${host}:${port}/health`);
         startupLog(`Ready endpoint: http://${host}:${port}/ready`);
@@ -383,7 +387,7 @@ class TitanBot extends Client {
     }
   }
 
-  async shutdown(reason = 'UNKNOWN') {
+  async shutdown(reason = 'UNKNOWN', exitCode = 0) {
     shutdownLog(`Bot is shutting down (${reason})...`);
     logger.info(`\n${'='.repeat(60)}`);
     logger.info(`🛑 Graceful Shutdown Initiated (${reason})`);
@@ -432,7 +436,7 @@ class TitanBot extends Client {
 
       logger.info('✅ Graceful shutdown complete');
   shutdownLog('Bot stopped successfully.');
-      process.exit(0);
+      process.exit(exitCode);
     } catch (error) {
       logger.error('Error during graceful shutdown:', error);
       process.exit(1);
