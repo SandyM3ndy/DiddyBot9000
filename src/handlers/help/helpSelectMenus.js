@@ -51,7 +51,7 @@ function formatCategoryName(rawCategory) {
 function getCommandAccess(commandData) {
     const name = String(commandData?.name || "").toLowerCase();
 
-    if (name === "broadcast" || name === "popularity") return "Bot Owner only";
+    if (["broadcast", "popularity", "announcement", "giveexp", "removeleaderboard", "restoreleaderboard"].includes(name)) return "Bot Owner only";
     if (name === "claim" || name === "priority") return "Manage Server or Ticket Staff";
     if (name === "close") return "Manage Server, Ticket Staff, or ticket creator";
 
