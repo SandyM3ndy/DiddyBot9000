@@ -4,6 +4,7 @@ import config from "../config/application.js";
 import { reconcileReactionRoleMessages } from "../services/reactionRoleService.js";
 import { reconcileTicketPanels, reconcileVerificationPanels, reconcileReactionRolePanelHealth } from "../services/panelHealthService.js";
 import { initRiffyAfterReady } from "../services/music/riffySetup.js";
+import { loadLockdownStates } from "../services/lockdownService.js";
 
 export default {
   name: Events.ClientReady,
@@ -16,6 +17,8 @@ export default {
       startupLog(`Ready! Logged in as ${client.user.tag}`);
       startupLog(`Serving ${client.guilds.cache.size} guild(s)`);
       startupLog(`Loaded ${client.commands.size} commands`);
+
+      await loadLockdownStates(client);
       // Force-sync the complete command set directly to every guild after the
       // Discord client is fully ready. This bypasses global-command propagation
       // delays and guarantees existing servers receive the current commands.
