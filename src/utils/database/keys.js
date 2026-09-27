@@ -4,10 +4,6 @@
  */
 
 export const getGuildConfigKey = (guildId) => `guild:${guildId}:config`;
-export const getGuildBirthdaysKey = (guildId) => `guild:${guildId}:birthdays`;
-export const getBirthdayLeftBackupKey = (guildId) => `guild:${guildId}:birthdays:left`;
-export const getBirthdayTrackingKey = (guildId) => `guild:${guildId}:birthdays:tracking`;
-
 export function getTicketKey(guildId, channelId) {
     return `guild:${guildId}:ticket:${channelId}`;
 }
@@ -46,18 +42,6 @@ export function getAFKKey(guildId, userId) {
 
 export function getWelcomeConfigKey(guildId) {
     return `guild:${guildId}:welcome`;
-}
-
-export function getLevelingKey(guildId) {
-    return `guild:${guildId}:leveling:config`;
-}
-
-export function getUserLevelKey(guildId, userId) {
-    return `guild:${guildId}:leveling:users:${userId}`;
-}
-
-export function getUserLevelPrefix(guildId) {
-    return `guild:${guildId}:leveling:users:`;
 }
 
 export function getApplicationRolesKey(guildId) {
@@ -129,45 +113,6 @@ export function getGiveawayLockKey(messageId) {
  * Used by migration script and read-time fallback.
  */
 export const LEGACY_KEY_RESOLVERS = [
-    {
-        pattern: /^economy:([^:]+):([^:]+)$/,
-        toCanonical: ([, guildId, userId]) => getEconomyKey(guildId, userId),
-    },
-    {
-        pattern: /^birthdays:([^:]+)$/,
-        toCanonical: ([, guildId]) => getGuildBirthdaysKey(guildId),
-    },
-    {
-        pattern: /^([^:]+):leveling:users:([^:]+)$/,
-        toCanonical: ([, guildId, userId]) => getUserLevelKey(guildId, userId),
-        skipIf: (guildId) => guildId === 'guild',
-    },
-    {
-        pattern: /^moderation:warnings:([^:]+):([^:]+)$/,
-        toCanonical: ([, guildId, userId]) => getWarningsKey(guildId, userId),
-    },
-    {
-        pattern: /^moderation_user_notes_([^_]+)_([^_]+)$/,
-        toCanonical: ([, guildId, userId]) => getUserNotesKey(guildId, userId),
-    },
-    {
-        pattern: /^moderation_user_notes_list_([^_]+)$/,
-        toCanonical: ([, guildId]) => getUserNotesListKey(guildId),
-    },
-    {
-        pattern: /^reaction_roles:([^:]+):([^:]+)$/,
-        toCanonical: ([, guildId, messageId]) => getReactionRoleKey(guildId, messageId),
-    },
-    {
-        pattern: /^counters:([^:]+)$/,
-        toCanonical: ([, guildId]) => getServerCountersKey(guildId),
-    },
-    {
-        pattern: /^bday-role-tracking-([^:]+)$/,
-        toCanonical: ([, guildId]) => getBirthdayTrackingKey(guildId),
-    },
-];
-
 /**
  * Returns the canonical key for a legacy or already-canonical key.
  */
@@ -197,18 +142,6 @@ export function getLegacyVariantsForCanonical(canonicalKey) {
         const match = sample.match(/^guild:([^:]+):economy:([^:]+)$/);
         if (match && toCanonical(['', match[1], match[2]]) === canonicalKey) {
             variants.push(`economy:${match[1]}:${match[2]}`);
-            continue;
-        }
-
-        const birthdaysMatch = sample.match(/^guild:([^:]+):birthdays$/);
-        if (birthdaysMatch && toCanonical(['', birthdaysMatch[1]]) === canonicalKey) {
-            variants.push(`birthdays:${birthdaysMatch[1]}`);
-            continue;
-        }
-
-        const levelMatch = sample.match(/^guild:([^:]+):leveling:users:([^:]+)$/);
-        if (levelMatch && toCanonical(['', levelMatch[1], levelMatch[2]]) === canonicalKey) {
-            variants.push(`${levelMatch[1]}:leveling:users:${levelMatch[2]}`);
             continue;
         }
 
@@ -242,10 +175,6 @@ export function getLegacyVariantsForCanonical(canonicalKey) {
             continue;
         }
 
-        const trackingMatch = sample.match(/^guild:([^:]+):birthdays:tracking$/);
-        if (trackingMatch && toCanonical(['', trackingMatch[1]]) === canonicalKey) {
-            variants.push(`bday-role-tracking-${trackingMatch[1]}`);
-        }
     }
 
     return variants;
