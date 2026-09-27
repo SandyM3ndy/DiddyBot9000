@@ -1,13 +1,11 @@
 import { SlashCommandBuilder } from 'discord.js';
 import { successEmbed, warningEmbed } from '../../utils/embeds.js';
 import { getEconomyData, setEconomyData } from '../../utils/economy.js';
-import { botConfig } from '../../config/bot.js';
 import { withErrorHandling, createError, ErrorTypes } from '../../utils/errorHandler.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 
-const COOLDOWN = 30 * 60 * 1000;
-const MIN_WIN = Number(botConfig?.economy?.begMin) || 50;
-const MAX_WIN = Number(botConfig?.economy?.begMax) || 200;
+const MIN_WIN = 50;
+const MAX_WIN = 200;
 const SUCCESS_CHANCE = 0.7;
 
 export default {
@@ -35,21 +33,6 @@ export default {
 
             const lastBeg = userData.lastBeg || 0;
             const remainingTime = lastBeg + COOLDOWN - Date.now();
-
-            if (remainingTime > 0) {
-                const minutes = Math.floor(remainingTime / 60000);
-                const seconds = Math.floor((remainingTime % 60000) / 1000);
-
-                let timeMessage =
-                    minutes > 0 ? `${minutes} minute(s)` : `${seconds} second(s)`;
-
-                throw createError(
-                    "Beg cooldown active",
-                    ErrorTypes.RATE_LIMIT,
-                    `You are tired from begging! Try again in **${timeMessage}**.`,
-                    { remainingTime, minutes, seconds, cooldownType: 'beg' }
-                );
-            }
 
             const success = Math.random() < SUCCESS_CHANCE;
 
