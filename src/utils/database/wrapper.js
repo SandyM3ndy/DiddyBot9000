@@ -62,7 +62,30 @@ class DatabaseWrapper {
         this.degradedModeWarningShown = true;
     }
 
+    async ensurePersistentConnection() {
+        if (process.env.NODE_ENV !== 'production') {
+            return true;
+        }
+
+        if (this.useFallback) {
+            throw new Error('Persistent database is unavailable.');
+        }
+
+        if (this.db === pgDb && !pgDb.isAvailable()) {
+            const reconnected = await pgDb.reconnect();
+            if (!reconnected) {
+                throw new Error('Persistent database connection is unavailable.');
+            }
+            this.db = pgDb;
+            this.connectionType = 'postgresql';
+            this.degradedReason = null;
+        }
+
+        return true;
+    }
+
     async set(key, value, ttl = null) {
+        await this.ensurePersistentConnection();
         if (this.useFallback && process.env.NODE_ENV === 'production') {
             throw new Error('Persistent database is unavailable; refusing to save data in memory.');
         }
@@ -83,6 +106,7 @@ class DatabaseWrapper {
     }
 
     async get(key, defaultValue = null) {
+        await this.ensurePersistentConnection();
         if (this.useFallback && process.env.NODE_ENV === 'production') {
             throw new Error('Persistent database is unavailable; refusing to return non-persistent defaults.');
         }
@@ -90,6 +114,7 @@ class DatabaseWrapper {
     }
 
     async delete(key) {
+        await this.ensurePersistentConnection();
         if (this.useFallback && process.env.NODE_ENV === 'production') {
             throw new Error('Persistent database is unavailable; refusing to delete data.');
         }
@@ -101,10 +126,12 @@ class DatabaseWrapper {
     }
 
     async list(prefix) {
+        await this.ensurePersistentConnection();
         return this.db.list(prefix);
     }
 
     async exists(key) {
+        await this.ensurePersistentConnection();
         if (this.db.exists) {
             return this.db.exists(key);
         }
