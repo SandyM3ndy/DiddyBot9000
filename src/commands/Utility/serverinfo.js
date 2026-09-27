@@ -2,6 +2,8 @@ import { SlashCommandBuilder } from 'discord.js';
 import { createEmbed } from '../../utils/embeds.js';
 import { logger } from '../../utils/logger.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
+import { getGuildTicketStats } from '../../utils/database/tickets.js';
+import { getGuildConfig } from '../../services/config/guildConfig.js';
 
 export default {
     data: new SlashCommandBuilder()
@@ -23,6 +25,8 @@ export default {
     const owner = await guild.fetchOwner();
 
     const createdTimestamp = Math.floor(guild.createdAt.getTime() / 1000);
+    const config = await getGuildConfig(interaction.client, guild.id);
+    const ticketStats = await getGuildTicketStats(guild.id);
 
     const embed = createEmbed({ title: `Server Info: ${guild.name}`, description: `Server ID: ${guild.id}` })
       .setThumbnail(guild.iconURL({ size: 256 }))
