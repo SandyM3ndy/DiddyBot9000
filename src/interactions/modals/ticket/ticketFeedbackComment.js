@@ -111,6 +111,30 @@ export default {
             )],
         });
 
+        if (ticketData.claimedBy) {
+            try {
+                const claimer = await client.users.fetch(ticketData.claimedBy);
+                await claimer.send({
+                    embeds: [
+                        new EmbedBuilder()
+                            .setTitle('⭐ Ticket Feedback Received')
+                            .setDescription(
+                                `Ticket **#${ticketData.id}** received a **${ticketData.feedback?.rating ?? 'N/A'}/5** rating from <@${interaction.user.id}>.\\n\\n**Comment:** ${comment}`,
+                            )
+                            .setColor(getColor('info'))
+                            .setTimestamp(),
+                    ],
+                });
+            } catch (dmError) {
+                logger.debug('Could not DM ticket claimer about feedback comment', {
+                    guildId,
+                    channelId,
+                    claimedBy: ticketData.claimedBy,
+                    error: dmError.message,
+                });
+            }
+        }
+
         logger.info('Ticket feedback comment submitted', {
             guildId,
             channelId,
