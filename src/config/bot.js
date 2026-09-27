@@ -23,9 +23,9 @@ export const botConfig = {
     // 5 = Competing
     activities: [
       {
-        name: "Custom Status", // required by Discord API, not shown in the client
-        state: "stalking",     // this is what people actually see
-        type: 4,               // Custom
+        name: "Custom Status",
+        state: "stalking",
+        type: 4,
       },
     ],
   },
@@ -83,7 +83,7 @@ export const botConfig = {
     deleteApprovedAfter: 30,
 
     // Role IDs allowed to manage applications.
-    managerRoles: [], // Will be populated from environment or database
+    managerRoles: [],
   },
 
   // =========================
@@ -204,7 +204,6 @@ export const botConfig = {
   // =========================
   // SHOP SETTINGS
   // =========================
-  // Add shop defaults here when needed.
   shop: {
 
   },
@@ -352,15 +351,20 @@ export const botConfig = {
     // In-memory safety limits (helps avoid unbounded memory growth).
     maxCooldownEntries: 10000,
     maxAttemptEntries: 10000,
+
     // Cleanup frequency for cooldown/attempt maps (milliseconds).
     // 300000 = 5 minutes.
     cooldownCleanupInterval: 300000,
+
     // Maximum metadata payload size for audit entries (bytes).
     maxAuditMetadataBytes: 4096,
+
     // Maximum number of audit entries kept in memory.
     maxInMemoryAuditEntries: 1000,
+
     // If true, log every verification action.
     logAllVerifications: true,
+
     // If true, preserve verification audit history.
     keepAuditTrail: true,
   },
@@ -373,12 +377,15 @@ export const botConfig = {
     // Placeholders: {user}, {server}, {memberCount}
     defaultWelcomeMessage:
       "Welcome {user} to {server}! We now have {memberCount} members!",
+
     // Goodbye template posted when a user leaves.
     // Placeholders: {user}, {memberCount}
     defaultGoodbyeMessage:
       "{user} has left the server. We now have {memberCount} members.",
+
     // Channel ID for welcome messages.
     defaultWelcomeChannel: null,
+
     // Channel ID for goodbye messages.
     defaultGoodbyeChannel: null,
   },
@@ -391,36 +398,38 @@ export const botConfig = {
       // Default naming/description templates for counter entries.
       name: "{name} Counter",
       description: "Server {name} counter",
-      // Channel type used for counters (typically "voice").
       type: "voice",
-      // Channel name format. `{count}` is replaced automatically.
       channelName: "{name}-{count}",
     },
+
     permissions: {
       // Default denied permissions for the counter channel.
       deny: ["VIEW_CHANNEL"],
+
       // Default allowed permissions for the counter channel.
       allow: ["VIEW_CHANNEL", "CONNECT", "SPEAK"],
     },
+
     messages: {
-      // Default response messages for counter actions.
       created: "✅ Created counter **{name}**",
       deleted: "🗑️ Deleted counter **{name}**",
       updated: "🔄 Updated counter **{name}**",
     },
+
     types: {
-      // Built-in counter types and how each count is calculated.
       members: {
         name: "👥 Members",
         description: "Total members in the server",
         getCount: (guild) => guild.memberCount.toString(),
       },
+
       bots: {
         name: "🤖 Bots",
         description: "Total bot accounts in the server",
         getCount: (guild) =>
           guild.members.cache.filter((m) => m.user.bot).size.toString(),
       },
+
       members_only: {
         name: "👤 Humans",
         description: "Total human members (non-bots)",
@@ -436,7 +445,7 @@ export const botConfig = {
   messages: {
     noPermission: "You do not have permission to use this command.",
     cooldownActive: "Please wait {time} before using this command again.",
-    errorOccurred: "An error occurred while executing this command.",
+    errorOccurred: "An error occurred while executing the command.",
     missingPermissions:
       "I am missing required permissions to perform this action.",
     commandDisabled: "This command has been disabled.",
@@ -465,6 +474,7 @@ export const botConfig = {
     verification: true,
     reactionRoles: true,
     joinToCreate: true,
+    antinuke: true,
 
     // Utility/quality-of-life modules.
     voice: true,
@@ -502,11 +512,17 @@ export function validateConfig(config) {
     // A full connection URL (DATABASE_URL / POSTGRES_URL) satisfies all Postgres
     // requirements, matching how src/config/database/postgres.js resolves the pool config.
     const hasConnectionUrl = Boolean(process.env.POSTGRES_URL || process.env.DATABASE_URL);
-    const hasHostConfig = Boolean(process.env.POSTGRES_HOST && process.env.POSTGRES_USER && process.env.POSTGRES_PASSWORD);
+    const hasHostConfig = Boolean(
+      process.env.POSTGRES_HOST &&
+      process.env.POSTGRES_USER &&
+      process.env.POSTGRES_PASSWORD
+    );
 
     // Only fail if NEITHER connection URL nor individual host config are present
     if (!hasConnectionUrl && !hasHostConfig) {
-      errors.push("PostgreSQL connection is required in production (set DATABASE_URL/POSTGRES_URL, or POSTGRES_HOST + POSTGRES_USER + POSTGRES_PASSWORD)");
+      errors.push(
+        "PostgreSQL connection is required in production (set DATABASE_URL/POSTGRES_URL, or POSTGRES_HOST + POSTGRES_USER + POSTGRES_PASSWORD)"
+      );
     }
   }
 
@@ -514,6 +530,7 @@ export function validateConfig(config) {
 }
 
 const configErrors = validateConfig(botConfig);
+
 if (configErrors.length > 0) {
   console.error("========================================");
   console.error("BOT CONFIGURATION ERRORS:");
@@ -578,7 +595,10 @@ export function getBotMessage(key, replacements = {}) {
   let message = botConfig.messages?.[key] || key;
 
   for (const [placeholder, value] of Object.entries(replacements)) {
-    message = message.replace(new RegExp(`\\{${placeholder}\\}`, "g"), String(value));
+    message = message.replace(
+      new RegExp(`\\{${placeholder}\\}`, "g"),
+      String(value)
+    );
   }
 
   return message;
@@ -600,6 +620,7 @@ export function isCommandCategoryEnabled(category) {
   }
 
   const featureKey = COMMAND_CATEGORY_FEATURE_MAP[normalized];
+
   if (!featureKey) {
     return true;
   }
@@ -610,41 +631,54 @@ export function isCommandCategoryEnabled(category) {
 export function getApplicationStatusColor(status) {
   const colors = botConfig.applications?.statusColors || {};
   const hex = colors[status];
-  return hex ? getColor(hex) : getColor(status === "approved" ? "success" : status === "denied" ? "error" : "warning");
+
+  return hex
+    ? getColor(hex)
+    : getColor(
+        status === "approved"
+          ? "success"
+          : status === "denied"
+            ? "error"
+            : "warning"
+      );
 }
 
 export function getDefaultApplicationQuestions() {
-  return (botConfig.applications?.defaultQuestions || []).map((entry) =>
-    typeof entry === "string" ? entry : entry.question,
-  ).filter(Boolean);
+  return (botConfig.applications?.defaultQuestions || [])
+    .map((entry) =>
+      typeof entry === "string" ? entry : entry.question
+    )
+    .filter(Boolean);
 }
 
 export function getColor(path, fallback = "#99AAB5") {
-  
   if (typeof path === "number") return path;
+
   if (typeof path === "string" && path.startsWith("#")) {
-    
     return parseInt(path.replace("#", ""), 16);
   }
+
   const result = path
     .split(".")
     .reduce(
-      (obj, key) => (obj && obj[key] !== undefined ? obj[key] : fallback),
-      botConfig.embeds.colors,
+      (obj, key) =>
+        obj && obj[key] !== undefined ? obj[key] : fallback,
+      botConfig.embeds.colors
     );
-  
+
   if (typeof result === "string" && result.startsWith("#")) {
     return parseInt(result.replace("#", ""), 16);
   }
+
   return result;
 }
 
 export function getRandomColor() {
   const colors = Object.values(botConfig.embeds.colors).flatMap((color) =>
-    typeof color === "string" ? color : Object.values(color),
+    typeof color === "string" ? color : Object.values(color)
   );
+
   return colors[Math.floor(Math.random() * colors.length)];
 }
 
 export default botConfig;
-
