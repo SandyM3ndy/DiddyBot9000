@@ -21,6 +21,7 @@ services:
       - AUTO_MIGRATE=true
       - LOG_LEVEL=${LOG_LEVEL:-warn}
       - LAVALINK_NODES_FILE=lavalink/nodes.json
+      - LAVALINK_PASSWORD=${LAVALINK_PASSWORD:?LAVALINK_PASSWORD must be set when using local Lavalink}
       - PORT=3000
       - WEB_HOST=0.0.0.0
     ports:
