@@ -57,6 +57,12 @@ const guildId = channel.guild.id;
             logger.error('Error in channelDelete Anti-Nuke event:', error);
         }
 
+        // Preserve the existing counter/Join-to-Create cleanup behavior for
+        // voice/category channels only; Anti-Nuke above handles every guild channel type.
+        if (channel.type !== 2 && channel.type !== 4) {
+            return;
+        }
+
         try {
             
             const counters = await getServerCounters(client, guildId);
