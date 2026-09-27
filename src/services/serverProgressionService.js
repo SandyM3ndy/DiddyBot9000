@@ -311,6 +311,15 @@ export async function isServerProgressionEnabled(client, guildId) {
   }
 }
 
+async function announceLevelUp(channel, result, guildName) {
+  if (!result?.leveledUp || result.level < 2 || !channel?.send) return;
+  await channel.send({ embeds: [createEmbed({
+    title: '🚀 Server Level Up!',
+    description: `**${guildName}** reached **Level ${result.level}**!\n\n✨ The server has unlocked new progression perks.\n${result.levelPerks?.length ? `\n${result.levelPerks.join('\\n')}` : ''}`,
+    color: 'success',
+  })] }).catch(() => {});
+}
+
 export async function recordMessageActivity(client, message, config = null) {
   if (!message?.guild || message.author?.bot) return null;
 
@@ -325,6 +334,8 @@ export async function recordMessageActivity(client, message, config = null) {
   });
 
   if (result) {
+    await announceLevelUp(message.channel, result, message.guild.name);
+
     const channelResult = await recordActivity(client, message.guild.id, 'channel', {
       config: effectiveConfig,
       channelId: message.channel.id,
@@ -367,9 +378,11 @@ export async function recordCommandActivity(client, interaction, config = null) 
     return getGuildConfig(client, interaction.guild.id);
   })();
 
-  return recordActivity(client, interaction.guild.id, 'command', {
+  const result = await recordActivity(client, interaction.guild.id, 'command', {
     config: effectiveConfig,
   });
+  await announceLevelUp(interaction.channel, result, interaction.guild.name);
+  return result;
 }
 
 export async function recordMemberJoinActivity(client, member, config = null) {
@@ -380,9 +393,11 @@ export async function recordMemberJoinActivity(client, member, config = null) {
     return getGuildConfig(client, member.guild.id);
   })();
 
-  return recordActivity(client, member.guild.id, 'newMembers', {
+  const result = await recordActivity(client, member.guild.id, 'newMembers', {
     config: effectiveConfig,
   });
+  await announceLevelUp(member.guild.systemChannel, result, member.guild.name);
+  return result;
 }
 
 export async function getServerProgression(client, guildId) {
