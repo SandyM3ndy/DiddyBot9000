@@ -7,7 +7,7 @@ import {
 import { warningEmbed } from '../../../utils/embeds.js';
 
 export default {
-  name: 'lockdown:stage3',
+  name: 'lockdown_stage3',
   async execute(interaction, client, args) {
     const [decision, userId] = args;
     if (!interaction.guild || interaction.user.id !== userId || interaction.user.id !== interaction.guild.ownerId) {
@@ -19,7 +19,7 @@ export default {
     }
 
     const modal = new ModalBuilder()
-      .setCustomId(`lockdown:confirmation:${userId}`)
+      .setCustomId(`lockdown_confirmation:${userId}`)
       .setTitle('Final Lockdown Confirmation')
       .addComponents(
         new ActionRowBuilder().addComponents(
