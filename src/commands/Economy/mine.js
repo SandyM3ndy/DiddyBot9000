@@ -4,7 +4,6 @@ import { getEconomyData, setEconomyData } from '../../utils/economy.js';
 import { withErrorHandling, createError, ErrorTypes } from '../../utils/errorHandler.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 
-const MINE_COOLDOWN = 60 * 60 * 1000;
 const BASE_MIN_REWARD = 400;
 const BASE_MAX_REWARD = 1200;
 const PICKAXE_MULTIPLIER = 1.2;
@@ -35,21 +34,6 @@ export default {
             const lastMine = userData.lastMine || 0;
             const hasDiamondPickaxe = userData.inventory["diamond_pickaxe"] || 0;
             const hasPickaxe = userData.inventory["pickaxe"] || 0;
-
-            if (now < lastMine + MINE_COOLDOWN) {
-                const remaining = lastMine + MINE_COOLDOWN - now;
-                const hours = Math.floor(remaining / (1000 * 60 * 60));
-                const minutes = Math.floor(
-                    (remaining % (1000 * 60 * 60)) / (1000 * 60),
-                );
-
-                throw createError(
-                    "Mining cooldown active",
-                    ErrorTypes.RATE_LIMIT,
-                    `Your pickaxe is cooling down. Wait for **${hours}h ${minutes}m** before mining again.`,
-                    { remaining, cooldownType: 'mine' }
-                );
-            }
 
             const baseEarned =
                 Math.floor(
@@ -86,7 +70,7 @@ userData.lastMine = now;
                     value: `$${userData.wallet.toLocaleString()}`,
                     inline: true,
                 })
-                .setFooter({ text: `Next mine available in 1 hour.` });
+                .setFooter({ text: `Mining rewards are available again immediately.` });
 
             await InteractionHelper.safeEditReply(interaction, { embeds: [embed] });
     }, { command: 'mine' })

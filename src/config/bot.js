@@ -38,9 +38,6 @@ export const botConfig = {
     // Owners can access owner/admin-level bot commands.
     owners: process.env.OWNER_IDS?.split(",").map((id) => id.trim()).filter(Boolean) || [],
 
-    // Default wait time between command uses (in seconds).
-    defaultCooldown: 3,
-
     // If true, old commands are removed before re-registering.
     deleteCommands: false,
 
@@ -184,14 +181,6 @@ export const botConfig = {
     begMin: 5,
     begMax: 50,
 
-    // Command cooldowns (milliseconds).
-    cooldowns: {
-      daily: 24 * 60 * 60 * 1000,
-      work: 60 * 60 * 1000,
-      crime: 2 * 60 * 60 * 1000,
-      rob: 4 * 60 * 60 * 1000,
-    },
-
     // Chance to succeed when robbing (0.4 = 40%).
     robSuccessRate: 0.4,
 
@@ -322,25 +311,6 @@ export const botConfig = {
       }
     },
 
-    // Minimum time between verification attempts (milliseconds).
-    // 5000 = 5 seconds.
-    verificationCooldown: 5000,
-
-    // Maximum failed attempts allowed inside the time window below.
-    maxVerificationAttempts: 3,
-
-    // Time window for counting attempts (milliseconds).
-    // 60000 = 1 minute.
-    attemptWindow: 60000,
-
-    // In-memory safety limits (helps avoid unbounded memory growth).
-    maxCooldownEntries: 10000,
-    maxAttemptEntries: 10000,
-
-    // Cleanup frequency for cooldown/attempt maps (milliseconds).
-    // 300000 = 5 minutes.
-    cooldownCleanupInterval: 300000,
-
     // Maximum metadata payload size for audit entries (bytes).
     maxAuditMetadataBytes: 4096,
 
@@ -429,7 +399,6 @@ export const botConfig = {
   // =========================
   messages: {
     noPermission: "You do not have permission to use this command.",
-    cooldownActive: "Please wait {time} before using this command again.",
     errorOccurred: "An error occurred while executing the command.",
     missingPermissions:
       "I am missing required permissions to perform this action.",

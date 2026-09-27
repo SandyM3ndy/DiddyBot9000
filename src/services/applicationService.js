@@ -15,10 +15,6 @@ import {
     getApplicationRoles,
     saveApplicationRoles
 } from '../utils/database.js';
-import botConfig from '../config/bot.js';
-
-const applicationCooldowns = new Map();
-const APPLICATION_SUBMIT_COOLDOWN = (botConfig.applications?.applicationCooldown ?? 24) * 60 * 60 * 1000;
 
 class ApplicationService {
     static sanitizeApplicationText(value, maxLength) {
@@ -79,25 +75,6 @@ class ApplicationService {
         return true;
     }
 
-    static checkApplicationCooldown(userId) {
-        const now = Date.now();
-        const cooldownKey = `submit_${userId}`;
-        const lastSubmit = applicationCooldowns.get(cooldownKey);
-
-        if (lastSubmit && now - lastSubmit < APPLICATION_SUBMIT_COOLDOWN) {
-            const remainingTime = Math.ceil((APPLICATION_SUBMIT_COOLDOWN - (now - lastSubmit)) / 1000);
-            throw createError(
-                'Application submission on cooldown',
-                ErrorTypes.RATE_LIMIT,
-                `Please wait ${Math.ceil(remainingTime / 60)} minute(s) before submitting another application.`,
-                { remainingTime, userId }
-            );
-        }
-
-        applicationCooldowns.set(cooldownKey, now);
-        return true;
-    }
-
     static async checkManagerPermission(client, guildId, member) {
         const settings = await getApplicationSettings(client, guildId);
         
@@ -122,8 +99,6 @@ class ApplicationService {
         try {
             
             this.validateApplicationSubmission(data);
-
-            this.checkApplicationCooldown(data.userId);
 
             const settings = await getApplicationSettings(client, data.guildId);
             if (!settings.enabled) {

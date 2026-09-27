@@ -4,7 +4,6 @@ import { getEconomyData, setEconomyData } from '../../utils/economy.js';
 import { withErrorHandling, createError, ErrorTypes } from '../../utils/errorHandler.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 
-const CRIME_COOLDOWN = 60 * 60 * 1000;
 const JAIL_TIME = 2 * 60 * 60 * 1000;
 const FINE_RATE = 0.2;
 
@@ -55,16 +54,6 @@ export default {
                 );
             }
 
-            if (now < lastCrime + CRIME_COOLDOWN) {
-                const timeLeft = Math.ceil((lastCrime + CRIME_COOLDOWN - now) / (1000 * 60));
-                throw createError(
-                    "Crime cooldown active",
-                    ErrorTypes.RATE_LIMIT,
-                    `You need to wait ${timeLeft} more minutes before committing another crime.`,
-                    { remaining: lastCrime + CRIME_COOLDOWN - now, cooldownType: 'crime' }
-                );
-            }
-
             const crimeType = interaction.options.getString("type").toLowerCase();
             const crime = CRIME_TYPES.find(
                 c => c.name.toLowerCase().replace(/\s+/g, '-') === crimeType
@@ -83,9 +72,6 @@ export default {
             const amountEarned = isSuccess
                 ? Math.floor(Math.random() * (crime.max - crime.min + 1)) + crime.min
                 : 0;
-
-            userData.cooldowns = userData.cooldowns || {};
-            userData.cooldowns.crime = now;
 
             if (isSuccess) {
                 userData.wallet = (userData.wallet || 0) + amountEarned;

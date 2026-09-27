@@ -8,20 +8,11 @@ import { createError, ErrorTypes } from '../utils/errorHandler.js';
 import { insertVerificationAudit } from '../utils/database.js';
 import { ensureTypedServiceError } from '../utils/serviceErrorBoundary.js';
 
-const verificationCooldowns = new Map();
-const attemptTracker = new Map();
-
 const verificationDefaults = botConfig?.verification || {};
 const autoVerifyDefaults = verificationDefaults.autoVerify || {};
 const minAutoVerifyAccountAgeDays = autoVerifyDefaults.minAccountAge ?? 1;
 const maxAutoVerifyAccountAgeDays = autoVerifyDefaults.maxAccountAge ?? 365;
 const serverSizeThreshold = autoVerifyDefaults.serverSizeThreshold ?? 1000;
-const defaultCooldownMs = verificationDefaults.verificationCooldown ?? 5000;
-const defaultMaxAttempts = verificationDefaults.maxVerificationAttempts ?? 3;
-const defaultAttemptWindowMs = verificationDefaults.attemptWindow ?? 60000;
-const maxCooldownEntries = verificationDefaults.maxCooldownEntries ?? 10000;
-const maxAttemptEntries = verificationDefaults.maxAttemptEntries ?? 10000;
-const cooldownCleanupIntervalMs = verificationDefaults.cooldownCleanupInterval ?? 300000;
 const maxAuditMetadataBytes = verificationDefaults.maxAuditMetadataBytes ?? 4096;
 const shouldSendAutoVerifyDm = autoVerifyDefaults.sendDMNotification ?? true;
 const shouldLogVerifications = verificationDefaults.logAllVerifications ?? true;
@@ -88,9 +79,6 @@ export async function verifyUser(client, guildId, userId, options = {}) {
             };
         }
 
-        await checkVerificationCooldown(userId, guildId, defaultCooldownMs);
-        await trackVerificationAttempt(userId, guildId, defaultMaxAttempts, defaultAttemptWindowMs);
-
         await member.roles.add(verifiedRole.id, `User verified (${source})`);
 
         logVerificationAction(client, guildId, userId, 'verified', {
@@ -132,45 +120,6 @@ export async function verifyUser(client, guildId, userId, options = {}) {
             errorCode: typedError.context?.errorCode
         });
         throw typedError;
-    }
-}
-
-function pruneVerificationTrackers(now = Date.now()) {
-    if (now - lastCleanupAt < cooldownCleanupIntervalMs) {
-        return;
-    }
-
-    lastCleanupAt = now;
-
-    for (const [key, timestamp] of verificationCooldowns.entries()) {
-        if (now - timestamp > Math.max(defaultCooldownMs * 2, 60000)) {
-            verificationCooldowns.delete(key);
-        }
-    }
-
-    for (const [key, attempts] of attemptTracker.entries()) {
-        const recentAttempts = (attempts || []).filter(ts => now - ts < defaultAttemptWindowMs);
-        if (recentAttempts.length === 0) {
-            attemptTracker.delete(key);
-            continue;
-        }
-        attemptTracker.set(key, recentAttempts);
-    }
-
-    while (verificationCooldowns.size > maxCooldownEntries) {
-        const firstKey = verificationCooldowns.keys().next().value;
-        if (!firstKey) {
-            break;
-        }
-        verificationCooldowns.delete(firstKey);
-    }
-
-    while (attemptTracker.size > maxAttemptEntries) {
-        const firstKey = attemptTracker.keys().next().value;
-        if (!firstKey) {
-            break;
-        }
-        attemptTracker.delete(firstKey);
     }
 }
 
@@ -680,7 +629,5 @@ export default {
     removeVerification,
     validateVerificationSetup,
     validateBotCanAssignRole,
-    checkVerificationCooldown,
-    trackVerificationAttempt,
     validateAutoVerifyCriteria
 };
