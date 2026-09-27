@@ -666,7 +666,9 @@ async function handleSettingModalSubmit(selectInteraction, rootInteraction, sett
         }
 
         const value = resolveSettingModalValue(setting, submitted);
-        await ConfigService.updateSetting(client, guildId, setting, value, submitted.user.id);
+        const configKey = setting === 'serverProgressionEnabled' ? 'serverProgression' : setting;
+        const configValue = setting === 'serverProgressionEnabled' ? { enabled: value } : value;
+        await ConfigService.updateSetting(client, guildId, configKey, configValue, submitted.user.id);
 
         await submitted.reply({
             embeds: [successEmbed('Configuration Updated', buildSettingSuccessMessage(setting, value, submitted.guild))],
