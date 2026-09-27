@@ -163,6 +163,11 @@ function buildSettingsSelect(guildId) {
                     .setValue('ticketSystem')
                     .setEmoji('🎫'),
                 new StringSelectMenuOptionBuilder()
+                    .setLabel('AutoMod')
+                    .setDescription('Basic spam, duplicate-message and mention protection')
+                    .setValue('autoModEnabled')
+                    .setEmoji('🛡️'),
+                new StringSelectMenuOptionBuilder()
                     .setLabel('Log Channel')
                     .setDescription('Channel for system log messages')
                     .setValue('logChannelId')
@@ -473,6 +478,22 @@ async function runSetupWizard(buttonInteraction, config, guild, client, rootInte
 async function showSettingModal(selectInteraction, guildId, setting) {
     const modalCustomId = `config_wizard_modal:${setting}:${guildId}`;
 
+    if (setting === 'autoModEnabled') {
+        const modal = new ModalBuilder()
+            .setCustomId(modalCustomId)
+            .setTitle('🛡️ AutoMod');
+        const input = new TextInputBuilder()
+            .setCustomId('value')
+            .setLabel('Enable AutoMod? (on/off)')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('on')
+            .setRequired(true)
+            .setMaxLength(3);
+        modal.addComponents(new ActionRowBuilder().addComponents(input));
+        await selectInteraction.showModal(modal);
+        return;
+    }
+
     if (setting === 'logChannelId') {
         const modal = new ModalBuilder()
             .setCustomId(modalCustomId)
@@ -535,6 +556,12 @@ async function showSettingModal(selectInteraction, guildId, setting) {
 }
 
 function resolveSettingModalValue(setting, submitted) {
+    if (setting === 'autoModEnabled') {
+        const value = submitted.fields.getTextInputValue('value')?.trim().toLowerCase();
+        if (!['on', 'off'].includes(value)) throw new Error('Reply with `on` or `off`.');
+        return value === 'on';
+    }
+
     if (setting === 'logChannelId') {
         const channelId = submitted.fields.getField('log_channel')?.values?.[0];
         if (!channelId) {
@@ -559,6 +586,10 @@ function resolveSettingModalValue(setting, submitted) {
 }
 
 function buildSettingSuccessMessage(setting, value, guild) {
+    if (setting === 'autoModEnabled') {
+        return `Basic AutoMod is now **${value ? 'enabled' : 'disabled'}**.`;
+    }
+
     if (setting === 'logChannelId') {
         const channel = guild.channels.cache.get(value);
         return `Log channel set to ${channel ?? `<#${value}>`}.`;
