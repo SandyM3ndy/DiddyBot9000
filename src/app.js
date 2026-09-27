@@ -120,81 +120,62 @@ class TitanBot extends Client {
     const app = express();
     const configuredPort = Number(this.config.api?.port || process.env.PORT || 3000);
     const maxPortRetryAttempts = Number(process.env.PORT_RETRY_ATTEMPTS || 5);
-    const host = process.env.WEB_HOST || (process.env.NODE_ENV === 'production' ? '127.0.0.1' : '0.0.0.0');
-    const corsOrigin = this.config.api?.cors?.origin || [];
-
-    // Express should not advertise implementation details.
-    app.disable('x-powered-by');
-    app.set('trust proxy', process.env.TRUST_PROXY === 'true' ? 1 : false);
-
-    // Lightweight security headers without adding another runtime dependency.
-    app.use((req, res, next) => {
-      res.setHeader('X-Content-Type-Options', 'nosniff');
-      res.setHeader('X-Frame-Options', 'DENY');
-      res.setHeader('Referrer-Policy', 'no-referrer');
-      res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
-      res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
-      if (process.env.NODE_ENV === 'production') {
-        res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
-      }
-      next();
-    });
-
+    const host = process.env.WEB_HOST || '0.0.0.0';
+    const corsOrigin = this.config.api?.cors?.origin || '*';
+    
     app.use((req, res, next) => {
       const allowedOrigins = Array.isArray(corsOrigin) ? corsOrigin : [corsOrigin];
       const origin = req.headers.origin;
-
-      if (origin && allowedOrigins.includes(origin)) {
-        res.header('Access-Control-Allow-Origin', origin);
-        res.header('Vary', 'Origin');
-        res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-        res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      
+      if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
+        res.header('Access-Control-Allow-Origin', origin || '*');
       }
-
+      res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+      res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      
       if (req.method === 'OPTIONS') {
-        if (origin && !allowedOrigins.includes(origin)) {
-          return res.sendStatus(403);
-        }
-        return res.sendStatus(204);
+        return res.sendStatus(200);
       }
       next();
     });
 
-    // Bound the in-memory limiter so an attacker cannot exhaust RAM by sending
-    // requests from a huge number of distinct source IPs.
     const requestCounts = new Map();
     const windowMs = this.config.api?.rateLimit?.windowMs || 60000;
     const maxRequests = this.config.api?.rateLimit?.max || 100;
-    const maxTrackedIps = 5000;
-
+    
     app.use((req, res, next) => {
-      const ip = req.ip || 'unknown';
+      const ip = req.ip;
       const now = Date.now();
       const windowStart = now - windowMs;
-      let times = requestCounts.get(ip) || [];
-      times = times.filter((timestamp) => timestamp > windowStart);
-
+      
+      if (!requestCounts.has(ip)) {
+        requestCounts.set(ip, []);
+      }
+      
+      const times = requestCounts.get(ip).filter(t => t > windowStart);
+      
       if (times.length >= maxRequests) {
         return res.status(429).json({ error: 'Too many requests' });
       }
-
+      
       times.push(now);
-      requestCounts.delete(ip);
       requestCounts.set(ip, times);
-
-      while (requestCounts.size > maxTrackedIps) {
-        const oldestIp = requestCounts.keys().next().value;
-        if (oldestIp === undefined) break;
-        requestCounts.delete(oldestIp);
-      }
-
       next();
     });
 
     app.get('/health', (req, res) => {
-      // Keep this endpoint intentionally low-information because it may be
-      // queried by a hosting provider from outside the process.
-      res.status(200).json({ status: 'ok' });
+      const dbStatus = this.db?.getStatus?.() || { isDegraded: 'unknown' };
+      const status = {
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        database: {
+          connected: dbStatus.connectionType !== 'none',
+          degraded: dbStatus.isDegraded,
+          type: dbStatus.connectionType
+        }
+      };
+      res.status(200).json(status);
     });
 
     app.get('/ready', (req, res) => {
