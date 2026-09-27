@@ -22,6 +22,7 @@ import { getGuildConfig, setConfigValue } from '../../services/config/guildConfi
 import ConfigService from '../../services/config/configService.js';
 import { logger } from '../../utils/logger.js';
 import { botConfig, getCommandPrefix } from '../../config/bot.js';
+import ticketDashboard from '../Ticket/modules/ticket_dashboard.js';
 
 const DASHBOARD_CUSTOM_ID = 'config_select';
 const WIZARD_BUTTON_ID = 'config_wizard';
@@ -156,6 +157,11 @@ function buildSettingsSelect(guildId) {
                     .setDescription('Role used for moderation commands')
                     .setValue('modRole')
                     .setEmoji('🛡️'),
+                new StringSelectMenuOptionBuilder()
+                    .setLabel('Ticket System')
+                    .setDescription('Configure tickets, staff, categories, logs, transcripts and limits')
+                    .setValue('ticketSystem')
+                    .setEmoji('🎫'),
                 new StringSelectMenuOptionBuilder()
                     .setLabel('Log Channel')
                     .setDescription('Channel for system log messages')
@@ -659,6 +665,16 @@ export default {
 
                     if (componentInteraction.isStringSelectMenu()) {
                         const selected = componentInteraction.values[0];
+
+                        if (selected === 'ticketSystem') {
+                            await ticketDashboard.execute(
+                                componentInteraction,
+                                await getGuildConfig(interaction.client, interaction.guildId),
+                                interaction.client,
+                            );
+                            return;
+                        }
+
                         await showSettingModal(componentInteraction, interaction.guildId, selected);
                         await handleSettingModalSubmit(
                             componentInteraction,
