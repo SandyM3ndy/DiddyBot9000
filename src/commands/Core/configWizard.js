@@ -214,13 +214,13 @@ function buildButtonRow(config, guildId) {
 function extractId(value) {
     if (!value || typeof value !== 'string') return null;
 
-    const channelMention = value.match(/<#!?(\d{17,19})>/);
+    const channelMention = value.match(/<#!?(\d{17,20})>/);
     if (channelMention) return channelMention[1];
 
-    const roleMention = value.match(/<@&(\d{17,19})>/);
+    const roleMention = value.match(/<@&(\d{17,20})>/);
     if (roleMention) return roleMention[1];
 
-    const digits = value.match(/^(\d{17,19})$/);
+    const digits = value.match(/^(\d{17,20})$/);
     if (digits) return digits[1];
 
     return null;
@@ -460,7 +460,8 @@ async function runSetupWizard(buttonInteraction, config, guild, client, rootInte
             try {
                 await setConfigValue(client, guild.id, 'setupWizardCompleted', true);
             } catch (error) {
-                logger.warn('Failed to persist setupWizardCompleted flag', { guildId: guild.id, error: error.message });
+                errors.push(`• setupWizardCompleted: ${error.message}`);
+                logger.error('Failed to persist setupWizardCompleted flag', { guildId: guild.id, error: error.message });
             }
         }
 
