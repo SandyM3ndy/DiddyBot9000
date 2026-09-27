@@ -115,6 +115,11 @@ function buildDashboardEmbed(config, guild) {
                 inline: true,
             },
             {
+                name: '🛡️ AutoMod',
+                value: config.autoModEnabled ? '🟢 Basic protection enabled' : '🔴 Disabled',
+                inline: true,
+            },
+            {
                 name: '💚 Bot Status',
                 value: getBotPresenceText(),
                 inline: false,
