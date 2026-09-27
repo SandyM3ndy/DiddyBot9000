@@ -71,12 +71,28 @@ function hashSeed(value) {
   return hash >>> 0;
 }
 
-function pickDailyQuests(guildId, day) {
+function getLevelPerks(level) {
+  const perks = [];
+  if (level >= 2) perks.push('📣 Level-up announcements');
+  if (level >= 5) perks.push('🎯 4 daily quests');
+  if (level >= 10) perks.push('⚡ 5% Server XP boost');
+  if (level >= 15) perks.push('🎯 5 daily quests');
+  if (level >= 20) perks.push('💎 Veteran Server milestone');
+  if (level >= 25) perks.push('⚡ 10% Server XP boost');
+  if (level >= 30) perks.push('🎯 6 daily quests');
+  if (level >= 40) perks.push('🏆 Elite Server milestone');
+  if (level >= 50) perks.push('👑 Legendary Server milestone');
+  return perks;
+}
+function getXpMultiplier(level) { return level >= 25 ? 1.10 : level >= 10 ? 1.05 : 1; }
+function getQuestCount(level) { return level >= 30 ? 6 : level >= 15 ? 5 : level >= 5 ? 4 : 3; }
+
+function pickDailyQuests(guildId, day, level = 1) {
   const pool = [...QUEST_POOL];
   let seed = hashSeed(`${guildId}:${day}`);
   const selected = [];
 
-  while (selected.length < 3 && pool.length) {
+  while (selected.length < Math.min(getQuestCount(level), pool.length) && pool.length) {
     seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
     const index = seed % pool.length;
     selected.push(pool.splice(index, 1)[0]);
@@ -128,7 +144,7 @@ function ensureDailyQuests(data, guildId, now = new Date()) {
   }
 
   data.lastQuestDay = day;
-  data.dailyQuests = pickDailyQuests(guildId, day).map(quest => ({
+  data.dailyQuests = pickDailyQuests(guildId, day, data.level).map(quest => ({
     ...quest,
     progress: 0,
     completed: false,
@@ -203,7 +219,7 @@ function completeQuests(data) {
 
 function addBaseXp(data, amount) {
   const before = data.level;
-  data.xp += amount;
+  data.xp += Math.floor(amount * getXpMultiplier(data.level));
   data.level = levelFromXp(data.xp);
   return { before, after: data.level };
 }
@@ -215,6 +231,7 @@ async function recordActivity(client, guildId, metric, options = {}) {
       if (!isEnabled(config)) return null;
 
       const data = await load(client, guildId);
+      const previousLevel = data.level;
       const now = Date.now();
 
       if (metric === 'message') {
@@ -273,10 +290,9 @@ async function recordActivity(client, guildId, metric, options = {}) {
       }
 
       const completed = completeQuests(data);
-      const levelChange = data.level;
       await save(client, guildId, data);
 
-      return { data, completed, level: levelChange };
+      return { data, completed, level: data.level, leveledUp: data.level > previousLevel, previousLevel, levelPerks: getLevelPerks(data.level) };
     });
 
     return result;
