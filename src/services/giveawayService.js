@@ -5,16 +5,9 @@ import { logger } from '../utils/logger.js';
 import { TitanBotError, ErrorTypes } from '../utils/errorHandler.js';
 import { getColor, botConfig } from '../config/bot.js';
 import { getEndedGiveaways, markGiveawayEnded } from '../utils/database.js';
-import { checkRateLimit, getRateLimitStatus } from '../utils/rateLimiter.js';
 import { logEvent, EVENT_TYPES } from './loggingService.js';
 
 const GIVEAWAY_CONFIG = botConfig.giveaways || {};
-const GIVEAWAY_INTERACTION_COOLDOWN = 1000;
-
-function getGiveawayInteractionKey(userId, giveawayId) {
-    return `giveaway:${userId}:${giveawayId}`;
-}
-
 export function parseDuration(durationString) {
     if (!durationString || typeof durationString !== 'string') {
         throw new TitanBotError(
@@ -251,22 +244,6 @@ export function selectWinners(participants, winnerCount) {
             { error: error.message, participantCount: participants.length }
         );
     }
-}
-
-export function isUserRateLimited(userId, giveawayId) {
-    const status = getRateLimitStatus(
-        getGiveawayInteractionKey(userId, giveawayId),
-        GIVEAWAY_INTERACTION_COOLDOWN,
-    );
-    return status.attempts >= 1 && status.remaining > 0;
-}
-
-export async function recordUserInteraction(userId, giveawayId) {
-    await checkRateLimit(
-        getGiveawayInteractionKey(userId, giveawayId),
-        1,
-        GIVEAWAY_INTERACTION_COOLDOWN,
-    );
 }
 
 export async function endGiveaway(client, giveaway, guildId, endedBy) {
