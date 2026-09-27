@@ -2,7 +2,7 @@ import { warningEmbed } from '../../../utils/embeds.js';
 import { isLockdownActive } from '../../../services/lockdownService.js';
 
 export default {
-  name: 'lockdown:stage1',
+  name: 'lockdown_stage1',
   async execute(interaction, client, args) {
     const [decision, userId] = args;
     if (!interaction.guild || interaction.user.id !== userId || interaction.user.id !== interaction.guild.ownerId) {
@@ -22,8 +22,8 @@ export default {
       components: [{
         type: 1,
         components: [
-          { type: 2, custom_id: `lockdown:stage2:yes:${userId}`, label: 'Yes', style: 4 },
-          { type: 2, custom_id: `lockdown:stage2:no:${userId}`, label: 'No', style: 2 },
+          { type: 2, custom_id: `lockdown_stage2:yes:${userId}`, label: 'Yes', style: 4 },
+          { type: 2, custom_id: `lockdown_stage2:no:${userId}`, label: 'No', style: 2 },
         ],
       }],
     });
