@@ -13,14 +13,12 @@ import {
 import fs from "fs/promises";
 import path from "path";
 import { fileURLToPath } from "url";
-import { getBotOwners } from "../../config/bot.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const CATEGORY_SELECT_ID = "help-category-select";
 const ALL_COMMANDS_ID = "help-all-commands";
-const BUG_REPORT_BUTTON_ID = "help-bug-report";
 const HELP_MENU_TIMEOUT_MS = 5 * 60 * 1000;
 
 const CATEGORY_ICONS = {
@@ -48,10 +46,7 @@ function formatCategoryName(rawCategory) {
     return rawCategory
         .replace(/_/g, '')
         .replace(/([a-z])([A-Z])/g, '$1 $2')
-        .replace(/    const supportButton = new ButtonBuilder()
-        .setLabel("Support Server")
-        .setURL("https://discord.gg/76N2EM6v6k")
-        .setStyle(ButtonStyle.Link);b\w/g, (char) => char.toUpperCase());
+        .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 export async function createInitialHelpMenu(client) {
@@ -83,7 +78,7 @@ export async function createInitialHelpMenu(client) {
     const botName = client?.user?.username || "Bot";
     const embed = createEmbed({
         title: `📖 ${botName} Help`,
-        description: `Your DiddyBot9000 command centre. Browse commands by category, see what each command does, and check who can use it.\n\n👤 Maintained by ${getBotOwners()[0] ? `<@${getBotOwners()[0]}>` : 'the bot owner'}.`,
+        description: `Your DiddyBot9000 command centre. Browse commands by category, see what each command does, and check who can use it.\n\n❤️ I love making DiddyBot9000 and I am always working on making it better.`,
         color: 'primary',
         thumbnail: client.user?.displayAvatarURL?.({ size: 1024 }),
         fields: [
@@ -118,15 +113,6 @@ export async function createInitialHelpMenu(client) {
     });
     embed.setTimestamp();
 
-    const ownerId = getBotOwners()[0] || null;
-
-    const ownerButton = ownerId
-        ? new ButtonBuilder()
-            .setLabel("Contact Owner")
-            .setURL(`https://discord.com/users/${ownerId}`)
-            .setStyle(ButtonStyle.Link)
-        : null;
-
     const supportButton = new ButtonBuilder()
         .setLabel("Support Server")
         .setURL("https://discord.gg/76N2EM6v6k")
@@ -138,9 +124,8 @@ export async function createInitialHelpMenu(client) {
         options,
     );
 
-    const buttonRow = new ActionRowBuilder().addComponents(
-        ownerButton ? [ownerButton, supportButton] : [supportButton],
-    );
+    const buttonRow = new ActionRowBuilder().addComponents(supportButton);
+
 
     return {
         embeds: [embed],
