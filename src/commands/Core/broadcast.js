@@ -1,4 +1,4 @@
-```js
+js
 import {
   SlashCommandBuilder,
   PermissionFlagsBits,
@@ -7,8 +7,7 @@ import { isBotOwner } from '../../config/bot.js';
 
 // Server IDs that should NOT receive broadcasts.
 const DISABLED_GUILD_IDS = [
-  // '123456789012345678',
-  // '987654321098765432',
+  '1533146166965964943',
 ];
 
 export default {
@@ -84,5 +83,4 @@ export default {
     });
   },
 };
-```
 
