@@ -46,21 +46,6 @@ export default {
             const lastFish = userData.lastFish || 0;
             const hasFishingRod = userData.inventory["fishing_rod"] || 0;
 
-            if (now < lastFish + FISH_COOLDOWN) {
-                const remaining = lastFish + FISH_COOLDOWN - now;
-                const hours = Math.floor(remaining / (1000 * 60 * 60));
-                const minutes = Math.floor(
-                    (remaining % (1000 * 60 * 60)) / (1000 * 60),
-                );
-
-                throw createError(
-                    "Fishing cooldown active",
-                    ErrorTypes.RATE_LIMIT,
-                    `You're too tired to fish right now. Rest for **${hours}h ${minutes}m** before fishing again.`,
-                    { remaining, cooldownType: 'fish' }
-                );
-            }
-
             const rand = Math.random();
             let fishCaught;
             
@@ -96,7 +81,6 @@ export default {
             const catchMessage = CATCH_MESSAGES[Math.floor(Math.random() * CATCH_MESSAGES.length)];
 
             userData.wallet += finalEarned;
-            userData.lastFish = now;
 
             await setEconomyData(client, guildId, userId, userData);
 
@@ -125,7 +109,7 @@ export default {
                         inline: true,
                     }
                 )
-                .setFooter({ text: `Next fishing trip available in 45 minutes.` });
+                .setFooter({ text: `Fishing rewards are available again immediately.` });
 
             await InteractionHelper.safeEditReply(interaction, { embeds: [embed] });
     }, { command: 'fish' })
