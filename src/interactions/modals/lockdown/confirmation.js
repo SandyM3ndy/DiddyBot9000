@@ -3,7 +3,7 @@ import { logger } from '../../../utils/logger.js';
 import { activateLockdown, verifyLockdownConfirmation } from '../../../services/lockdownService.js';
 
 export default {
-  name: 'lockdown:confirmation',
+  name: 'lockdown_confirmation',
   async execute(interaction, client, args) {
     const [userId] = args;
 
