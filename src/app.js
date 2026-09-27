@@ -336,7 +336,6 @@ class TitanBot extends Client {
         }
         
         // Save cleaned counters if any were orphaned
-        // Save cleaned counters if any were orphaned
         if (orphanedCounters.length > 0) {
           await saveServerCounters(this, guildId, validCounters);
           logger.info(`Cleaned up ${orphanedCounters.length} orphaned counter(s) from guild ${guildId} during scheduled update`);
@@ -388,6 +387,9 @@ class TitanBot extends Client {
   }
 
   async shutdown(reason = 'UNKNOWN', exitCode = 0) {
+    if (this.isShuttingDown) return;
+    this.isShuttingDown = true;
+
     shutdownLog(`Bot is shutting down (${reason})...`);
     logger.info(`\n${'='.repeat(60)}`);
     logger.info(`🛑 Graceful Shutdown Initiated (${reason})`);
