@@ -219,6 +219,23 @@ async function recordActivity(client, guildId, metric, options = {}) {
         data.totalMessages += 1;
         applyMetric(data, 'messages', 1);
 
+        for (const quest of data.dailyQuests) {
+          if (quest.metric === 'channels' && !quest.completed && options.channelId) {
+            quest._channels = Array.isArray(quest._channels) ? quest._channels : [];
+            if (!quest._channels.includes(options.channelId)) {
+              quest._channels.push(options.channelId);
+            }
+            quest.progress = Math.min(quest.target, quest._channels.length);
+          }
+          if (quest.metric === 'uniqueMembers' && !quest.completed && options.userId) {
+            quest._members = Array.isArray(quest._members) ? quest._members : [];
+            if (!quest._members.includes(options.userId)) {
+              quest._members.push(options.userId);
+            }
+            quest.progress = Math.min(quest.target, quest._members.length);
+          }
+        }
+
         const bucketKey = `${guildId}:${options.userId}`;
         const bucket = (activityBuckets.get(bucketKey) || []).filter(ts => now - ts < 60_000);
         if (bucket.length < 10) {
