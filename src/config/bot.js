@@ -502,17 +502,11 @@ export function validateConfig(config) {
     // A full connection URL (DATABASE_URL / POSTGRES_URL) satisfies all Postgres
     // requirements, matching how src/config/database/postgres.js resolves the pool config.
     const hasConnectionUrl = Boolean(process.env.POSTGRES_URL || process.env.DATABASE_URL);
+    const hasHostConfig = Boolean(process.env.POSTGRES_HOST && process.env.POSTGRES_USER && process.env.POSTGRES_PASSWORD);
 
-    if (!hasConnectionUrl) {
-      if (!process.env.POSTGRES_HOST) {
-        errors.push("PostgreSQL connection is required in production (set DATABASE_URL/POSTGRES_URL, or POSTGRES_HOST)");
-      }
-      if (!process.env.POSTGRES_USER) {
-        errors.push("PostgreSQL user is required in production (set DATABASE_URL/POSTGRES_URL, or POSTGRES_USER)");
-      }
-      if (!process.env.POSTGRES_PASSWORD) {
-        errors.push("PostgreSQL password is required in production (set DATABASE_URL/POSTGRES_URL, or POSTGRES_PASSWORD)");
-      }
+    // Only fail if NEITHER connection URL nor individual host config are present
+    if (!hasConnectionUrl && !hasHostConfig) {
+      errors.push("PostgreSQL connection is required in production (set DATABASE_URL/POSTGRES_URL, or POSTGRES_HOST + POSTGRES_USER + POSTGRES_PASSWORD)");
     }
   }
 
@@ -653,3 +647,4 @@ export function getRandomColor() {
 }
 
 export default botConfig;
+
