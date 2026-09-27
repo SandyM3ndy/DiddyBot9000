@@ -11,6 +11,8 @@ import {
 } from '../../services/antinukeService.js';
 
 export default {
+  cooldown: 0,
+
   data: new SlashCommandBuilder()
     .setName('antinuke')
     .setDescription('Configure DiddyBot Anti-Nuke protection.')
