@@ -61,6 +61,20 @@ class PostgreSQLDatabase {
         return this.connectionPromise;
     }
 
+    async reconnect() {
+        try {
+            if (this.pool) {
+                await this.pool.end().catch(() => {});
+            }
+        } finally {
+            this.pool = null;
+            this.isConnected = false;
+            this.connectionPromise = null;
+        }
+
+        return this.connect();
+    }
+
     async _establishConnection() {
         const retries = Number.isFinite(pgConfig.options.retries) ? pgConfig.options.retries : 0;
         const baseDelay = Number.isFinite(pgConfig.options.backoffBase) ? pgConfig.options.backoffBase : 100;
@@ -75,6 +89,12 @@ class PostgreSQLDatabase {
 
                 this.pool.on('error', (error, client) => {
                     logger.error('PostgreSQL pool error:', error);
+                    // A pool-level error can mean the connection is no longer usable.
+                    // Mark it unavailable so the wrapper can fail safely instead of
+                    // silently falling back to defaults for persistent data.
+                    if (!this.pool || client) {
+                        this.isConnected = false;
+                    }
                 });
 
                 const client = await this.pool.connect();
