@@ -127,6 +127,22 @@ class EconomyService {
 
     this.validateAmount(amount, { operation: 'transfer', senderId, receiverId });
 
+    if (typeof client.db?.transferEconomy === 'function') {
+      try {
+        return await client.db.transferEconomy(guildId, senderId, receiverId, amount);
+      } catch (error) {
+        if (error.message === 'INSUFFICIENT_FUNDS') {
+          throw createError(
+            "Insufficient funds",
+            ErrorTypes.VALIDATION,
+            "You do not have enough cash to complete this transfer.",
+            { senderId, receiverId, amount }
+          );
+        }
+        throw error;
+      }
+    }
+
     const [senderData, receiverData] = await Promise.all([
       getEconomyData(client, guildId, senderId),
       getEconomyData(client, guildId, receiverId)
