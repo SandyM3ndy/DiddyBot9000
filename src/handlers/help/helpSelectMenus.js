@@ -62,13 +62,13 @@ function getCommandAccess(commandData) {
         const value = BigInt(permissions);
         const flags = [
             [3n, "Administrator"],
-            [2n, "Manage Server"],
+            [5n, "Manage Server"],
             [4n, "Manage Channels"],
             [13n, "Manage Messages"],
             [1n, "Kick Members"],
-            [14n, "Ban Members"],
+            [2n, "Ban Members"],
             [28n, "Manage Roles"],
-            [11n, "Moderate Members"],
+            [40n, "Moderate Members"],
             [6n, "View Audit Log"],
         ];
         const names = [];
@@ -124,6 +124,7 @@ function buildHelpEntries(command, category) {
 
                 entries.push({
                     baseName,
+                    commandData,
                     displayName: `${baseName} ${option.name} ${nested.name}`,
                     description: nested.description || option.description || baseDescription,
                     category,
