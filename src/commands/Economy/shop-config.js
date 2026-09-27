@@ -1,11 +1,12 @@
-import { SlashCommandBuilder } from 'discord.js';
+import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
 import shopConfigSetrole from './modules/shop_config_setrole.js';
 
 export default {
     slashOnly: true,
     data: new SlashCommandBuilder()
         .setName('shop-config')
-        .setDescription('Configure shop settings. (Manage Server required)')
+        .setDescription('Configure server shop settings.')
+        .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
         .addSubcommand(subcommand =>
             subcommand
                 .setName('setrole')
