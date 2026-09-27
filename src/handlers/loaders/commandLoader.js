@@ -258,7 +258,23 @@ async function registerGlobalCommands(client, clientId, commands, totalSubcomman
     logger.info(`Registering ${commandsToRegister.length} global commands...`);
     await client.rest.put(`/applications/${clientId}/commands`, { body: commandsToRegister });
     logger.info(`Successfully registered ${commandsToRegister.length} global commands`);
-    logger.info('Global commands may take up to an hour to appear in all servers on first deploy');
+
+    // Also register the current command set per guild so commands are immediately
+    // visible in every server the bot is already in. Global registration can take
+    // time to propagate through Discord's global command cache.
+    if (client.guilds?.cache?.size) {
+        for (const guild of client.guilds.cache.values()) {
+            try {
+                await client.rest.put(
+                    `/applications/${clientId}/guilds/${guild.id}/commands`,
+                    { body: commandsToRegister },
+                );
+                logger.info(`Registered ${commandsToRegister.length} commands in guild ${guild.id} (${guild.name})`);
+            } catch (error) {
+                logger.warn(`Failed to register commands in guild ${guild.id} (${guild.name}): ${error.message}`);
+            }
+        }
+    }
 }
 
 export async function registerCommands(client, options = {}) {
