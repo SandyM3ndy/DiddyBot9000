@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
-import { successEmbed } from '../../utils/embeds.js';
+import { createEmbed, successEmbed } from '../../utils/embeds.js';
 import { logEvent } from '../../utils/moderation.js';
 import { logger } from '../../utils/logger.js';
 import { sanitizeMarkdown } from '../../utils/validation.js';
@@ -13,8 +13,8 @@ export default {
         .setDescription("Send a direct message to a user (Staff only)")
         .addStringOption(option =>
             option
-                .setName("userid")
-                .setDescription("The Discord user ID to send a DM to")
+                .setName("user")
+                .setDescription("Enter a user ID or @mention")
                 .setRequired(true)
         )
         .addStringOption(option =>
@@ -22,12 +22,6 @@ export default {
                 .setName("message")
                 .setDescription("The message to send")
                 .setRequired(true)
-        )
-        .addBooleanOption(option =>
-            option
-                .setName("anonymous")
-                .setDescription("Send the message anonymously (default: false)")
-                .setRequired(false)
         )
         .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers)
         .setDMPermission(false),
@@ -38,41 +32,42 @@ export default {
         const deferSuccess = await InteractionHelper.safeDefer(interaction);
 
         if (!deferSuccess) {
-            logger.warn(`DM interaction defer failed`, {
+            logger.warn("DM interaction defer failed", {
                 userId: interaction.user.id,
                 guildId: interaction.guildId,
-                commandName: 'dm'
+                commandName: "dm"
             });
             return;
         }
 
-        const userId = interaction.options.getString("userid", true).trim();
+        const userInput = interaction.options.getString("user", true);
         const message = interaction.options.getString("message", true);
-        const anonymous = interaction.options.getBoolean("anonymous") || false;
 
         try {
+            // Extract a user ID from either an ID or a mention
+            const userId = userInput.replace(/[<@!>]/g, "");
+
             if (!/^\d{17,20}$/.test(userId)) {
                 return await replyUserError(interaction, {
                     type: ErrorTypes.UNKNOWN,
-                    message: 'Please provide a valid Discord user ID.'
+                    message: "Please enter a valid Discord user ID or @mention."
                 });
             }
 
             if (message.length > 2000) {
                 return await replyUserError(interaction, {
                     type: ErrorTypes.UNKNOWN,
-                    message: 'Messages must be under 2000 characters.'
+                    message: "Your message must be 2,000 characters or less."
                 });
             }
 
-            // Fetch the user directly using their Discord ID.
-            // This does not require the user to share a server with the bot.
+            // Fetch the user globally
             const targetUser = await client.users.fetch(userId);
 
             if (targetUser.bot) {
                 return await replyUserError(interaction, {
                     type: ErrorTypes.UNKNOWN,
-                    message: 'You cannot send DMs to bot accounts.'
+                    message: "You cannot send a DM to a bot account."
                 });
             }
 
@@ -83,9 +78,7 @@ export default {
             await dmChannel.send({
                 embeds: [
                     successEmbed(
-                        anonymous
-                            ? "Message from the Staff Team"
-                            : `Message from ${interaction.user.tag}`,
+                        "Message from Diddy...",
                         sanitized
                     ).setFooter({
                         text: `You cannot reply to this message. | Logger ID: ${interaction.id}`
@@ -100,11 +93,9 @@ export default {
                     action: "DM Sent",
                     target: `${targetUser.tag} (${targetUser.id})`,
                     executor: `${interaction.user.tag} (${interaction.user.id})`,
-                    reason: `Anonymous: ${anonymous ? 'Yes' : 'No'}`,
                     metadata: {
                         userId: targetUser.id,
                         moderatorId: interaction.user.id,
-                        anonymous,
                         messageLength: sanitized.length
                     }
                 }
@@ -114,31 +105,31 @@ export default {
                 embeds: [
                     successEmbed(
                         "DM Sent",
-                        `Successfully sent a message to ${targetUser.tag}`
-                    ),
-                ],
+                        `Your message was successfully sent to **${targetUser.tag}**.`
+                    )
+                ]
             });
 
         } catch (error) {
-            logger.error('DM command error:', error);
+            logger.error("DM command error:", error);
 
             if (error.code === 50007) {
                 return await replyUserError(interaction, {
                     type: ErrorTypes.UNKNOWN,
-                    message: `Could not send a DM to this user. They may have DMs disabled, blocked the bot, or Discord may not allow the message.`
+                    message: "I couldn't send a DM to that user. They may not share a server with Diddy or Discord may be blocking the DM."
                 });
             }
 
-            if (error.code === 10013) {
+            if (error.code === 10013 || error.code === 10007) {
                 return await replyUserError(interaction, {
                     type: ErrorTypes.UNKNOWN,
-                    message: `That Discord user ID does not exist or could not be found.`
+                    message: "That user could not be found."
                 });
             }
 
             return await replyUserError(interaction, {
                 type: ErrorTypes.UNKNOWN,
-                message: `Failed to send DM: ${error.message}`
+                message: "Something went wrong while trying to send the DM."
             });
         }
     }
