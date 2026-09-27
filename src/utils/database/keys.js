@@ -113,6 +113,32 @@ export function getGiveawayLockKey(messageId) {
  * Used by migration script and read-time fallback.
  */
 export const LEGACY_KEY_RESOLVERS = [
+    {
+        pattern: /^economy:([^:]+):([^:]+)$/,
+        toCanonical: ([, guildId, userId]) => getEconomyKey(guildId, userId),
+    },
+    {
+        pattern: /^moderation:warnings:([^:]+):([^:]+)$/,
+        toCanonical: ([, guildId, userId]) => getWarningsKey(guildId, userId),
+    },
+    {
+        pattern: /^moderation_user_notes_([^_]+)_([^_]+)$/,
+        toCanonical: ([, guildId, userId]) => getUserNotesKey(guildId, userId),
+    },
+    {
+        pattern: /^moderation_user_notes_list_([^_]+)$/,
+        toCanonical: ([, guildId]) => getUserNotesListKey(guildId),
+    },
+    {
+        pattern: /^reaction_roles:([^:]+):([^:]+)$/,
+        toCanonical: ([, guildId, messageId]) => getReactionRoleKey(guildId, messageId),
+    },
+    {
+        pattern: /^counters:([^:]+)$/,
+        toCanonical: ([, guildId]) => getServerCountersKey(guildId),
+    },
+];
+
 /**
  * Returns the canonical key for a legacy or already-canonical key.
  */
