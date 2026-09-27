@@ -94,6 +94,7 @@ function defaultProgression() {
     lastQuestDay: null,
     dailyQuests: [],
     updatedAt: new Date().toISOString(),
+    leaderboardExcluded: false,
   };
 }
 
@@ -107,6 +108,7 @@ function normalizeProgression(raw) {
     totalMessages: Math.max(0, Number(base.totalMessages) || 0),
     totalCommands: Math.max(0, Number(base.totalCommands) || 0),
     dailyQuests: Array.isArray(base.dailyQuests) ? base.dailyQuests : [],
+    leaderboardExcluded: base.leaderboardExcluded === true,
   };
 }
 
@@ -386,6 +388,7 @@ export async function getGlobalProgressionLeaderboard(client) {
 
     const raw = await client.db.get(key, null);
     const data = normalizeProgression(raw);
+    if (data.leaderboardExcluded === true) continue;
     entries.push({
       guildId,
       guildName: guild.name,
