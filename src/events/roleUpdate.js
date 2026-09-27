@@ -8,6 +8,7 @@ import {
   revertRolePermissions,
   recordThreat,
   getAntiNukeLevel,
+  handleDestructiveAction,
 } from '../services/antinukeService.js';
 import { logger } from '../utils/logger.js';
 
@@ -17,31 +18,15 @@ export default {
 
   async execute(oldRole, newRole) {
     try {
-      if (!newRole.guild) return;
-
-      if (!isAntiNukeEnabled(newRole.guild.id)) {
-        return;
-      }
-
-      const dangerousChange = isDangerousPermissionChange(
-        oldRole.permissions,
-        newRole.permissions
-      );
-
-      if (!dangerousChange) {
-        return;
-      }
+      if (!newRole.guild || !isAntiNukeEnabled(newRole.guild.id)) return;
+      if (!isDangerousPermissionChange(oldRole.permissions, newRole.permissions)) return;
 
       const dangerousPermissions = getDangerousPermissions(
         oldRole.permissions,
         newRole.permissions
       );
 
-      const auditEntry = await findRoleUpdateExecutor(
-        newRole.guild,
-        newRole.id
-      );
-
+      const auditEntry = await findRoleUpdateExecutor(newRole.guild, newRole.id);
       const executor = auditEntry?.executor;
 
       recordThreat(newRole.guild.id);
@@ -50,21 +35,15 @@ export default {
         `Anti-Nuke detected dangerous permission change in ${newRole.guild.name}: role=${newRole.name} level=${getAntiNukeLevel(newRole.guild.id)} executor=${executor?.tag || 'Unknown'} permissions=${dangerousPermissions.join(', ')}`
       );
 
-      // We cannot safely attribute the change without an audit-log entry.
-      // Don't automatically revert if Discord hasn't identified the actor.
-      if (!executor) {
-        return;
-      }
+      if (!executor || isTrustedActor(newRole.guild, executor.id)) return;
 
-      if (isTrustedActor(newRole.guild, executor.id)) {
-        return;
-      }
-
-      await revertRolePermissions(
-        newRole,
-        oldRole.permissions
+      await revertRolePermissions(newRole, oldRole.permissions);
+      await handleDestructiveAction(
+        newRole.guild,
+        executor,
+        'dangerous role permission escalation',
+        `role=${newRole.name}`
       );
-
     } catch (error) {
       logger.error('Error in roleUpdate Anti-Nuke event:', error);
     }
