@@ -1,7 +1,7 @@
 import { warningEmbed } from '../../../utils/embeds.js';
 
 export default {
-  name: 'lockdown:stage2',
+  name: 'lockdown_stage2',
   async execute(interaction, client, args) {
     const [decision, userId] = args;
     if (!interaction.guild || interaction.user.id !== userId || interaction.user.id !== interaction.guild.ownerId) {
@@ -17,8 +17,8 @@ export default {
       components: [{
         type: 1,
         components: [
-          { type: 2, custom_id: `lockdown:stage3:yes:${userId}`, label: 'YES, CONTINUE', style: 4 },
-          { type: 2, custom_id: `lockdown:stage3:no:${userId}`, label: 'NO, CANCEL', style: 2 },
+          { type: 2, custom_id: `lockdown_stage3:yes:${userId}`, label: 'YES, CONTINUE', style: 4 },
+          { type: 2, custom_id: `lockdown_stage3:no:${userId}`, label: 'NO, CANCEL', style: 2 },
         ],
       }],
     });
