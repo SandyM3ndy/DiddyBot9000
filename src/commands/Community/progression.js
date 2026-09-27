@@ -61,7 +61,7 @@ export default {
     const data = await getServerProgression(interaction.client, interaction.guildId);
     const progress = getLevelProgress(data);
     const questLines = data.dailyQuests.map(quest =>
-      `${quest.completed ? '✅' : '▫️'} **${quest.title}** — ${Math.min(quest.progress, quest.target)}/${quest.target} · +${quest.reward} XP`
+      `${quest.completed ? '✅' : '▫️'} **${quest.title}**\n> 🎯 **What to do:** ${quest.description}\n> 📊 **Progress:** ${Math.min(quest.progress, quest.target)}/${quest.target} · 🏆 **Reward:** +${quest.reward} XP`
     );
 
     const perks = [];
