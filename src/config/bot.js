@@ -521,7 +521,11 @@ export function validateConfig(config) {
 
 const configErrors = validateConfig(botConfig);
 if (configErrors.length > 0) {
-  logger.error("Bot configuration errors:", configErrors.join("\n"));
+  console.error("========================================");
+  console.error("BOT CONFIGURATION ERRORS:");
+  console.error(configErrors.join("\n"));
+  console.error("========================================");
+
   if (process.env.NODE_ENV === "production") {
     process.exit(1);
   }
