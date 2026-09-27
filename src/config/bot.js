@@ -479,6 +479,40 @@ export function validateConfig(config) {
         "PostgreSQL connection is required in production (set DATABASE_URL/POSTGRES_URL, or POSTGRES_HOST + POSTGRES_USER + POSTGRES_PASSWORD)"
       );
     }
+
+    // Fail closed on known-insecure production defaults.
+    const weakSecrets = new Set([
+      "password",
+      "postgres",
+      "titanbot",
+      "youshallnotpass",
+      "change-me",
+      "changeme",
+      "secret",
+    ]);
+
+    const postgresPassword = process.env.POSTGRES_PASSWORD;
+    if (postgresPassword && weakSecrets.has(postgresPassword.toLowerCase())) {
+      errors.push("POSTGRES_PASSWORD is using a known/default weak secret; use a long random password.");
+    }
+
+    const lavalinkPassword = process.env.LAVALINK_PASSWORD;
+    if (lavalinkPassword && weakSecrets.has(lavalinkPassword.toLowerCase())) {
+      errors.push("LAVALINK_PASSWORD is using a known/default weak secret; use a long random password.");
+    }
+
+    const corsOrigins = process.env.CORS_ORIGIN
+      ?.split(",")
+      .map((value) => value.trim())
+      .filter(Boolean) || [];
+
+    if (corsOrigins.includes("*")) {
+      errors.push("CORS_ORIGIN=* is not allowed in production; configure explicit trusted origins.");
+    }
+
+    if (process.env.DISCORD_TOKEN && process.env.DISCORD_TOKEN.length < 50) {
+      errors.push("DISCORD_TOKEN appears invalid or truncated; refuse to start with a suspiciously short token.");
+    }
   }
 
   return errors;
