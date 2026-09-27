@@ -38,6 +38,9 @@ export const botConfig = {
     // Owners can access owner/admin-level bot commands.
     owners: process.env.OWNER_IDS?.split(",").map((id) => id.trim()).filter(Boolean) || [],
 
+    // Hard-coded primary owner for owner-only administrative commands.
+    primaryOwnerId: "1022691434974957618",
+
     // If true, old commands are removed before re-registering.
     deleteCommands: true,
 
