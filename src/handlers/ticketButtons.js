@@ -107,12 +107,9 @@ const createTicketHandler = {
     try {
       if (!(await ensureGuildContext(interaction))) return;
 
-      const rateLimitKey = `${interaction.user.id}:create_ticket`;
-      if (!allowed) {
-        await replyUserError(interaction, { type: ErrorTypes.RATE_LIMIT, message: 'You are creating tickets too quickly. Please wait a minute and try again.' });
-        return;
-      }
-
+      // The open-ticket count below is the authoritative creation guard.
+      // Do not reference a separate rate-limit variable here; the previous implementation
+      // referenced an undefined `allowed` value and prevented the modal from opening.
       const config = await getGuildConfig(client, interaction.guildId);
       const maxTicketsPerUser = config.maxTicketsPerUser || 3;
       
