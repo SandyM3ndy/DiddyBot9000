@@ -400,6 +400,28 @@ export async function recordMemberJoinActivity(client, member, config = null) {
   return result;
 }
 
+export async function addServerXp(client, guildId, amount) {
+  const xpAmount = Math.max(0, Math.floor(Number(amount) || 0));
+  if (!xpAmount) return null;
+
+  return withGuildLock(guildId, async () => {
+    const data = await load(client, guildId);
+    const oldLevel = data.level;
+    const oldXp = data.xp;
+    data.xp += xpAmount;
+    data.level = levelFromXp(data.xp);
+    await save(client, guildId, data);
+    return {
+      data,
+      oldXp,
+      oldLevel,
+      amount: xpAmount,
+      leveledUp: data.level > oldLevel,
+      levelPerks: getLevelPerks(data.level),
+    };
+  });
+}
+
 export async function getServerProgression(client, guildId) {
   const data = await load(client, guildId);
   return data;
