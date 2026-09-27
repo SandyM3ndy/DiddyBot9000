@@ -44,6 +44,12 @@ class DatabaseWrapper {
             if (error.code === 'SCHEMA_VERSION_MISMATCH') {
                 throw error;
             }
+
+            // Production must never silently downgrade persistent bot data to RAM.
+            // A restart would otherwise erase configuration and other persistent state.
+            if (process.env.NODE_ENV === 'production') {
+                throw error;
+            }
         }
 
         this.db = new MemoryStorage();
@@ -57,6 +63,10 @@ class DatabaseWrapper {
     }
 
     async set(key, value, ttl = null) {
+        if (this.useFallback && process.env.NODE_ENV === 'production') {
+            throw new Error('Persistent database is unavailable; refusing to save data in memory.');
+        }
+
         if (this.useFallback) {
             logger.debug(`[DEGRADED] Writing to memory: ${key}`);
         }
@@ -73,10 +83,17 @@ class DatabaseWrapper {
     }
 
     async get(key, defaultValue = null) {
+        if (this.useFallback && process.env.NODE_ENV === 'production') {
+            throw new Error('Persistent database is unavailable; refusing to return non-persistent defaults.');
+        }
         return this.db.get(key, defaultValue);
     }
 
     async delete(key) {
+        if (this.useFallback && process.env.NODE_ENV === 'production') {
+            throw new Error('Persistent database is unavailable; refusing to delete data.');
+        }
+
         if (this.useFallback) {
             logger.debug(`[DEGRADED] Deleting from memory: ${key}`);
         }
