@@ -562,8 +562,8 @@ class PostgreSQLDatabase {
         try {
             await client.query('BEGIN');
             const result = await client.query(
-                \`SELECT user_id, balance, bank, data FROM \${T}
-                 WHERE guild_id = $1 AND user_id = ANY($2::text[]) FOR UPDATE\`,
+                `SELECT user_id, balance, bank, data FROM ${T}
+                 WHERE guild_id = $1 AND user_id = ANY($2::text[]) FOR UPDATE`,
                 [guildId, [senderId, receiverId]]
             );
             const byUser = new Map(result.rows.map(row => [row.user_id, row]));
@@ -581,10 +581,10 @@ class PostgreSQLDatabase {
             receiverData.wallet = nextReceiver;
             for (const [userId, data] of [[senderId, senderData], [receiverId, receiverData]]) {
                 await client.query(
-                    \`INSERT INTO \${T} (guild_id, user_id, balance, bank, data, updated_at)
+                    `INSERT INTO ${T} (guild_id, user_id, balance, bank, data, updated_at)
                      VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
                      ON CONFLICT (guild_id, user_id) DO UPDATE SET
-                     balance = $3, bank = $4, data = $5, updated_at = CURRENT_TIMESTAMP\`,
+                     balance = $3, bank = $4, data = $5, updated_at = CURRENT_TIMESTAMP`,
                     [guildId, userId, data.wallet ?? 0, data.bank ?? 0, data]
                 );
             }
