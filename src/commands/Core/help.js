@@ -13,6 +13,7 @@ import {
 import fs from "fs/promises";
 import path from "path";
 import { fileURLToPath } from "url";
+import { getBotOwners } from "../../config/bot.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -79,7 +80,7 @@ export async function createInitialHelpMenu(client) {
     const botName = client?.user?.username || "Bot";
     const embed = createEmbed({
         title: `📖 ${botName} Help`,
-        description: 'Your control centre for DiddyBot9000 — configure the server, manage features, and browse every command from one place.',
+        description: `Your DiddyBot9000 command centre. Browse commands by category, see what each command does, and check who can use it.\n\n👤 Maintained by ${getBotOwners()[0] ? `<@${getBotOwners()[0]}>` : 'the bot owner'}.`,
         color: 'primary',
         thumbnail: client.user?.displayAvatarURL?.({ size: 1024 }),
         fields: [
@@ -103,7 +104,7 @@ export async function createInitialHelpMenu(client) {
             },
             {
                 name: '\u200B',
-                value: `-# ${botName} is [open source](https://youtu.be/1jCZX8s3bJE?si=NPOYx-vxVE1I5vJK)`,
+                value: `-# Need help, want to report an issue, or have an idea? Use the support server below.`,
                 inline: false,
             },
         ],
@@ -114,10 +115,14 @@ export async function createInitialHelpMenu(client) {
     });
     embed.setTimestamp();
 
-    const bugReportButton = new ButtonBuilder()
-        .setCustomId(BUG_REPORT_BUTTON_ID)
-        .setLabel("Report an Issue")
-        .setStyle(ButtonStyle.Danger);
+    const ownerId = getBotOwners()[0] || null;
+
+    const ownerButton = ownerId
+        ? new ButtonBuilder()
+            .setLabel("Contact Owner")
+            .setURL(`https://discord.com/users/${ownerId}`)
+            .setStyle(ButtonStyle.Link)
+        : null;
 
     const supportButton = new ButtonBuilder()
         .setLabel("Support Server")
@@ -130,10 +135,9 @@ export async function createInitialHelpMenu(client) {
         options,
     );
 
-    const buttonRow = new ActionRowBuilder().addComponents([
-        bugReportButton,
-        supportButton,
-    ]);
+    const buttonRow = new ActionRowBuilder().addComponents(
+        ownerButton ? [ownerButton, supportButton] : [supportButton],
+    );
 
     return {
         embeds: [embed],
