@@ -19,11 +19,11 @@ export default {
       );
       const nodeVersion = process.version;
 
-      const embed = createEmbed({ title: "System Statistics", description: "Real-time performance metrics." }).addFields(
-        { name: "Servers", value: `${totalGuilds}`, inline: true },
-        { name: "Users", value: `${totalMembers}`, inline: true },
-        { name: "Node.js", value: `${nodeVersion}`, inline: true },
-        { name: "Discord.js", value: `v${version}`, inline: true },
+      const embed = createEmbed({ title: "📊 System Statistics", description: "Live information about DiddyBot9000 and the current process.", color: "info" }).addFields(
+        { name: "🌐 Servers", value: `${totalGuilds}`, inline: true },
+        { name: "👥 Users", value: `${totalMembers}`, inline: true },
+        { name: "🟢 Node.js", value: `${nodeVersion}`, inline: true },
+        { name: "💬 Discord.js", value: `v${version}`, inline: true },
         {
           name: "Memory Usage",
           value: `${(process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2)} MB`,
