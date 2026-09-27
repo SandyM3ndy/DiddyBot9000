@@ -1,5 +1,6 @@
 import { AuditLogEvent, PermissionFlagsBits } from 'discord.js';
 import { logger } from '../utils/logger.js';
+import { logModerationAction } from '../utils/moderation.js';
 
 const configurations = new Map();
 const recentActions = new Map();
@@ -157,7 +158,31 @@ export async function punishExecutor(guild, executor, reason = 'Anti-Nuke: destr
   try {
     await member.ban({ reason });
     recordBlockedAction(guild.id);
-    logger.warn(`Anti-Nuke banned ${executor.tag || executor.id} in ${guild.name}: ${reason}`);
+
+    try {
+      const caseId = await logModerationAction({
+        client: guild.client,
+        guild,
+        event: {
+          action: 'Member Banned',
+          target: `${executor.tag || 'Unknown User'} (${executor.id})`,
+          executor: `${guild.client.user?.tag || 'DiddyBot9000'} (${guild.client.user?.id || 'Unknown'})`,
+          reason,
+          metadata: {
+            userId: executor.id,
+            moderatorId: guild.client.user?.id,
+            source: 'Anti-Nuke',
+            antiNuke: true,
+            action,
+          }
+        }
+      });
+
+      logger.warn(`Anti-Nuke banned ${executor.tag || executor.id} in ${guild.name}: ${reason} (Case #${caseId})`);
+    } catch (caseError) {
+      logger.error(`Anti-Nuke banned ${executor.tag || executor.id}, but failed to create moderation case:`, caseError);
+    }
+
     return true;
   } catch (error) {
     punishedActors.delete(key);
