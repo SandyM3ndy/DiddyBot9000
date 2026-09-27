@@ -102,6 +102,8 @@ class TitanBot extends Client {
       );
       
       this.setupCronJobs();
+      // Immediately recover giveaways whose deadlines passed while the bot was offline.
+      await checkGiveaways(this);
       // Run one backup shortly after startup so a restart does not reset the backup cadence.
       setTimeout(() => this.runDatabaseBackup(), 30 * 1000).unref?.();
     } catch (error) {
