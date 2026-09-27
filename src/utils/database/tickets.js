@@ -175,3 +175,14 @@ export async function getGuildTicketStats(guildId) {
         };
     }
 }
+
+
+export async function getInactiveOpenTickets(guildId, inactivityMs) {
+    const tickets = await listGuildTickets(guildId);
+    const cutoff = Date.now() - inactivityMs;
+    return tickets.filter(ticket =>
+        ticket.status === 'open' &&
+        ticket.lastActivityAt &&
+        new Date(ticket.lastActivityAt).getTime() <= cutoff
+    );
+}
