@@ -210,6 +210,7 @@ export async function getFromDb(key, defaultValue = null) {
         return value === null ? defaultValue : value;
     } catch (error) {
         logger.error(`Error getting value for key ${key}:`, error);
+        if (process.env.NODE_ENV === 'production') throw error;
         return defaultValue;
     }
 }
@@ -220,6 +221,7 @@ export async function setInDb(key, value, ttl = null) {
         return true;
     } catch (error) {
         logger.error(`Error setting value for key ${key}:`, error);
+        if (process.env.NODE_ENV === 'production') throw error;
         return false;
     }
 }
@@ -230,6 +232,7 @@ export async function deleteFromDb(key) {
         return true;
     } catch (error) {
         logger.error(`Error deleting key ${key}:`, error);
+        if (process.env.NODE_ENV === 'production') throw error;
         return false;
     }
 }
