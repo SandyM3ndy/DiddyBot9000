@@ -1,4 +1,5 @@
 import { Events } from 'discord.js';
+const autoModBuckets = new Map();
 import { logger } from '../utils/logger.js';
 import { parsePrefixCommand } from '../utils/prefixParser.js';
 import { supportsPrefixExecution, executePrefixCommand, resolvePrefixAccessKey } from '../utils/messageAdapter.js';
@@ -24,6 +25,8 @@ export default {
 
       logger.debug(`Message received from ${message.author.tag}: ${message.content}`);
 
+      await handleBasicAutoMod(message, client);
+
       const countingProcessed = await handleCountingGame(message, client);
       if (countingProcessed) {
         return;
@@ -35,6 +38,46 @@ export default {
     }
   }
 };
+
+async function handleBasicAutoMod(message, client) {
+  try {
+    const config = await getGuildConfig(client, message.guild.id);
+    if (config?.autoModEnabled !== true) return false;
+
+    const now = Date.now();
+    const key = `${message.guild.id}:${message.author.id}`;
+    const bucket = autoModBuckets.get(key) || [];
+    bucket.push({ at: now, content: message.content?.trim().toLowerCase() || '' });
+    const recent = bucket.filter(entry => now - entry.at <= 10_000).slice(-10);
+    autoModBuckets.set(key, recent);
+
+    const recentFiveSeconds = recent.filter(entry => now - entry.at <= 8_000);
+    const duplicateCount = recent.filter(entry => entry.content && entry.content === (message.content?.trim().toLowerCase() || '')).length;
+    const mentionCount = message.mentions.users.size + message.mentions.roles.size;
+
+    let reason = null;
+    if (recentFiveSeconds.length >= 6) reason = 'Spam — too many messages in a short period.';
+    else if (duplicateCount >= 3) reason = 'Spam — repeated messages.';
+    else if (mentionCount >= 6) reason = 'Spam — excessive mentions.';
+
+    if (!reason) return false;
+
+    await message.delete().catch(() => {});
+    const warning = await message.channel.send({
+      embeds: [createEmbed({
+        title: '🛡️ AutoMod',
+        description: `<@${message.author.id}>, your message was removed. **Reason:** ${reason}`,
+        color: 'warning',
+      })],
+    }).catch(() => null);
+
+    if (warning) setTimeout(() => warning.delete().catch(() => {}), 5000);
+    return true;
+  } catch (error) {
+    logger.warn('Basic AutoMod check failed:', error.message);
+    return false;
+  }
+}
 
 async function handlePrefixCommand(message, client) {
   try {
