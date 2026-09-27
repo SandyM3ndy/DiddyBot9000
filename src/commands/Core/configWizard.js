@@ -120,6 +120,11 @@ function buildDashboardEmbed(config, guild) {
                 inline: true,
             },
             {
+                name: '📈 Server Progression',
+                value: config.serverProgression?.enabled ? '🟢 Enabled' : '🔴 Disabled',
+                inline: true,
+            },
+            {
                 name: '💚 Bot Status',
                 value: getBotPresenceText(),
                 inline: false,
@@ -172,6 +177,11 @@ function buildSettingsSelect(guildId) {
                     .setDescription('Basic spam, duplicate-message and mention protection')
                     .setValue('autoModEnabled')
                     .setEmoji('🛡️'),
+                new StringSelectMenuOptionBuilder()
+                    .setLabel('Server Progression')
+                    .setDescription('Enable daily quests, server XP and the global leaderboard')
+                    .setValue('serverProgressionEnabled')
+                    .setEmoji('📈'),
                 new StringSelectMenuOptionBuilder()
                     .setLabel('Log Channel')
                     .setDescription('Channel for system log messages')
@@ -483,6 +493,22 @@ async function runSetupWizard(buttonInteraction, config, guild, client, rootInte
 async function showSettingModal(selectInteraction, guildId, setting) {
     const modalCustomId = `config_wizard_modal:${setting}:${guildId}`;
 
+    if (setting === 'serverProgressionEnabled') {
+        const modal = new ModalBuilder()
+            .setCustomId(modalCustomId)
+            .setTitle('📈 Server Progression');
+        const input = new TextInputBuilder()
+            .setCustomId('value')
+            .setLabel('Enable Server Progression? (on/off)')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('on')
+            .setRequired(true)
+            .setMaxLength(3);
+        modal.addComponents(new ActionRowBuilder().addComponents(input));
+        await selectInteraction.showModal(modal);
+        return;
+    }
+
     if (setting === 'autoModEnabled') {
         const modal = new ModalBuilder()
             .setCustomId(modalCustomId)
@@ -561,6 +587,12 @@ async function showSettingModal(selectInteraction, guildId, setting) {
 }
 
 function resolveSettingModalValue(setting, submitted) {
+    if (setting === 'serverProgressionEnabled') {
+        const value = submitted.fields.getTextInputValue('value')?.trim().toLowerCase();
+        if (!['on', 'off'].includes(value)) throw new Error('Reply with `on` or `off`.');
+        return value === 'on';
+    }
+
     if (setting === 'autoModEnabled') {
         const value = submitted.fields.getTextInputValue('value')?.trim().toLowerCase();
         if (!['on', 'off'].includes(value)) throw new Error('Reply with `on` or `off`.');
@@ -591,6 +623,10 @@ function resolveSettingModalValue(setting, submitted) {
 }
 
 function buildSettingSuccessMessage(setting, value, guild) {
+    if (setting === 'serverProgressionEnabled') {
+        return `Server Progression is now **${value ? 'enabled' : 'disabled'}**. Daily quests and server XP are ${value ? 'active' : 'paused'}.`;
+    }
+
     if (setting === 'autoModEnabled') {
         return `Basic AutoMod is now **${value ? 'enabled' : 'disabled'}**.`;
     }
@@ -625,6 +661,10 @@ async function handleSettingModalSubmit(selectInteraction, rootInteraction, sett
     }
 
     try {
+        if (setting === 'serverProgressionEnabled' && submitted.guild?.ownerId !== submitted.user.id) {
+            throw new Error('Only the server owner can enable or disable Server Progression.');
+        }
+
         const value = resolveSettingModalValue(setting, submitted);
         await ConfigService.updateSetting(client, guildId, setting, value, submitted.user.id);
 
@@ -701,6 +741,14 @@ export default {
 
                     if (componentInteraction.isStringSelectMenu()) {
                         const selected = componentInteraction.values[0];
+
+                        if (selected === 'serverProgressionEnabled' && interaction.guild.ownerId !== componentInteraction.user.id) {
+                            await replyUserError(componentInteraction, {
+                                type: ErrorTypes.PERMISSION,
+                                message: 'Only the **server owner** can enable or disable Server Progression.',
+                            });
+                            return;
+                        }
 
                         if (selected === 'ticketSystem') {
                             // Hand the existing dashboard message over to the ticket dashboard.
