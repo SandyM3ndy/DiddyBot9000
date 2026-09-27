@@ -1,6 +1,7 @@
 import { AuditLogEvent, PermissionFlagsBits } from 'discord.js';
 import { logger } from '../utils/logger.js';
 import { logModerationAction } from '../utils/moderation.js';
+import { getGuildConfig, setGuildConfig } from './config/guildConfig.js';
 
 const configurations = new Map();
 const recentActions = new Map();
@@ -47,6 +48,46 @@ export function setAntiNukeConfig(guildId, config) {
     ...getAntiNukeConfig(guildId),
     ...config,
   });
+}
+
+
+
+export async function loadPersistedAntiNukeConfig(client, guildId) {
+  try {
+    const guildConfig = await getGuildConfig(client, guildId);
+    const persisted = guildConfig?.antiNuke;
+    if (!persisted || typeof persisted !== 'object') return getAntiNukeConfig(guildId);
+
+    setAntiNukeConfig(guildId, {
+      enabled: persisted.enabled === true,
+      level: THRESHOLDS[persisted.level] !== undefined ? persisted.level : ANTINUKE_LEVELS.MEDIUM,
+    });
+    return getAntiNukeConfig(guildId);
+  } catch (error) {
+    logger.error('Failed to load Anti-Nuke config for guild ' + guildId + ':', error);
+    return getAntiNukeConfig(guildId);
+  }
+}
+
+export async function savePersistedAntiNukeConfig(client, guildId) {
+  try {
+    const current = getAntiNukeConfig(guildId);
+    const existing = await getGuildConfig(client, guildId);
+    await setGuildConfig(client, guildId, {
+      ...existing,
+      antiNuke: { enabled: current.enabled, level: current.level },
+    });
+    return true;
+  } catch (error) {
+    logger.error('Failed to save Anti-Nuke config for guild ' + guildId + ':', error);
+    return false;
+  }
+}
+
+export async function loadAllPersistedAntiNukeConfigs(client) {
+  for (const guild of client.guilds.cache.values()) {
+    await loadPersistedAntiNukeConfig(client, guild.id);
+  }
 }
 
 export function isAntiNukeEnabled(guildId) {
