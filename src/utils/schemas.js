@@ -76,7 +76,9 @@ export const GuildConfigSchema = z
     logging: LoggingConfigSchema.optional(),
     ticketLogging: TicketLoggingSchema.optional(),
     enableLogging: z.boolean().optional(),
-    verification: VerificationConfigSchema
+    verification: VerificationConfigSchema,
+    serverProgression: z.object({ enabled: z.boolean().default(false) }).default({ enabled: false }),
+    updates: z.object({ channelId: z.string().nullable().default(null) }).default({ channelId: null })
   })
   .passthrough();
 
