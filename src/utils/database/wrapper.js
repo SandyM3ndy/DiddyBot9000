@@ -140,6 +140,7 @@ class DatabaseWrapper {
     }
 
     async increment(key, amount = 1) {
+        await this.ensurePersistentConnection();
         if (this.useFallback) {
             logger.debug(`[DEGRADED] Incrementing in memory: ${key}`);
         }
@@ -153,6 +154,7 @@ class DatabaseWrapper {
     }
 
     async decrement(key, amount = 1) {
+        await this.ensurePersistentConnection();
         if (this.useFallback) {
             logger.debug(`[DEGRADED] Decrementing in memory: ${key}`);
         }
@@ -198,12 +200,7 @@ export async function initializeDatabase() {
         return { db };
     } catch (error) {
         logger.error('❌ Database Initialization Error:', error);
-
-        if (error.code === 'SCHEMA_VERSION_MISMATCH') {
-            throw error;
-        }
-
-        return { db };
+        throw error;
     }
 }
 
