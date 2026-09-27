@@ -4,6 +4,7 @@ import {
     ButtonBuilder,
     ButtonStyle,
 } from "discord.js";
+import { logger } from "../../utils/logger.js";
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 import { createEmbed } from "../../utils/embeds.js";
 import {
@@ -78,15 +79,16 @@ export async function createInitialHelpMenu(client) {
     const botName = client?.user?.username || "Bot";
     const embed = createEmbed({
         title: `📖 ${botName} Help`,
-        description: 'Set up your server, pick what to enable, then browse commands below.',
+        description: 'Your control centre for DiddyBot9000 — configure the server, manage features, and browse every command from one place.',
         color: 'primary',
         thumbnail: client.user?.displayAvatarURL?.({ size: 1024 }),
         fields: [
             {
                 name: '🚀 Getting Started',
                 value: [
-                    '**1. Launch setup** — Run `/configwizard` to configure prefix, mod role, and logs.',
-                    '**2. Enable systems** — Use `/commands dashboard` to turn categories on or off.',                    '**3. Browse commands** — Use the menu below to view categories and commands.',
+                    '**1. Configure** — Run `/configwizard` to set up the server.',
+                    '**2. Manage access** — Use `/commands dashboard` to control commands and categories.',
+                    '**3. Explore** — Pick a category below to see what DiddyBot9000 can do.',
                 ].join('\n'),
                 inline: false,
             },
@@ -108,18 +110,18 @@ export async function createInitialHelpMenu(client) {
     });
 
     embed.setFooter({ 
-        text: "Made with ❤️" 
+        text: "DiddyBot9000 • Made with ❤️" 
     });
     embed.setTimestamp();
 
     const bugReportButton = new ButtonBuilder()
         .setCustomId(BUG_REPORT_BUTTON_ID)
-        .setLabel("Report Bug")
+        .setLabel("Report an Issue")
         .setStyle(ButtonStyle.Danger);
 
     const supportButton = new ButtonBuilder()
         .setLabel("Support Server")
-        .setURL("https://discord.gg/QnWNz2dKCE")
+        .setURL("https://discord.gg/76N2EM6v6k")
         .setStyle(ButtonStyle.Link);
 
     const selectRow = createSelectMenu(
