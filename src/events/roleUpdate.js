@@ -6,7 +6,6 @@ import {
   findRoleUpdateExecutor,
   isTrustedActor,
   revertRolePermissions,
-  recordThreat,
   getAntiNukeLevel,
   handleDestructiveAction,
 } from '../services/antinukeService.js';
@@ -28,9 +27,7 @@ export default {
 
       const auditEntry = await findRoleUpdateExecutor(newRole.guild, newRole.id);
       const executor = auditEntry?.executor;
-
-      recordThreat(newRole.guild.id);
-
+\n
       logger.warn(
         `Anti-Nuke detected dangerous permission change in ${newRole.guild.name}: role=${newRole.name} level=${getAntiNukeLevel(newRole.guild.id)} executor=${executor?.tag || 'Unknown'} permissions=${dangerousPermissions.join(', ')}`
       );
