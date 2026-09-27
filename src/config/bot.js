@@ -39,7 +39,7 @@ export const botConfig = {
     owners: process.env.OWNER_IDS?.split(",").map((id) => id.trim()).filter(Boolean) || [],
 
     // If true, old commands are removed before re-registering.
-    deleteCommands: false,
+    deleteCommands: true,
 
     // Optional server ID retained for tutorial compatibility; not used for command registration.
     testGuildId: process.env.TEST_GUILD_ID,
