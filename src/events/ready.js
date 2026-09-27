@@ -16,6 +16,22 @@ export default {
       startupLog(`Ready! Logged in as ${client.user.tag}`);
       startupLog(`Serving ${client.guilds.cache.size} guild(s)`);
       startupLog(`Loaded ${client.commands.size} commands`);
+      // Force-sync the complete command set directly to every guild after the
+      // Discord client is fully ready. This bypasses global-command propagation
+      // delays and guarantees existing servers receive the current commands.
+      const guildCommands = Array.from(client.commands.values())
+        .filter((command) => command?.data && typeof command.data.toJSON === "function")
+        .map((command) => command.data.toJSON());
+
+      for (const guild of client.guilds.cache.values()) {
+        try {
+          await guild.commands.set(guildCommands);
+          startupLog(`Synced ${guildCommands.length} slash commands to ${guild.name}`);
+        } catch (error) {
+          logger.error(`Failed to sync slash commands to ${guild.name}:`, error);
+        }
+      }
+
 
       if (client.config?.features?.music) {
         initRiffyAfterReady(client);
