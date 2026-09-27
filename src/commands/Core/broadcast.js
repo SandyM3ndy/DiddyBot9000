@@ -1,4 +1,3 @@
-js
 import {
   SlashCommandBuilder,
   PermissionFlagsBits,
