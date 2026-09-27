@@ -7,13 +7,11 @@ import {
   isCommandCategoryEnabled,
   isMaintenanceMode,
 } from '../config/bot.js';
-import botConfig from '../config/bot.js';
 import { handleApplicationModal } from '../commands/Community/apply.js';
 import { handleInteractionError, createError, ErrorTypes, ErrorCodes } from '../utils/errorHandler.js';
 import { InteractionHelper } from '../utils/interactionHelper.js';
 import { createInteractionTraceContext, runWithTraceContext } from '../utils/logger.js';
 import { validateChatInputPayloadOrThrow } from '../utils/commandInputValidation.js';
-import { enforceAbuseProtection, formatCooldownDuration } from '../utils/abuseProtection.js';
 import { isCommandEnabled } from '../services/commandAccessService.js';
 import { resolveSlashAccessKey } from '../utils/messageAdapter.js';
 import { isCollectorManagedComponent } from '../utils/collectorComponents.js';
@@ -103,68 +101,6 @@ export default {
                   category: command.category
                 }, interactionTraceContext)
               );
-            }
-
-            // /dm has no cooldown.
-            const isDmCommand = interaction.commandName === 'dm';
-
-            const defaultCooldownSec = Number(botConfig.commands?.defaultCooldown) || 0;
-
-            if (
-              !isDmCommand &&
-              defaultCooldownSec > 0 &&
-              !isBotOwner(interaction.user.id)
-            ) {
-              const cooldownKey = `${interaction.user.id}:${interaction.commandName}`;
-              const expiresAt = client.cooldowns.get(cooldownKey);
-
-              if (expiresAt && Date.now() < expiresAt) {
-                const remainingSec = Math.ceil((expiresAt - Date.now()) / 1000);
-
-                throw createError(
-                  `Default command cooldown active for ${interaction.commandName}`,
-                  ErrorTypes.RATE_LIMIT,
-                  getBotMessage('cooldownActive', { time: `${remainingSec}s` }),
-                  withTraceContext({
-                    commandName: interaction.commandName,
-                    remainingSec
-                  }, interactionTraceContext)
-                );
-              }
-
-              client.cooldowns.set(
-                cooldownKey,
-                Date.now() + defaultCooldownSec * 1000
-              );
-            }
-
-            // /dm also bypasses abuse-protection cooldowns.
-            if (!isDmCommand) {
-              const abuseProtection = await enforceAbuseProtection(
-                interaction,
-                command,
-                interaction.commandName
-              );
-
-              if (!abuseProtection.allowed) {
-                const formattedCooldown = formatCooldownDuration(
-                  abuseProtection.remainingMs
-                );
-
-                throw createError(
-                  `Risky command cooldown active for ${interaction.commandName}`,
-                  ErrorTypes.RATE_LIMIT,
-                  `This command is on cooldown. Please wait ${formattedCooldown} before trying again.`,
-                  withTraceContext({
-                    commandName: interaction.commandName,
-                    subtype: 'command_cooldown',
-                    expected: true,
-                    cooldownMs: abuseProtection.remainingMs,
-                    cooldownWindowMs: abuseProtection.policy?.windowMs,
-                    cooldownMaxAttempts: abuseProtection.policy?.maxAttempts
-                  }, interactionTraceContext)
-                );
-              }
             }
 
             let guildConfig = null;
