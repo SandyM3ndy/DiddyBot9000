@@ -47,6 +47,50 @@ function formatCategoryName(rawCategory) {
         .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
+
+function getCommandAccess(commandData) {
+    const name = String(commandData?.name || "").toLowerCase();
+
+    if (name === "broadcast" || name === "popularity") return "Bot Owner only";
+    if (name === "claim" || name === "priority") return "Manage Server or Ticket Staff";
+    if (name === "close") return "Manage Server, Ticket Staff, or ticket creator";
+
+    const permissions = commandData?.default_member_permissions;
+    if (!permissions || permissions === "0") return "Everyone";
+
+    try {
+        const value = BigInt(permissions);
+        const flags = [
+            [3n, "Administrator"],
+            [2n, "Manage Server"],
+            [4n, "Manage Channels"],
+            [13n, "Manage Messages"],
+            [1n, "Kick Members"],
+            [14n, "Ban Members"],
+            [28n, "Manage Roles"],
+            [11n, "Moderate Members"],
+            [6n, "View Audit Log"],
+        ];
+        const names = [];
+        for (const [bitIndex, label] of flags) {
+            const bit = 1n << bitIndex;
+            if ((value & bit) === bit && !names.includes(label)) names.push(label);
+        }
+        return names.length ? names.join(" or ") : "Restricted";
+    } catch {
+        return "Restricted";
+    }
+}
+
+function formatHelpEntry(cmd, registeredCommands) {
+    const registeredCmd = registeredCommands.get(cmd.baseName);
+    const mention = registeredCmd?.id
+        ? `</${cmd.displayName}:${registeredCmd.id}>`
+        : `/${cmd.displayName}`;
+
+    return `**${mention}** — ${cmd.description}\n> 👤 **Who can use it:** ${getCommandAccess(cmd.commandData)}`;
+}
+
 function buildHelpEntries(command, category) {
     const commandData = normalizeCommandData(command);
     if (!commandData?.name) {
@@ -65,6 +109,7 @@ function buildHelpEntries(command, category) {
         if (option.type === SUBCOMMAND_TYPE) {
             entries.push({
                 baseName,
+                commandData,
                 displayName: `${baseName} ${option.name}`,
                 description: option.description || baseDescription,
                 category,
@@ -90,6 +135,7 @@ function buildHelpEntries(command, category) {
     if (entries.length === 0) {
         entries.push({
             baseName,
+            commandData,
             displayName: baseName,
             description: baseDescription,
             category,
@@ -172,7 +218,7 @@ async function createCategoryCommandsMenu(category, client) {
     const embed = createEmbed({
         title: `${icon} ${categoryName} Commands`,
         description: categoryCommands.length > 0
-            ? `Click any command mention below to use it.`
+            ? `Every command below includes its purpose and who can use it.`
             : `No commands found in the **${categoryName}** category.`
     });
 
@@ -181,13 +227,13 @@ async function createCategoryCommandsMenu(category, client) {
             .map((cmd) => {
                 const registeredCmd = registeredCommands.get(cmd.baseName);
                 if (registeredCmd && registeredCmd.id) {
-                    return `</${cmd.displayName}:${registeredCmd.id}> · ${cmd.description}`;
+                    return formatHelpEntry(cmd, registeredCommands);
                 }
-                return `\`/${cmd.displayName}\` · ${cmd.description}`;
+                return formatHelpEntry(cmd, registeredCommands);
             })
             .join("\n");
 
-        const maxLength = 1000;
+        const maxLength = 900;
         if (commandMentions.length <= maxLength) {
             embed.addFields({
                 name: "Commands",
@@ -308,7 +354,7 @@ export async function createAllCommandsMenu(page = 1, client) {
 
     const embed = createEmbed({
         title: "📋 All Commands",
-        description: `Browse every available command in one list. Use the page buttons below to move through the full set.`
+        description: `Every command below includes its purpose and who can use it. Use the page buttons to browse the full list.`
     });
 
     embed.setFooter({ text: FOOTER_TEXT });
@@ -318,9 +364,9 @@ export async function createAllCommandsMenu(page = 1, client) {
         const commandMentions = pageCommands.map((cmd) => {
             const registeredCmd = registeredCommands.get(cmd.baseName);
             if (registeredCmd && registeredCmd.id) {
-                return `</${cmd.displayName}:${registeredCmd.id}> · ${cmd.category}`;
+                return formatHelpEntry(cmd, registeredCommands);
             }
-            return `\`/${cmd.displayName}\` · ${cmd.category}`;
+            return formatHelpEntry(cmd, registeredCommands);
         });
 
         const columnCount = pageCommands.length > 20 ? 3 : (pageCommands.length > 10 ? 2 : 1);
