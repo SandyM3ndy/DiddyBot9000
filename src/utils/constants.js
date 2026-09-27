@@ -40,6 +40,9 @@ export const DEFAULT_GUILD_CONFIG = {
     },
     serverProgression: {
         enabled: false
+    },
+    updates: {
+        channelId: null
     }
 };
 
