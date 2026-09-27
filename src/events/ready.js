@@ -5,6 +5,7 @@ import { reconcileReactionRoleMessages } from "../services/reactionRoleService.j
 import { reconcileTicketPanels, reconcileVerificationPanels, reconcileReactionRolePanelHealth } from "../services/panelHealthService.js";
 import { initRiffyAfterReady } from "../services/music/riffySetup.js";
 import { loadLockdownStates } from "../services/lockdownService.js";
+import { loadAllPersistedAntiNukeConfigs } from "../services/antinukeService.js";
 
 export default {
   name: Events.ClientReady,
@@ -19,6 +20,7 @@ export default {
       startupLog(`Loaded ${client.commands.size} commands`);
 
       await loadLockdownStates(client);
+      await loadAllPersistedAntiNukeConfigs(client);
       // Force-sync the complete command set directly to every guild after the
       // Discord client is fully ready. This bypasses global-command propagation
       // delays and guarantees existing servers receive the current commands.
