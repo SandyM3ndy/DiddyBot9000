@@ -1047,3 +1047,29 @@ export async function updateTicketPriority(channel, priority, updater) {
     rethrowTicketError(error, 'updateTicketPriority', 'Failed to update ticket priority. Please try again in a moment.', { guildId: channel?.guild?.id, channelId: channel?.id, updaterId: updater?.id, priority });
   }
 }
+
+export async function closeInactiveTickets(client, inactivityMs = 72 * 60 * 60 * 1000) {
+  const { getInactiveOpenTickets } = await import('../utils/database/tickets.js');
+  let closed = 0;
+  for (const guild of client.guilds.cache.values()) {
+    const inactive = await getInactiveOpenTickets(guild.id, inactivityMs).catch(() => []);
+    for (const ticket of inactive) {
+      const channel = await guild.channels.fetch(ticket.id).catch(() => null);
+      if (!channel) continue;
+      try {
+        await channel.send({
+          embeds: [createEmbed({
+            title: '⏰ Ticket Inactive',
+            description: 'This ticket has been inactive for **72 hours** and will now be closed automatically. You can reopen it if needed.',
+            color: 'warning',
+          })],
+        }).catch(() => {});
+        await closeTicket(channel, client.user, 'Automatically closed after 72 hours of inactivity');
+        closed += 1;
+      } catch (error) {
+        logger.warn('Failed to auto-close inactive ticket', { guildId: guild.id, channelId: ticket.id, error: error.message });
+      }
+    }
+  }
+  return closed;
+}
