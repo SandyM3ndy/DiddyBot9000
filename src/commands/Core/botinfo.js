@@ -1,6 +1,7 @@
 import { SlashCommandBuilder } from 'discord.js';
 import { createEmbed } from '../../utils/embeds.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
+import { isAntiNukeAIConfigured, getAntiNukeAIModel } from '../../services/aiSecurityService.js';
 
 export default {
     data: new SlashCommandBuilder()
@@ -29,6 +30,7 @@ export default {
                 { name: '🧠 Memory', value: Math.round(memory.rss / 1024 / 1024) + ' MB RSS', inline: true },
                 { name: '🟢 Node.js', value: process.version, inline: true },
                 { name: '📚 discord.js', value: 'v14', inline: true },
+                { name: '🛡️ AI Anti-Nuke', value: isAntiNukeAIConfigured() ? `Enabled • ${getAntiNukeAIModel()}` : 'Local adaptive mode', inline: true },
             ],
         }).setFooter({ text: 'DiddyBot9000 • Built for Discord communities' }).setTimestamp();
 
