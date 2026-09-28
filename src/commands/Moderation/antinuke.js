@@ -12,6 +12,7 @@ import {
   loadPersistedAntiNukeConfig,
   savePersistedAntiNukeConfig,
 } from '../../services/antinukeService.js';
+import { isAntiNukeAIConfigured, getAntiNukeAIModel } from '../../services/aiSecurityService.js';
 
 export default {
   cooldown: 0,
@@ -70,7 +71,7 @@ export default {
     ) {
       return interaction.reply({
         content: '❌ You need Administrator permission to use Anti-Nuke.',
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     }
 
@@ -90,7 +91,8 @@ export default {
             .setTitle('🛡️ Anti-Nuke Enabled')
             .setDescription(
               `Anti-Nuke protection is now **enabled**.\n\n` +
-              `**Protection Level:** ${config.level}`
+              `**Protection Level:** ${config.level}\n` +
+              `**AI Security:** ${isAntiNukeAIConfigured() ? `Enabled (${getAntiNukeAIModel()})` : 'Adaptive local analysis only — add OPENAI_API_KEY for real AI analysis.'}`
             )
             .setTimestamp(),
         ],
@@ -159,6 +161,11 @@ export default {
               {
                 name: 'Threats',
                 value: String(config.threats),
+                inline: true,
+              },
+              {
+                name: 'AI Security',
+                value: isAntiNukeAIConfigured() ? `🧠 Enabled (${getAntiNukeAIModel()})` : '🧩 Local adaptive analysis',
                 inline: true,
               },
               {
