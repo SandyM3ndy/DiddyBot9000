@@ -3,7 +3,6 @@ import { successEmbed } from '../../utils/embeds.js';
 import { logEvent } from '../../utils/moderation.js';
 import { logger } from '../../utils/logger.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
-import { replyUserError, ErrorTypes } from '../../utils/errorHandler.js';
 import { botConfig } from '../../config/bot.js';
 import { generateTrollDM } from '../../services/trollDmService.js';
 
