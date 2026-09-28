@@ -192,12 +192,12 @@ export async function punishExecutor(guild, executor, reason = 'Anti-Nuke: destr
   const member = guild.members.cache.get(executor.id) ||
     await guild.members.fetch(executor.id).catch(() => null);
 
-  if (!member || member.id === guild.ownerId || !member.bannable) return false;
+  if (!member || member.id === guild.ownerId || !member.kickable) return false;
 
   punishedActors.add(key);
 
   try {
-    await member.ban({ reason });
+    await member.kick(reason);
     recordBlockedAction(guild.id);
 
     try {
@@ -205,7 +205,7 @@ export async function punishExecutor(guild, executor, reason = 'Anti-Nuke: destr
         client: guild.client,
         guild,
         event: {
-          action: 'Member Banned',
+          action: 'Member Kicked',
           target: `${executor.tag || 'Unknown User'} (${executor.id})`,
           executor: `${guild.client.user?.tag || 'DiddyBot9000'} (${guild.client.user?.id || 'Unknown'})`,
           reason,
@@ -219,15 +219,15 @@ export async function punishExecutor(guild, executor, reason = 'Anti-Nuke: destr
         }
       });
 
-      logger.warn(`Anti-Nuke banned ${executor.tag || executor.id} in ${guild.name}: ${reason} (Case #${caseId})`);
+      logger.warn(`Anti-Nuke kicked ${executor.tag || executor.id} in ${guild.name}: ${reason} (Case #${caseId})`);
     } catch (caseError) {
-      logger.error(`Anti-Nuke banned ${executor.tag || executor.id}, but failed to create moderation case:`, caseError);
+      logger.error(`Anti-Nuke kicked ${executor.tag || executor.id}, but failed to create moderation case:`, caseError);
     }
 
     return true;
   } catch (error) {
     punishedActors.delete(key);
-    logger.error(`Anti-Nuke failed to ban ${executor.tag || executor.id} in ${guild.name}:`, error);
+    logger.error(`Anti-Nuke failed to kick ${executor.tag || executor.id} in ${guild.name}:`, error);
     return false;
   }
 }
