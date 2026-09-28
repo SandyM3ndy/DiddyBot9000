@@ -23,7 +23,6 @@ export default {
 
         const userId = interaction.options.getString('user_id', true).trim();
         if (!/^\d{17,20}$/.test(userId)) return await interaction.reply({ content: '❌ Please enter a valid Discord user ID.', flags: MessageFlags.Ephemeral });
-        if (userId === interaction.user.id) return await interaction.reply({ content: '❌ You cannot target yourself with the troll DM.', flags: MessageFlags.Ephemeral });
 
         const deferSuccess = await InteractionHelper.safeDefer(interaction, { flags: MessageFlags.Ephemeral });
         if (!deferSuccess) return;
