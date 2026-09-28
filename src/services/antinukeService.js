@@ -245,21 +245,50 @@ export async function handleDestructiveAction(guild, executor, action, details =
   recordThreat(guild.id);
   const result = registerSecurityAction(guild.id, executor.id, action);
 
+  const ai = await analyzeAntiNukeBehavior({
+    guild,
+    executor,
+    action,
+    details,
+    recentActions: result.actions,
+    threshold: result.threshold,
+  });
+
   logger.warn(
-    `Anti-Nuke detected ${action} in ${guild.name}: executor=${executor.tag || executor.id}, count=${result.count}/${result.threshold}${details ? `, details=${details}` : ''}`
+    `Anti-Nuke detected ${action} in ${guild.name}: executor=${executor.tag || executor.id}, count=${result.count}/${result.threshold}${details ? `, details=${details}` : ''}${ai ? `, aiRisk=${ai.riskScore}/100, aiSource=${ai.source}` : ''}`
   );
 
-  if (result.triggered) {
+  const aiShouldProtect = Boolean(
+    ai &&
+    ai.riskScore >= 92 &&
+    ai.confidence >= 0.8 &&
+    ['high', 'critical'].includes(ai.severity) &&
+    ['protect', 'kick'].includes(ai.recommendation)
+  );
+
+  if (result.triggered || aiShouldProtect) {
+    const punishmentReason = result.triggered
+      ? `Anti-Nuke: ${action} threshold exceeded (${result.count} actions in 10 seconds)`
+      : `Anti-Nuke AI: critical destructive behavior detected (risk ${ai.riskScore}/100, confidence ${Math.round(ai.confidence * 100)}%)`;
+
     const punished = await punishExecutor(
       guild,
       executor,
-      `Anti-Nuke: ${action} threshold exceeded (${result.count} actions in 10 seconds)`,
+      punishmentReason,
       action
     );
-    return { detected: true, triggered: true, punished, ...result };
+
+    return {
+      detected: true,
+      triggered: true,
+      ai,
+      aiTriggered: aiShouldProtect,
+      punished,
+      ...result,
+    };
   }
 
-  return { detected: true, triggered: false, ai, aiTriggered: aiShouldProtect, ...result };
+  return { detected: true, triggered: false, ai, aiTriggered: false, ...result };
 }
 
 export async function revertRolePermissions(role, oldPermissions) {
