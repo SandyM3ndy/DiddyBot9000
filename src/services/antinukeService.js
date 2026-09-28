@@ -313,7 +313,8 @@ export function clearAntiNukeData(guildId) {
   punishedActors.forEach((key) => {
     if (key.startsWith(`${guildId}:`)) punishedActors.delete(key);
   });
-  clearAntiNukeAIData(guildId);\n  for (const key of recentActions.keys()) {
+  clearAntiNukeAIData(guildId);
+  for (const key of recentActions.keys()) {
     if (key.startsWith(`${guildId}:`)) recentActions.delete(key);
   }
 }
