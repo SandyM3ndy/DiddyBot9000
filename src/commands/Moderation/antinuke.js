@@ -2,6 +2,7 @@ import {
   SlashCommandBuilder,
   PermissionFlagsBits,
   EmbedBuilder,
+  MessageFlags,
 } from 'discord.js';
 
 import {
@@ -37,7 +38,7 @@ export default {
     .addSubcommand((subcommand) =>
       subcommand
         .setName('level')
-        .setDescription('Set the Anti-Nuke protection level.')
+        .setDescription('Set Anti-Nuke level. Low: 8, Medium: 5, High: 3, Maximum: 2 actions in 10 seconds.')
         .addStringOption((option) =>
           option
             .setName('level')
@@ -58,7 +59,7 @@ export default {
     if (!guildId) {
       return interaction.reply({
         content: '❌ This command can only be used inside a server.',
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     }
 
