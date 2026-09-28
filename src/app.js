@@ -151,6 +151,8 @@ class TitanBot extends Client {
     });
 
     const requestCounts = new Map();
+    const windowMs = this.config.api?.rateLimit?.windowMs || 60000;
+    const maxRequests = this.config.api?.rateLimit?.max || 100;
     const rateLimitCleanup = setInterval(() => {
       const cutoff = Date.now() - windowMs;
       for (const [ip, times] of requestCounts) {
@@ -160,8 +162,6 @@ class TitanBot extends Client {
       }
     }, windowMs);
     rateLimitCleanup.unref?.();
-    const windowMs = this.config.api?.rateLimit?.windowMs || 60000;
-    const maxRequests = this.config.api?.rateLimit?.max || 100;
     
     app.use((req, res, next) => {
       const ip = req.ip;
