@@ -13,6 +13,20 @@ function isInteractionUnavailableError(error) {
     return INTERACTION_UNAVAILABLE_CODES.has(error?.code);
 }
 
+// Discord.js no longer recommends the legacy `ephemeral` response option.
+// Convert it centrally so older commands cannot produce deprecation warnings.
+function sanitizeResponseOptions(options = {}) {
+    if (!options || typeof options !== 'object') return options;
+
+    const { ephemeral, ...rest } = options;
+    if (ephemeral === true) {
+        rest.flags = (rest.flags ?? 0) | MessageFlags.Ephemeral;
+    } else if (ephemeral === false && rest.flags == null) {
+        // Nothing to add; omit the deprecated property entirely.
+    }
+    return rest;
+}
+
 function sanitizeEditReplyOptions(options = {}) {
     if (!options || typeof options !== 'object') {
         return options;
@@ -45,6 +59,7 @@ export class InteractionHelper {
         }
 
         interaction.reply = async (options) => {
+            options = sanitizeResponseOptions(options);
             const coordinator = InteractionHelper.getCoordinator(interaction);
             if (coordinator?.isUsageFinalized()) {
                 return coordinator.getReplyMessage();
@@ -123,7 +138,7 @@ export class InteractionHelper {
                 return false;
             }
 
-            await interaction.deferReply(options);
+            await interaction.deferReply(sanitizeResponseOptions(options));
             return true;
         } catch (error) {
             if (isInteractionUnavailableError(error)) {
@@ -180,7 +195,7 @@ export class InteractionHelper {
             if (error.code === 10008) {
                 logger.debug(`Interaction ${interaction.id} reply message deleted, using followUp fallback`);
                 try {
-                    await interaction.followUp(options);
+                    await interaction.followUp(sanitizeResponseOptions(options));
                     return true;
                 } catch (followUpError) {
                     if (isInteractionUnavailableError(followUpError)) {
@@ -198,6 +213,7 @@ export class InteractionHelper {
 
     static async safeReply(interaction, options) {
         try {
+            options = sanitizeResponseOptions(options);
             const coordinator = this.getCoordinator(interaction);
             if (coordinator?.isUsageFinalized()) {
                 return false;
@@ -313,6 +329,7 @@ export class InteractionHelper {
     }
 
     static async universalReply(interaction, options) {
+        options = sanitizeResponseOptions(options);
         const coordinator = this.getCoordinator(interaction);
         if (coordinator?.isUsageFinalized()) {
             return false;
