@@ -44,7 +44,14 @@ function localRisk(history, action) {
 }
 
 function parseModelOutput(response) {
-  const outputText = response?.output_text;
+  const outputText =
+    response?.output_text ||
+    response?.output
+      ?.flatMap((item) => item?.content || [])
+      ?.map((content) => content?.text)
+      ?.filter(Boolean)
+      ?.join('\\n');
+
   if (typeof outputText !== 'string' || !outputText.trim()) return null;
 
   try {
