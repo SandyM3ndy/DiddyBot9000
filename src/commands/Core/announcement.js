@@ -57,12 +57,7 @@ export default {
         }
 
         await channel.send({
-          embeds: [createEmbed({
-            title: `📢 ${title}`,
-            description: message,
-            color: 'info',
-            footer: 'Official DiddyBot9000 Update',
-          })],
+          content: `📢 **${title}**\\n\\n${message}`,
         });
 
         sent++;
