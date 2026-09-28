@@ -120,9 +120,20 @@ class TitanBot extends Client {
     const app = express();
     const configuredPort = Number(this.config.api?.port || process.env.PORT || 3000);
     const maxPortRetryAttempts = Number(process.env.PORT_RETRY_ATTEMPTS || 5);
-    const host = process.env.WEB_HOST || '0.0.0.0';
-    const corsOrigin = this.config.api?.cors?.origin || '*';
+    const host = process.env.WEB_HOST || '127.0.0.1';
+    const corsOrigin = this.config.api?.cors?.origin || [];
     
+    app.disable('x-powered-by');
+
+    // Baseline security headers without adding another runtime dependency.
+    app.use((req, res, next) => {
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.setHeader('X-Frame-Options', 'DENY');
+      res.setHeader('Referrer-Policy', 'no-referrer');
+      res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+      next();
+    });
+
     app.use((req, res, next) => {
       const allowedOrigins = Array.isArray(corsOrigin) ? corsOrigin : [corsOrigin];
       const origin = req.headers.origin;
@@ -140,6 +151,15 @@ class TitanBot extends Client {
     });
 
     const requestCounts = new Map();
+    const rateLimitCleanup = setInterval(() => {
+      const cutoff = Date.now() - windowMs;
+      for (const [ip, times] of requestCounts) {
+        const active = times.filter((time) => time > cutoff);
+        if (active.length) requestCounts.set(ip, active);
+        else requestCounts.delete(ip);
+      }
+    }, windowMs);
+    rateLimitCleanup.unref?.();
     const windowMs = this.config.api?.rateLimit?.windowMs || 60000;
     const maxRequests = this.config.api?.rateLimit?.max || 100;
     
@@ -211,7 +231,7 @@ class TitanBot extends Client {
 
     app.get('/', (req, res) => {
       res.status(200).json({ 
-        message: 'TitanBot System Online',
+        message: 'DiddyBot9000 System Online',
         version: pkg.version,
         timestamp: new Date().toISOString()
       });
