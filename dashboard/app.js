@@ -1,0 +1,1 @@
+document.querySelectorAll('nav a').forEach(link=>link.addEventListener('click',()=>{document.querySelectorAll('nav a').forEach(x=>x.classList.remove('active'));link.classList.add('active')}));document.getElementById('loginBtn').addEventListener('click',()=>alert('Discord OAuth login will be connected here next.'));
