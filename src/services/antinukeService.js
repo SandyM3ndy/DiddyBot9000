@@ -2,6 +2,7 @@ import { AuditLogEvent, PermissionFlagsBits } from 'discord.js';
 import { logger } from '../utils/logger.js';
 import { logModerationAction } from '../utils/moderation.js';
 import { getGuildConfig, setGuildConfig } from './config/guildConfig.js';
+import { analyzeAntiNukeBehavior, clearAntiNukeAIData } from './aiSecurityService.js';
 
 const configurations = new Map();
 const recentActions = new Map();
@@ -258,7 +259,7 @@ export async function handleDestructiveAction(guild, executor, action, details =
     return { detected: true, triggered: true, punished, ...result };
   }
 
-  return { detected: true, triggered: false, ...result };
+  return { detected: true, triggered: false, ai, aiTriggered: aiShouldProtect, ...result };
 }
 
 export async function revertRolePermissions(role, oldPermissions) {
@@ -283,7 +284,7 @@ export function clearAntiNukeData(guildId) {
   punishedActors.forEach((key) => {
     if (key.startsWith(`${guildId}:`)) punishedActors.delete(key);
   });
-  for (const key of recentActions.keys()) {
+  clearAntiNukeAIData(guildId);\n  for (const key of recentActions.keys()) {
     if (key.startsWith(`${guildId}:`)) recentActions.delete(key);
   }
 }
