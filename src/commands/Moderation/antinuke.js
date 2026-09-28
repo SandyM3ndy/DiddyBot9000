@@ -178,7 +178,7 @@ export default {
             )
             .setTimestamp(),
         ],
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     }
   },
