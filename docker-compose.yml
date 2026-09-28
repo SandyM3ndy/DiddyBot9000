@@ -16,15 +16,15 @@ services:
       - POSTGRES_PORT=5432
       - POSTGRES_DB=${POSTGRES_DB:-titanbot}
       - POSTGRES_USER=${POSTGRES_USER:-titanbot}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-password}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
       - POSTGRES_SSL=false
       - AUTO_MIGRATE=true
       - LOG_LEVEL=${LOG_LEVEL:-warn}
       - LAVALINK_NODES_FILE=lavalink/nodes.json
       - PORT=3000
-      - WEB_HOST=0.0.0.0
+      - WEB_HOST=127.0.0.1
     ports:
-      - "${PORT:-3000}:3000"
+      - "127.0.0.1:${PORT:-3000}:3000"
     depends_on:
       db:
         condition: service_healthy
@@ -44,7 +44,7 @@ services:
     container_name: titanbot-lavalink
     restart: unless-stopped
     environment:
-      - LAVALINK_PASSWORD=${LAVALINK_PASSWORD:-youshallnotpass}
+      - LAVALINK_PASSWORD=${LAVALINK_PASSWORD:?LAVALINK_PASSWORD must be set}
     volumes:
       - ./lavalink/application.yml:/opt/Lavalink/application.yml
     networks:
