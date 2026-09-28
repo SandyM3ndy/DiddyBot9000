@@ -57,7 +57,9 @@ export default {
         }
 
         await channel.send({
-          content: `📢 **${title}**\\n\\n${message}`,
+          content: `📢 **${title}**
+
+${message}`,
         });
 
         sent++;
