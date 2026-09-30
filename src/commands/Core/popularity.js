@@ -1,4 +1,4 @@
-import { PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
+import { SlashCommandBuilder } from 'discord.js';
 import { createEmbed, warningEmbed } from '../../utils/embeds.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 
@@ -8,7 +8,6 @@ export default {
   data: new SlashCommandBuilder()
     .setName('popularity')
     .setDescription('View Beacon server coverage.')
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
   category: 'core',
 
   async execute(interaction) {
