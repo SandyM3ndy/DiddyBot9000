@@ -93,7 +93,7 @@ export default {
             await handleSetup(interaction);
         } else if (subcommand === 'dashboard') {
             const selectedPanelId = interaction.options.getString('panel');
-            await handleDashboard(interaction, selectedPanelId);
+            await openReactionRoleDashboard(interaction, selectedPanelId);
         }
     },
 
@@ -562,7 +562,7 @@ async function repostReactionRolePanel(guild, panelData, client, guildId, fallba
     return sent;
 }
 
-async function handleDashboard(interaction, selectedPanelId) {
+export async function openReactionRoleDashboard(interaction, selectedPanelId = null) {
     const deferSuccess = await InteractionHelper.safeDefer(interaction, { flags: DASHBOARD_EPHEMERAL });
     if (!deferSuccess) return;
 
