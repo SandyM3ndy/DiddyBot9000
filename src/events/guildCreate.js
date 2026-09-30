@@ -20,9 +20,13 @@ export default {
       try {
         const owner = await guild.fetchOwner();
         await owner.send(
-          '👋 Hey! SandyMandy is happy that you chose **DiddyBot9000** for its cool commands. Thanks for adding me to **' + guild.name + '**!'
+          '👋 **Welcome to Beacon!**\n\n' +
+          'The whole development team behind **Beacon** is extremely happy that you chose Beacon as one of the bots in **' + guild.name + '**. Thank you for trusting us to be part of your community!\n\n' +
+          'Beacon was built to give communities powerful moderation, security, staff tools, tickets, progression, and more — all in one place. We hope it makes running your server a little easier and a lot more enjoyable.\n\n' +
+          '🚀 **Beacon v1.0** is only the beginning. We have plenty more planned, and we are excited to keep improving Beacon alongside the communities that use it.\n\n' +
+          '*Your community\'s all-in-one Discord assistant.*'
         );
-        logger.info('Sent DiddyBot9000 welcome DM to the owner of ' + guild.name);
+        logger.info('Sent Beacon welcome DM to the owner of ' + guild.name);
       } catch (error) {
         logger.warn('Could not DM the owner of ' + guild.name + ' after bot join: ' + error.message);
       }
