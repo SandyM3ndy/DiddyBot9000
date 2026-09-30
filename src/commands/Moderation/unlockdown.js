@@ -1,4 +1,4 @@
-import { PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
+import { SlashCommandBuilder } from 'discord.js';
 import { warningEmbed, successEmbed } from '../../utils/embeds.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 import { isLockdownActive, restoreLockdown } from '../../services/lockdownService.js';
@@ -7,7 +7,6 @@ export default {
   data: new SlashCommandBuilder()
     .setName('unlockdown')
     .setDescription('Restore the server after an emergency lockdown.')
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
   category: 'moderation',
 
   async execute(interaction, config, client) {
