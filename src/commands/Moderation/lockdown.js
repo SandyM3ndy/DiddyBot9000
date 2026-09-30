@@ -1,4 +1,4 @@
-import { PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
+import { SlashCommandBuilder } from 'discord.js';
 import { warningEmbed } from '../../utils/embeds.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 import { isLockdownActive } from '../../services/lockdownService.js';
@@ -7,7 +7,6 @@ export default {
   data: new SlashCommandBuilder()
     .setName('lockdown')
     .setDescription('Emergency-lock the entire server except the server owner.')
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
   category: 'moderation',
 
   async execute(interaction, config, client) {
