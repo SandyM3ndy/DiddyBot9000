@@ -7,7 +7,7 @@ const OWNER_ID = '1022691434974957618';
 export default {
   data: new SlashCommandBuilder()
     .setName('popularity')
-    .setDescription('View DiddyBot9000 server coverage.')
+    .setDescription('View Beacon server coverage.')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
   category: 'core',
 
@@ -41,9 +41,9 @@ export default {
 
     const buildEmbed = (guilds, chunk, page, totalPages) =>
       createEmbed({
-        title: '📊 DiddyBot9000 Popularity',
+        title: '📊 Beacon Popularity',
         description:
-          `DiddyBot9000 is currently in **${guilds.length} server(s)**.\n` +
+          `Beacon is currently in **${guilds.length} server(s)**.\n` +
           `**Last updated:** <t:${Math.floor(Date.now() / 1000)}:R>\n\n` +
           (chunk || 'No servers found.'),
         footer: { text: `Page ${page} of ${totalPages} • Auto-updates every 1 minute` },
