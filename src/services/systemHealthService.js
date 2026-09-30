@@ -107,7 +107,7 @@ export function startSystemHealthMonitor(client) {
 
         await notifyOwner(
           client,
-          `⚠️ **DiddyBot9000 health warning**\\n\\nThe bot is starting to show signs of degraded health.\\n\\n**Reason:** ${reasonText}\\n**RAM:** ${formatBytes(health.memory.rss)}\\n**Uptime:** ${Math.floor(process.uptime() / 3600)}h ${Math.floor((process.uptime() % 3600) / 60)}m\\n\\nI will only send this warning once unless the bot recovers and becomes unhealthy again.`
+          `⚠️ **Beacon health warning**\\n\\nThe bot is starting to show signs of degraded health.\\n\\n**Reason:** ${reasonText}\\n**RAM:** ${formatBytes(health.memory.rss)}\\n**Uptime:** ${Math.floor(process.uptime() / 3600)}h ${Math.floor((process.uptime() % 3600) / 60)}m\\n\\nI will only send this warning once unless the bot recovers and becomes unhealthy again.`
         );
       }
 
