@@ -92,7 +92,7 @@ export default {
                 await handleSetupSubcommand(interaction, client);
                 return;
             } else if (subcommand === "dashboard") {
-                await handleConfigSubcommand(interaction, client);
+                await openJoinToCreateDashboard(interaction, client);
                 return;
             }
 
