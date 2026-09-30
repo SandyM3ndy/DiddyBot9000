@@ -100,7 +100,7 @@ function buildDashboardEmbed(config, guild) {
 
     return createEmbed({
         title: '⚙️ Server Configuration',
-        description: `Core settings for **${guild.name}**. Pick an option below or run the setup wizard.`,
+        description: `Core settings for **${guild.name}**. Choose a section below to configure Beacon.`,
         color: 'info',
         fields: [
             {
@@ -145,14 +145,14 @@ function buildDashboardEmbed(config, guild) {
             },
             {
                 name: '⚡ Command Access',
-                value: 'Use `/commands dashboard` to enable or disable commands and subcommands.',
+                value: 'Enable or disable commands and categories directly from this dashboard.',
                 inline: false,
             },
             {
                 name: `${setupDone ? '✅' : '📝'} Setup`,
                 value: setupDone
-                    ? 'Setup wizard completed — re-run anytime to update settings.'
-                    : 'Run the setup wizard to configure your server quickly.',
+                    ? 'Core setup completed. All server configuration is managed here.'
+                    : 'Use the sections above to configure Beacon for this server.',
                 inline: false,
             },
         ],
