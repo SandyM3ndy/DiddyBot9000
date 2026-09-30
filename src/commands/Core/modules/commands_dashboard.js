@@ -113,8 +113,8 @@ export function buildOverviewEmbed(snapshot, guild) {
     name: 'How to Use',
     value: [
       '• Select a category below to manage commands and subcommands',
-      '• `/commands disable` — turn off a category or specific command',
-      '• `/commands enable` — turn something back on',
+      '• `Dashboard` — turn off a category or specific command',
+      '• `Dashboard` — turn something back on',
     ].join('\n'),
   });
 
