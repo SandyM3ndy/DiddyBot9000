@@ -24,8 +24,8 @@ import { logger } from '../../utils/logger.js';
 import { botConfig, getCommandPrefix } from '../../config/bot.js';
 import ticketDashboard from '../Ticket/modules/ticket_dashboard.js';
 
-const DASHBOARD_CUSTOM_ID = 'config_select';
-const WIZARD_BUTTON_ID = 'config_wizard';
+const DASHBOARD_CUSTOM_ID = 'dashboard_select';
+const WIZARD_BUTTON_ID = 'dashboard_setup_wizard';
 const activeWizardSessions = new Set();
 
 const DM_DISABLED_HELP = [
@@ -502,7 +502,7 @@ async function runSetupWizard(buttonInteraction, config, guild, client, rootInte
 }
 
 async function showSettingModal(selectInteraction, guildId, setting) {
-    const modalCustomId = `config_wizard_modal:${setting}:${guildId}`;
+    const modalCustomId = `dashboard_modal:${setting}:${guildId}`;
 
     if (setting === 'serverProgressionEnabled') {
         const modal = new ModalBuilder()
@@ -732,7 +732,7 @@ async function handleSettingModalSubmit(selectInteraction, rootInteraction, sett
         const updatedConfig = await getGuildConfig(client, guildId);
         await refreshDashboard(rootInteraction, updatedConfig, submitted.guild);
     } catch (error) {
-        logger.error('Config wizard modal submit error:', error);
+        logger.error('Dashboard modal submit error:', error);
         await replyUserError(submitted, {
             type: ErrorTypes.CONFIGURATION,
             message: error.message || 'Please try again.',
@@ -743,8 +743,8 @@ async function handleSettingModalSubmit(selectInteraction, rootInteraction, sett
 export default {
     slashOnly: true,
     data: new SlashCommandBuilder()
-        .setName('configwizard')
-        .setDescription('Open the server configuration dashboard and setup wizard')
+        .setName('dashboard')
+        .setDescription('Open the Beacon server dashboard and setup wizard')
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
         .setDMPermission(false),
     category: 'Core',
@@ -809,7 +809,7 @@ export default {
                         if (selected === 'ticketSystem') {
                             // Hand the existing dashboard message over to the ticket dashboard.
                             // The select interaction itself is not the dashboard root interaction;
-                            // using it caused the ticket dashboard to fail when opened from /configwizard.
+                            // using it caused the ticket dashboard to fail when opened from /dashboard.
                             componentCollector.stop('ticket_system');
                             await ticketDashboard.execute(
                                 interaction,
@@ -829,7 +829,7 @@ export default {
                         );
                     }
                 } catch (error) {
-                    logger.error('Config dashboard interaction error:', error);
+                    logger.error('Dashboard interaction error:', error);
                     await replyUserError(componentInteraction, {
                         type: ErrorTypes.UNKNOWN,
                         message: 'Failed to process your selection. Please try again.',
@@ -837,10 +837,10 @@ export default {
                 }
             });
         } catch (error) {
-            logger.error('Config command error:', error);
+            logger.error('Dashboard command error:', error);
             await replyUserError(interaction, {
                 type: ErrorTypes.CONFIGURATION,
-                message: 'Failed to open configuration dashboard. Please try again.',
+                message: 'Failed to open the Dashboard. Please try again.',
             });
         }
     },
