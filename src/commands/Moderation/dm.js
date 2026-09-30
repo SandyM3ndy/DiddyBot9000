@@ -1,11 +1,17 @@
 import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
-import { createEmbed, successEmbed } from '../../utils/embeds.js';
+import { successEmbed } from '../../utils/embeds.js';
 import { logEvent } from '../../utils/moderation.js';
 import { logger } from '../../utils/logger.js';
 import { sanitizeMarkdown } from '../../utils/validation.js';
 
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 import { replyUserError, ErrorTypes } from '../../utils/errorHandler.js';
+
+const DM_OPTOUT_KEY = (userId) => `user:${userId}:dm-optout`;
+
+async function isDmOptedOut(client, userId) {
+    return (await client.db.get(DM_OPTOUT_KEY(userId), false)) === true;
+}
 
 export default {
     data: new SlashCommandBuilder()
@@ -79,6 +85,13 @@ export default {
                 });
             }
 
+            if (await isDmOptedOut(client, targetUser.id)) {
+                return await replyUserError(interaction, {
+                    type: ErrorTypes.UNKNOWN,
+                    message: 'That user has opted out of Beacon staff DMs and cannot be contacted with /dm.'
+                });
+            }
+
             const sanitized = sanitizeMarkdown(message);
 
             const dmChannel = await targetUser.createDM();
@@ -89,7 +102,7 @@ export default {
                         `Message from ${senderName}`,
                         sanitized
                     ).setFooter({
-                        text: `You cannot reply to this message. | Logger ID: ${interaction.id}`
+                        text: `You cannot reply to this message. | To opt out of Beacon staff DMs, use /dmoptout. | Logger ID: ${interaction.id}`
                     })
                 ]
             });
@@ -124,7 +137,7 @@ export default {
             if (error.code === 50007) {
                 return await replyUserError(interaction, {
                     type: ErrorTypes.UNKNOWN,
-                    message: "I couldn't send a DM to that user. They may not share a server with Beacon or Discord may be blocking the DM."
+                    message: "I couldn't send a DM to that user. They may have DMs disabled, blocked Beacon, or opted out of Beacon staff DMs."
                 });
             }
 
