@@ -6,7 +6,7 @@ import { isAntiNukeAIConfigured, getAntiNukeAIModel } from '../../services/aiSec
 export default {
     data: new SlashCommandBuilder()
         .setName('botinfo')
-        .setDescription('Shows information and runtime statistics about DiddyBot9000'),
+        .setDescription('Shows information and runtime statistics about Beacon'),
 
     async execute(interaction) {
         const client = interaction.client;
@@ -17,7 +17,7 @@ export default {
         const minutes = Math.floor((uptime % 3600) / 60);
 
         const embed = createEmbed({
-            title: '🤖 DiddyBot9000',
+            title: '🤖 Beacon',
             description: 'A modular Discord community, moderation and server-management bot.',
             color: 'primary',
             thumbnail: client.user?.displayAvatarURL?.({ size: 512 }),
@@ -32,7 +32,7 @@ export default {
                 { name: '📚 discord.js', value: 'v14', inline: true },
                 { name: '🛡️ AI Anti-Nuke', value: isAntiNukeAIConfigured() ? `Enabled • ${getAntiNukeAIModel()}` : 'Local adaptive mode', inline: true },
             ],
-        }).setFooter({ text: 'DiddyBot9000 • Built for Discord communities' }).setTimestamp();
+        }).setFooter({ text: 'Beacon • Built for Discord communities' }).setTimestamp();
 
         await InteractionHelper.safeReply(interaction, { embeds: [embed] });
     },
