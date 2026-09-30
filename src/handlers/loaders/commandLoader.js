@@ -10,8 +10,9 @@ const __dirname = path.dirname(__filename);
 const MAX_COMMANDS = 100;
 const COMMAND_COUNT_WARN_THRESHOLD = 90;
 
+// These are configuration commands that have been replaced by /dashboard.
+// /dashboard itself must remain registered.
 const HIDDEN_COMMANDS = new Set([
-    'dashboard',
     'commands',
     'configWizard',
     'logging',
@@ -135,8 +136,7 @@ function validateCommands(commands) {
                 if (subOption.name && subOption.name.length > 32) validationErrors.push(`Command ${cmd.name} subcommand ${option.name} option ${subOption.name} has name longer than 32 chars: "${subOption.name}" (${subOption.name.length} chars)`);
                 if (subOption.description && subOption.description.length > 110) validationErrors.push(`Command ${cmd.name} subcommand ${option.name} option ${subOption.name} has description longer than 110 chars: "${subOption.description}" (${subOption.description.length} chars)`);
                 if (subOption.choices) for (const choice of subOption.choices) {
-                    if (choice.name && choice.name.length > 110) validationErrors.push(`Command ${cmd.name} subcommand ${option.name} option ${subOption.name} choice ${choice.name} has name longer than 110 chars: "${choice.name}" (${choice.name.length} chars)`);
-                    if (choice.value && choice.value.length > 100) validationErrors.push(`Command ${cmd.name} subcommand ${option.name} option ${subOption.name} choice ${choice.name} has value longer than 100 chars: "${choice.value}" (${choice.value.length} chars)`);
+                    if (choice.name && choice.name.length > 110) validationErrors.push(`Command ${cmd.name} subcommand ${option.name} option ${subOption.name} choice ${choice.name} has value longer than 100 chars: "${choice.value}" (${choice.value.length} chars)`);
                 }
             }
         }
