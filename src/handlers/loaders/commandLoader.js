@@ -10,6 +10,15 @@ const __dirname = path.dirname(__filename);
 const MAX_COMMANDS = 100;
 const COMMAND_COUNT_WARN_THRESHOLD = 90;
 
+const HIDDEN_COMMANDS = new Set([
+    'commands',
+    'configWizard',
+    'logging',
+    'welcome',
+    'jointocreate',
+    'reactroles',
+]);
+
 function getSubcommandInfo(commandData) {
     const subcommands = [];
     
