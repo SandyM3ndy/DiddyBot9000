@@ -1,15 +1,11 @@
 import {
     ActionRowBuilder,
-    ButtonBuilder,
-    ButtonStyle,
     ChannelSelectMenuBuilder,
     ChannelType,
     ComponentType,
     EmbedBuilder,
-    MessageFlags,
 } from 'discord.js';
 import { getColor } from '../../../config/bot.js';
-import { getGuildConfig } from '../../../services/config/guildConfig.js';
 import { replyUserError, ErrorTypes } from '../../../utils/errorHandler.js';
 import { getJoinToCreateConfig } from '../../../utils/database.js';
 import { initializeJoinToCreate } from '../../../services/joinToCreateService.js';
