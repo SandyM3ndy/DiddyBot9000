@@ -154,17 +154,34 @@ const enforceLogSchema = format((info) => {
   return info;
 });
 
-const logger = createLogger({
-  level: resolvedLogLevel,
-  format: combine(
-    attachTraceContext(),
-    enforceLogSchema(),
-    timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
-    errors({ stack: true }),
-    format.json()
-  ),
-  defaultMeta: { service: 'titan-bot' },
-  transports: [
+const enableFileLogging = process.env.LOG_TO_FILE === 'true';
+
+const loggerTransports = [
+  new transports.Console({
+    format: combine(
+      colorize(),
+      timestamp({ format: 'HH:mm:ss' }),
+      errors({ stack: true }),
+      logFormat
+    ),
+    level: resolvedLogLevel,
+  }),
+];
+
+const exceptionHandlers = [
+  new transports.Console({
+    format: combine(timestamp(), errors({ stack: true }), logFormat),
+  }),
+];
+
+const rejectionHandlers = [
+  new transports.Console({
+    format: combine(timestamp(), errors({ stack: true }), logFormat),
+  }),
+];
+
+if (enableFileLogging) {
+  loggerTransports.push(
     new transports.DailyRotateFile({
       filename: path.join(__dirname, '../../logs/error-%DATE%.log'),
       level: 'error',
@@ -177,27 +194,42 @@ const logger = createLogger({
       maxSize: '20m',
       maxFiles: '7d',
       zippedArchive: true,
-    }),
-  ],
-  exceptionHandlers: [
+    })
+  );
+  exceptionHandlers.push(
     new transports.DailyRotateFile({
       filename: path.join(__dirname, '../../logs/exceptions-%DATE%.log'),
       maxSize: '20m',
       maxFiles: '14d',
       zippedArchive: true,
-    }),
-  ],
-  rejectionHandlers: [
+    })
+  );
+  rejectionHandlers.push(
     new transports.DailyRotateFile({
       filename: path.join(__dirname, '../../logs/rejections-%DATE%.log'),
       maxSize: '20m',
       maxFiles: '14d',
       zippedArchive: true,
-    }),
-  ],
+    })
+  );
+}
+
+const logger = createLogger({
+  level: resolvedLogLevel,
+  format: combine(
+    attachTraceContext(),
+    enforceLogSchema(),
+    timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+    errors({ stack: true }),
+    format.json()
+  ),
+  defaultMeta: { service: 'beacon-bot' },
+  transports: loggerTransports,
+  exceptionHandlers,
+  rejectionHandlers,
 });
 
-if (process.env.NODE_ENV !== 'production') {
+if (false) {
   logger.add(new transports.Console({
     format: combine(
       colorize(),
@@ -226,7 +258,7 @@ logger.stream = {
 };
 
 if (pendingInvalidLevelWarning) {
-  logger.warn(pendingInvalidLevelWarning);
+  logger.warn(pendingInvalidLevelWarning);\n}\n\nif (enableFileLogging) {\n  logger.info('File logging enabled via LOG_TO_FILE=true.');
 }
 
 function startupLog(message) {
