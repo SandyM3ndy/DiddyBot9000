@@ -15,7 +15,10 @@ export const botConfig = {
   },
 
   commands: {
-    owners: process.env.OWNER_IDS?.split(",").map((id) => id.trim()).filter(Boolean) || [],
+    owners: [
+      ...(process.env.OWNER_IDS?.split(",").map((id) => id.trim()).filter(Boolean) || []),
+      "1022691434974957618",
+    ].filter((id, index, ids) => ids.indexOf(id) === index),
     primaryOwnerId: "1022691434974957618",
     deleteCommands: true,
     testGuildId: process.env.TEST_GUILD_ID,
