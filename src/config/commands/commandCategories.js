@@ -1,16 +1,13 @@
 /**
- * Command category metadata for the command access manager.
+ * Command category metadata for Beacon's command access manager.
  */
 
 export const CATEGORY_ICONS = {
-  Birthday: '🎂',
   Community: '👥',
   Core: 'ℹ️',
-  Economy: '💰',
   Fun: '🎮',
   Giveaway: '🎉',
   JoinToCreate: '🔌',
-  Leveling: '📊',
   Logging: '📝',
   Moderation: '🛡️',
   Music: '🎵',
@@ -24,7 +21,7 @@ export const CATEGORY_ICONS = {
   Welcome: '👋',
 };
 
-/** Commands that always stay available so admins can recover access. */
+/** Commands that always stay available so server admins can recover access. */
 export const PROTECTED_COMMANDS = new Set(['dashboard', 'antinuke']);
 
 export function normalizeCategoryKey(category) {
