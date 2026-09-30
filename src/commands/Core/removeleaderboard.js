@@ -34,7 +34,7 @@ export default {
     const guild = interaction.client.guilds.cache.get(serverId);
     if (!guild) {
       return InteractionHelper.safeReply(interaction, {
-        embeds: [createEmbed({ title: '❌ Server Not Found', description: 'DiddyBot9000 is not currently in that server.', color: 'error' })],
+        embeds: [createEmbed({ title: '❌ Server Not Found', description: 'Beacon is not currently in that server.', color: 'error' })],
         flags: MessageFlags.Ephemeral,
       });
     }
