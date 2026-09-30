@@ -1,7 +1,7 @@
 import 'dotenv/config';
 
-const healthUrl = process.env.DIDDY_RESTART_HEALTH_URL;
-const ownerId = process.env.DIDDY_RESTART_OWNER_ID || '1022691434974957618';
+const healthUrl = process.env.BEACON_RESTART_HEALTH_URL;
+const ownerId = process.env.BEACON_RESTART_OWNER_ID || '1022691434974957618';
 const token = process.env.DISCORD_TOKEN || process.env.BOT_TOKEN;
 
 if (!healthUrl || !token) {
@@ -14,7 +14,7 @@ let recovered = false;
 while (Date.now() < deadline) {
   try {
     const response = await fetch(healthUrl, {
-      headers: { 'User-Agent': 'DiddyBot9000-RestartWatchdog/1.0' },
+      headers: { 'User-Agent': 'Beacon-RestartWatchdog/1.0' },
     });
 
     if (response.ok) {
@@ -55,7 +55,7 @@ try {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      content: '🚨 **DiddyBot9000 restart warning**\\n\\nThe scheduled 12-hour restart was started, but the bot did not become healthy again within 2 minutes. Please check the bot process/host immediately.',
+      content: '🚨 **Beacon restart warning**\\n\\nThe scheduled 12-hour restart was started, but the bot did not become healthy again within 2 minutes. Please check the bot process/host immediately.',
     }),
   });
 } catch {
