@@ -23,6 +23,13 @@ export default {
                 .setDescription("The message to send")
                 .setRequired(true)
         )
+        .addStringOption(option =>
+            option
+                .setName("from")
+                .setDescription("Name shown as the sender (defaults to Staff Team)")
+                .setRequired(false)
+                .setMaxLength(100)
+        )
         .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers)
         .setDMPermission(false),
 
@@ -42,6 +49,7 @@ export default {
 
         const userInput = interaction.options.getString("user", true);
         const message = interaction.options.getString("message", true);
+        const senderName = interaction.options.getString("from")?.trim() || "Staff Team";
 
         try {
             // Extract a user ID from either an ID or a mention
@@ -78,7 +86,7 @@ export default {
             await dmChannel.send({
                 embeds: [
                     successEmbed(
-                        "Message from Diddy...",
+                        `Message from ${senderName}`,
                         sanitized
                     ).setFooter({
                         text: `You cannot reply to this message. | Logger ID: ${interaction.id}`
@@ -116,7 +124,7 @@ export default {
             if (error.code === 50007) {
                 return await replyUserError(interaction, {
                     type: ErrorTypes.UNKNOWN,
-                    message: "I couldn't send a DM to that user. They may not share a server with Diddy or Discord may be blocking the DM."
+                    message: "I couldn't send a DM to that user. They may not share a server with Beacon or Discord may be blocking the DM."
                 });
             }
 
