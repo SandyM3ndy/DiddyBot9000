@@ -224,9 +224,14 @@ async function handleSetupSubcommand(interaction, client) {
     }
 }
 
-async function handleConfigSubcommand(interaction, client) {
+export async function openJoinToCreateDashboard(interaction, client, triggerChannel = null) {
     try {
-        const triggerChannel = interaction.options.getChannel('trigger_channel');
+        const selectedTriggerChannel = triggerChannel || interaction.options.getChannel('trigger_channel');
+        const triggerChannelId = selectedTriggerChannel?.id;
+        if (!triggerChannelId) {
+            throw new TitanBotError('Missing trigger channel', ErrorTypes.VALIDATION, 'No Join to Create trigger channel is configured yet.');
+        }
+        triggerChannel = selectedTriggerChannel;
         const guildId = interaction.guild.id;
 
         const currentConfig = await getChannelConfiguration(client, guildId, triggerChannel.id);
