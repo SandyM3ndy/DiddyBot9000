@@ -142,7 +142,7 @@ export async function scheduleAutomaticRestart(client) {
 
       await notifyOwner(
         client,
-        '🔄 **DiddyBot9000 scheduled restart**\\n\\nThe bot has been running for 12 hours and is restarting now to keep memory usage healthy. I will only message again if the restart does not recover successfully.'
+        '🔄 **Beacon scheduled restart**\\n\\nThe bot has been running for 12 hours and is restarting now to keep memory usage healthy. I will only message again if the restart does not recover successfully.'
       );
 
       const { spawn } = await import('node:child_process');
@@ -154,8 +154,8 @@ export async function scheduleAutomaticRestart(client) {
           cwd: process.cwd(),
           env: {
             ...process.env,
-            DIDDY_RESTART_HEALTH_URL: healthUrl,
-            DIDDY_RESTART_OWNER_ID: OWNER_ID,
+            BEACON_RESTART_HEALTH_URL: healthUrl,
+            BEACON_RESTART_OWNER_ID: OWNER_ID,
           },
           detached: true,
           stdio: 'ignore',
@@ -175,7 +175,7 @@ export async function scheduleAutomaticRestart(client) {
       logger.error('Scheduled restart failed before shutdown:', error);
       await notifyOwner(
         client,
-        `🚨 **DiddyBot9000 restart failed**\\n\\nThe scheduled 12-hour restart could not be started cleanly.\\n\\n**Error:** ${error.message}`
+        `🚨 **Beacon restart failed**\\n\\nThe scheduled 12-hour restart could not be started cleanly.\\n\\n**Error:** ${error.message}`
       );
     }
   }, RESTART_INTERVAL_MS);
