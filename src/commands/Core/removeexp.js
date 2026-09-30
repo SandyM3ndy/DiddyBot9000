@@ -56,7 +56,7 @@ export default {
       return InteractionHelper.safeReply(interaction, {
         embeds: [createEmbed({
           title: '❌ Server Not Found',
-          description: 'DiddyBot9000 is not currently in that server.',
+          description: 'Beacon is not currently in that server.',
           color: 'error',
         })],
         flags: MessageFlags.Ephemeral,
