@@ -5,7 +5,7 @@ import { InteractionHelper } from '../../utils/interactionHelper.js';
 export default {
   data: new SlashCommandBuilder()
     .setName('status')
-    .setDescription('Show DiddyBot9000 system and database health')
+    .setDescription('Show Beacon system and database health')
     .setDMPermission(false),
   category: 'Core',
 
@@ -41,7 +41,7 @@ export default {
     const overallHealthy = databaseHealthy && discordHealthy;
 
     const embed = createEmbed({
-      title: `${overallHealthy ? '🟢' : '🟠'} DiddyBot9000 Status`,
+      title: `${overallHealthy ? '🟢' : '🟠'} Beacon Status`,
       description: overallHealthy
         ? 'All critical services are operating normally.'
         : 'One or more services need attention.',
