@@ -74,6 +74,10 @@ export async function loadCommands(client) {
             const normalizedPath = filePath.replace(/\\/g, '/');
             
             const commandName = path.basename(filePath, '.js');
+            if (HIDDEN_COMMANDS.has(commandName)) {
+                logger.debug(`Skipping hidden configuration command: ${commandName}`);
+                continue;
+            }
             const commandDir = path.dirname(filePath);
             const category = path.basename(commandDir);
             
