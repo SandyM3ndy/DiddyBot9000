@@ -20,7 +20,7 @@ export default {
   data: new SlashCommandBuilder()
     .setName('antinuke')
     .setDescription('Configure DiddyBot Anti-Nuke protection.')
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
     .addSubcommand((subcommand) =>
       subcommand
         .setName('enable')
@@ -66,11 +66,11 @@ export default {
 
     if (
       !interaction.memberPermissions?.has(
-        PermissionFlagsBits.Administrator
+        PermissionFlagsBits.ManageGuild
       )
     ) {
       return interaction.reply({
-        content: '❌ You need Administrator permission to use Anti-Nuke.',
+        content: '❌ You need Manage Server permission to configure Anti-Nuke.',
         flags: MessageFlags.Ephemeral,
       });
     }
