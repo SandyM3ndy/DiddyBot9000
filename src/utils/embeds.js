@@ -168,7 +168,7 @@ export function createEmbed({
     }
   } else if (botConfig.embeds?.footer?.text) {
     const defaultFooter = {
-      text: botConfig.embeds.footer.text,
+      text: botConfig.embeds.footer.text.replace(/^Beacon\s*•\s*/i, 'Beacon v1.0 • '),
       ...(botConfig.embeds.footer.icon ? { iconURL: botConfig.embeds.footer.icon } : {}),
     };
     embed.setFooter(defaultFooter);
