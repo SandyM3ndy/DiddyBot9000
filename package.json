@@ -1,7 +1,7 @@
 {
-  "name": "titanbot",
+  "name": "beacon-bot",
   "version": "2.1.0",
-  "description": "Modular Ultimate Community Bot by Touchpoint Support",
+  "description": "Beacon — Your community's all-in-one Discord assistant.",
   "main": "src/app.js",
   "type": "module",
   "scripts": {
