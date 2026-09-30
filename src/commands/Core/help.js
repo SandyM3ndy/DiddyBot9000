@@ -13,7 +13,7 @@ const CATEGORY_SELECT_ID = "help-category-select";
 const ALL_COMMANDS_ID = "help-all-commands";
 const HELP_MENU_TIMEOUT_MS = 5 * 60 * 1000;
 const CATEGORY_ICONS = { Core: "ℹ️", Moderation: "🛡️", Economy: "💰", Music: "🎵", Fun: "🎮", Leveling: "📊", Utility: "🔧", Ticket: "🎫", Welcome: "👋", Giveaway: "🎉", Counter: "🔢", Tools: "🛠️", Search: "🔍", "Reaction Roles": "🎭", Community: "👥", Birthday: "🎂", "Join To Create": "🔌", Verification: "✅" };
-function formatCategoryName(rawCategory) { return rawCategory.replace(/_/g, '').replace(/([a-z])([A-Z])/g, '$1 $2').replace(/\b\w/g, (char) => char.toUpperCase()); }
+function formatCategoryName(rawCategory) { return rawCategory.replace(/_/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').replace(/\b\w/g, (char) => char.toUpperCase()); }
 
 export async function createInitialHelpMenu(client) {
   const commandsPath = path.join(__dirname, "../../commands");
