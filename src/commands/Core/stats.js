@@ -19,7 +19,7 @@ export default {
       );
       const nodeVersion = process.version;
 
-      const embed = createEmbed({ title: "📊 System Statistics", description: "Live information about DiddyBot9000 and the current process.", color: "info" }).addFields(
+      const embed = createEmbed({ title: "📊 System Statistics", description: "Live information about Beacon and the current process.", color: "info" }).addFields(
         { name: "🌐 Servers", value: `${totalGuilds}`, inline: true },
         { name: "👥 Users", value: `${totalMembers}`, inline: true },
         { name: "🟢 Node.js", value: `${nodeVersion}`, inline: true },
