@@ -236,6 +236,29 @@ function prepareCommandsForRegistration(commands) {
     return truncated;
 }
 
+export async function registerGuildCommands(client, guildId, options = {}) {
+    const clientId = options.clientId || client.config?.bot?.clientId;
+
+    if (!clientId) throw new Error('CLIENT_ID is required for guild command registration');
+    if (!guildId) throw new Error('Guild ID is required for guild command registration');
+    if (!client.rest) throw new Error('Discord REST client is not available for slash command registration');
+
+    const { commands, totalSubcommands } = collectCommandPayloads(client);
+    validateCommands(commands);
+    const commandsToRegister = prepareCommandsForRegistration(commands);
+
+    await client.rest.put(
+        `/applications/${clientId}/guilds/${guildId}/commands`,
+        { body: commandsToRegister },
+    );
+
+    logger.info(
+        `Registered ${commandsToRegister.length} commands in newly joined guild ${guildId} (including ${totalSubcommands} subcommands)`,
+    );
+
+    return commandsToRegister.length;
+}
+
 async function registerGlobalCommands(client, clientId, commands, totalSubcommands) {
     if (!clientId) {
         throw new Error('CLIENT_ID is required for slash command registration');
