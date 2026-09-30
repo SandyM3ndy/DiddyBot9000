@@ -13,7 +13,7 @@ export default {
     const serverId = interaction.options.getString('server_id', true).trim();
     if (!/^\d{17,20}$/.test(serverId)) return InteractionHelper.safeReply(interaction, { embeds: [createEmbed({ title: '❌ Invalid Server ID', description: 'Please provide a valid Discord server ID.', color: 'error' })], flags: MessageFlags.Ephemeral });
     const guild = interaction.client.guilds.cache.get(serverId);
-    if (!guild) return InteractionHelper.safeReply(interaction, { embeds: [createEmbed({ title: '❌ Server Not Found', description: 'DiddyBot9000 is not currently in that server.', color: 'error' })], flags: MessageFlags.Ephemeral });
+    if (!guild) return InteractionHelper.safeReply(interaction, { embeds: [createEmbed({ title: '❌ Server Not Found', description: 'Beacon is not currently in that server.', color: 'error' })], flags: MessageFlags.Ephemeral });
     const data = await getServerProgression(interaction.client, serverId);
     if (data.leaderboardExcluded !== true) return InteractionHelper.safeReply(interaction, { embeds: [createEmbed({ title: 'ℹ️ Already on Leaderboard', description: `**${guild.name}** is already included in the global progression leaderboard.`, color: 'info' })], flags: MessageFlags.Ephemeral });
     data.leaderboardExcluded = false;
