@@ -51,7 +51,7 @@ export default {
       return InteractionHelper.safeEditReply(interaction, {
         embeds: [createEmbed({
           title: '🌎 Global Server Leaderboard',
-          description: 'The highest-progressing servers on DiddyBot9000.\n\n' + lines.join('\n'),
+          description: 'The highest-progressing servers on Beacon.\n\n' + lines.join('\n'),
           color: 'info',
           footer: 'Server XP is earned through activity and daily quests.',
         })],
