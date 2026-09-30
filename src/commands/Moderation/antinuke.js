@@ -19,7 +19,7 @@ export default {
 
   data: new SlashCommandBuilder()
     .setName('antinuke')
-    .setDescription('Configure DiddyBot Anti-Nuke protection.')
+    .setDescription('Configure Beacon Anti-Nuke protection.')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
     .addSubcommand((subcommand) =>
       subcommand
