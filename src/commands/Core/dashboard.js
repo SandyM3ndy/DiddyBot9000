@@ -90,7 +90,7 @@ function buildDashboardEmbed(config, guild) {
 
     return createEmbed({
         title: '⚙️ Server Configuration',
-        description: `Core settings for **${guild.name}**. Pick a setting below to edit it, or use **Quick Setup** for a guided setup.`,
+        description: `Core settings for **${guild.name}**. Pick an option below or run the setup wizard.`,
         color: 'info',
         fields: [
             {
@@ -135,14 +135,14 @@ function buildDashboardEmbed(config, guild) {
             },
             {
                 name: '⚡ Command Access',
-                value: 'Manage command and category access from the **Command Access** section below.',
+                value: 'Use `/commands dashboard` to enable or disable commands and subcommands.',
                 inline: false,
             },
             {
                 name: `${setupDone ? '✅' : '📝'} Setup`,
                 value: setupDone
-                    ? 'Setup wizard completed — you can use **Quick Setup** again at any time.'
-                    : 'Setup wizard has not been completed yet. Use **Quick Setup** to configure Beacon.',
+                    ? 'Setup wizard completed — re-run anytime to update settings.'
+                    : 'Setup wizard has not been completed yet — run the setup wizard to configure Beacon.',
                 inline: false,
             },
         ],
@@ -154,18 +154,18 @@ function buildSettingsSelect(guildId) {
     return new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder()
             .setCustomId(`${DASHBOARD_CUSTOM_ID}:${guildId}`)
-            .setPlaceholder('⚙️ Select a setting or feature to configure...')
+            .setPlaceholder('⚙️ Select a setting to configure...')
             .addOptions(
                 new StringSelectMenuOptionBuilder().setLabel('Server Prefix').setDescription('Change the text command prefix').setValue('prefix').setEmoji('⌨️'),
                 new StringSelectMenuOptionBuilder().setLabel('Moderator Role').setDescription('Role used for moderation commands').setValue('modRole').setEmoji('🛡️'),
-                new StringSelectMenuOptionBuilder().setLabel('Command Access').setDescription('Enable or disable commands and command categories').setValue('commandAccess').setEmoji('⚡'),
+                new StringSelectMenuOptionBuilder().setLabel('Command Access').setDescription('Enable or disable commands and subcommands').setValue('commandAccess').setEmoji('⚡'),
                 new StringSelectMenuOptionBuilder().setLabel('Logging').setDescription('Configure log channels, events and filters').setValue('logging').setEmoji('📝'),
                 new StringSelectMenuOptionBuilder().setLabel('Welcome & Goodbye').setDescription('Configure member welcome and goodbye messages').setValue('welcome').setEmoji('👋'),
                 new StringSelectMenuOptionBuilder().setLabel('Ticket System').setDescription('Configure tickets, staff, categories, logs and transcripts').setValue('ticketSystem').setEmoji('🎫'),
                 new StringSelectMenuOptionBuilder().setLabel('Join to Create').setDescription('Configure temporary voice channel creation').setValue('joinToCreate').setEmoji('🔊'),
                 new StringSelectMenuOptionBuilder().setLabel('Reaction Roles').setDescription('Create and manage reaction-role panels').setValue('reactionRoles').setEmoji('🎭'),
                 new StringSelectMenuOptionBuilder().setLabel('AutoMod').setDescription('Configure Beacon\'s basic automatic protection').setValue('autoModEnabled').setEmoji('🛡️'),
-                new StringSelectMenuOptionBuilder().setLabel('Server Progression').setDescription('Configure server XP, quests and progression').setValue('serverProgressionEnabled').setEmoji('📈'),
+                new StringSelectMenuOptionBuilder().setLabel('Server Progression').setDescription('Enable daily quests, server XP and the global leaderboard').setValue('serverProgressionEnabled').setEmoji('📈'),
                 new StringSelectMenuOptionBuilder().setLabel('Update Announcements').setDescription('Choose where Beacon updates are announced').setValue('updatesChannelId').setEmoji('📢'),
                 new StringSelectMenuOptionBuilder().setLabel('Log Channel').setDescription('Choose the server\'s main log channel').setValue('logChannelId').setEmoji('📋'),
             ),
