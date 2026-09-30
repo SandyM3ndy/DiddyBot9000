@@ -774,7 +774,6 @@ export default {
     data: new SlashCommandBuilder()
         .setName('dashboard')
         .setDescription('Open the Beacon server dashboard')
-        .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
         .setDMPermission(false),
     category: 'Core',
 
