@@ -8,7 +8,7 @@ const OWNER_ID = '1022691434974957618';
 export default {
   data: new SlashCommandBuilder()
     .setName('announcement')
-    .setDescription('Broadcast an official DiddyBot9000 update to configured update channels')
+    .setDescription('Broadcast an official Beacon update to configured update channels')
     .addStringOption(option => option
       .setName('title')
       .setDescription('Announcement title')
