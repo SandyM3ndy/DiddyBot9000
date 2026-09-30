@@ -11,7 +11,8 @@ import {
 import { getColor } from '../../../config/bot.js';
 import { getGuildConfig } from '../../../services/config/guildConfig.js';
 import { replyUserError, ErrorTypes } from '../../../utils/errorHandler.js';
-import { getJoinToCreateConfig, initializeJoinToCreate } from '../../../utils/database.js';
+import { getJoinToCreateConfig } from '../../../utils/database.js';
+import { initializeJoinToCreate } from '../../../services/joinToCreateService.js';
 import { openJoinToCreateDashboard } from '../../JoinToCreate/jointocreate.js';
 import { openReactionRoleDashboard } from '../../Reaction_roles/reactroles.js';
 
