@@ -137,7 +137,7 @@ export async function scheduleAutomaticRestart(client) {
     client.restarting = true;
 
     try {
-      const port = client.webPort || Number(client.config.api?.port || process.env.PORT || 3000);
+      const port = client.webPort || Number(client.config?.api?.port || process.env.PORT || 3000);
       const healthUrl = `http://127.0.0.1:${port}/ready`;
 
       await notifyOwner(
