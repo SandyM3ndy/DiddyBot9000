@@ -229,28 +229,6 @@ const logger = createLogger({
   rejectionHandlers,
 });
 
-if (false) {
-  logger.add(new transports.Console({
-    format: combine(
-      colorize(),
-      timestamp({ format: 'HH:mm:ss' }),
-      errors({ stack: true }),
-      logFormat
-    ),
-    level: resolvedLogLevel,
-  }));
-} else {
-  logger.add(new transports.Console({
-    format: combine(
-      colorize(),
-      timestamp({ format: 'HH:mm:ss' }),
-      errors({ stack: true }),
-      logFormat
-    ),
-    level: resolvedLogLevel,
-  }));
-}
-
 logger.stream = {
   write: (message) => {
     logger.info(message.trim());
@@ -258,7 +236,11 @@ logger.stream = {
 };
 
 if (pendingInvalidLevelWarning) {
-  logger.warn(pendingInvalidLevelWarning);\n}\n\nif (enableFileLogging) {\n  logger.info('File logging enabled via LOG_TO_FILE=true.');
+  logger.warn(pendingInvalidLevelWarning);
+}
+
+if (enableFileLogging) {
+  logger.info('File logging enabled via LOG_TO_FILE=true.');
 }
 
 function startupLog(message) {
