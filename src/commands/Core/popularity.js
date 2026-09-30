@@ -8,7 +8,7 @@ export default {
   data: new SlashCommandBuilder()
     .setName('popularity')
     .setDescription('View Beacon server coverage.')
-  category: 'core',
+    ,category: 'core',
 
   async execute(interaction) {
     if (interaction.user.id !== OWNER_ID) {
