@@ -132,7 +132,19 @@ export default {
             });
 
         } catch (error) {
-            logger.error("DM command error:", error);
+            logger.error("DM command error:", {
+                code: error?.code,
+                message: error?.message,
+                userId: interaction.user.id,
+                guildId: interaction.guildId
+            });
+
+            if (error.code === 50278) {
+                return await replyUserError(interaction, {
+                    type: ErrorTypes.UNKNOWN,
+                    message: "I can't DM that user because they don't share a server with Beacon."
+                });
+            }
 
             if (error.code === 50007) {
                 return await replyUserError(interaction, {
