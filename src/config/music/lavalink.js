@@ -13,9 +13,7 @@ function parseBoolean(value, defaultValue = false) {
 
 function parseNodesFromEnv() {
     const raw = process.env.LAVALINK_NODES?.trim();
-    if (!raw) {
-        return null;
-    }
+    if (!raw) return null;
 
     try {
         const parsed = JSON.parse(raw);
@@ -25,53 +23,48 @@ function parseNodesFromEnv() {
     }
 }
 
-function parseNodesPayload(parsed) {
-    if (Array.isArray(parsed)) {
-        return parsed;
-    }
-    if (Array.isArray(parsed?.nodes)) {
-        return parsed.nodes;
-    }
-    return null;
-}
-
 function loadNodesFromFile() {
     const nodesFile = process.env.LAVALINK_NODES_FILE?.trim()
         || path.join(projectRoot, 'lavalink', 'nodes.json');
 
-    if (!existsSync(nodesFile)) {
-        return null;
-    }
+    if (!existsSync(nodesFile)) return null;
 
     try {
         const parsed = JSON.parse(readFileSync(nodesFile, 'utf8'));
-        return parseNodesPayload(parsed);
+        if (Array.isArray(parsed)) return parsed;
+        if (Array.isArray(parsed?.nodes)) return parsed.nodes;
     } catch {
-        return null;
+        // Fall through to the single-node environment configuration.
     }
+
+    return null;
 }
 
 export function getLavalinkNodes() {
-    const fromJson = parseNodesFromEnv();
-    if (fromJson?.length) {
-        return fromJson;
+    // An explicit environment node always wins. This is important for production
+    // deployments where Beacon runs beside its own always-on Lavalink service.
+    const envNodes = parseNodesFromEnv();
+    if (envNodes?.length) return envNodes;
+
+    const explicitHost = process.env.LAVALINK_HOST?.trim();
+    if (explicitHost) {
+        return [{
+            host: explicitHost,
+            port: Number(process.env.LAVALINK_PORT || 2333),
+            password: process.env.LAVALINK_PASSWORD || 'youshallnotpass',
+            secure: parseBoolean(process.env.LAVALINK_SECURE, false),
+            name: process.env.LAVALINK_NAME || 'Beacon-Main',
+        }];
     }
 
     const fromFile = loadNodesFromFile();
-    if (fromFile?.length) {
-        return fromFile;
-    }
-
-    const host = process.env.LAVALINK_HOST || 'localhost';
-    const port = Number(process.env.LAVALINK_PORT || 2333);
-    const password = process.env.LAVALINK_PASSWORD || 'youshallnotpass';
-    const secure = parseBoolean(process.env.LAVALINK_SECURE, false);
+    if (fromFile?.length) return fromFile;
 
     return [{
-        host,
-        port,
-        password,
-        secure,
+        host: 'localhost',
+        port: 2333,
+        password: process.env.LAVALINK_PASSWORD || 'youshallnotpass',
+        secure: parseBoolean(process.env.LAVALINK_SECURE, false),
         name: process.env.LAVALINK_NAME || 'Main',
     }];
 }
