@@ -7,7 +7,7 @@ export default {
   data: new SlashCommandBuilder()
     .setName('unlockdown')
     .setDescription('Restore the server after an emergency lockdown.')
-  category: 'moderation',
+  ,category: 'moderation',
 
   async execute(interaction, config, client) {
     if (!interaction.guild || interaction.user.id !== interaction.guild.ownerId) {
