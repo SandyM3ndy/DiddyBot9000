@@ -9,7 +9,6 @@ services:
       - NODE_ENV=production
       - DISCORD_TOKEN=${DISCORD_TOKEN}
       - CLIENT_ID=${CLIENT_ID}
-      - GUILD_ID=${GUILD_ID}
       - DATABASE_URL=postgres://${POSTGRES_USER:-titanbot}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@db:5432/${POSTGRES_DB:-titanbot}
       - POSTGRES_URL=postgres://${POSTGRES_USER:-titanbot}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@db:5432/${POSTGRES_DB:-titanbot}
       - POSTGRES_HOST=db
@@ -22,7 +21,10 @@ services:
       - LOG_LEVEL=${LOG_LEVEL:-warn}
       - OPENAI_API_KEY=${OPENAI_API_KEY:?OPENAI_API_KEY must be set}
       - ANTINUKE_AI_MODEL=${ANTINUKE_AI_MODEL:-gpt-5.6-luna}
-      - LAVALINK_NODES_FILE=lavalink/nodes.json
+      - LAVALINK_HOST=lavalink
+      - LAVALINK_PORT=2333
+      - LAVALINK_SECURE=false
+      - LAVALINK_PASSWORD=${LAVALINK_PASSWORD:?LAVALINK_PASSWORD must be set}
       - PORT=3000
       - WEB_HOST=127.0.0.1
     ports:
@@ -30,6 +32,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      lavalink:
+        condition: service_started
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 30s
@@ -40,15 +44,15 @@ services:
       - titan-network
 
   lavalink:
-    profiles:
-      - local-lavalink
-    image: ghcr.io/lavalink-devs/lavalink:4
+    build:
+      context: ./lavalink
+      dockerfile: Dockerfile
     container_name: titanbot-lavalink
     restart: unless-stopped
     environment:
       - LAVALINK_PASSWORD=${LAVALINK_PASSWORD:?LAVALINK_PASSWORD must be set}
-    volumes:
-      - ./lavalink/application.yml:/opt/Lavalink/application.yml
+    ports:
+      - "127.0.0.1:${LAVALINK_PORT:-2333}:2333"
     networks:
       - titan-network
 
