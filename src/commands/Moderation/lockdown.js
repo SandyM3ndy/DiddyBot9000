@@ -7,7 +7,7 @@ export default {
   data: new SlashCommandBuilder()
     .setName('lockdown')
     .setDescription('Emergency-lock the entire server except the server owner.')
-  category: 'moderation',
+  ,category: 'moderation',
 
   async execute(interaction, config, client) {
     if (!interaction.guild || interaction.user.id !== interaction.guild.ownerId) {
