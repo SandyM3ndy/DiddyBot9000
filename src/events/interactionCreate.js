@@ -559,6 +559,9 @@ export default {
               'config_wizard_modal:'
             ) ||
             interaction.customId.startsWith(
+              'dashboard_modal:'
+            ) ||
+            interaction.customId.startsWith(
               'log_dash_channel_modal:'
             ) ||
             interaction.customId.startsWith(
