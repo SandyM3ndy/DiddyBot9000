@@ -717,7 +717,7 @@ function buildSettingSuccessMessage(setting, value, guild) {
 }
 
 async function handleSettingModalSubmit(selectInteraction, rootInteraction, setting, guildId, client) {
-    const modalCustomId = `config_wizard_modal:${setting}:${guildId}`;
+    const modalCustomId = `dashboard_modal:${setting}:${guildId}`;
 
     const submitted = await selectInteraction
         .awaitModalSubmit({
