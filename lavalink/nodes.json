@@ -1,12 +1,5 @@
 [
   {
-    "host": "lavalink.heavencloud.in",
-    "port": 443,
-    "password": "heavencloud",
-    "secure": true,
-    "name": "HeavenCloud-India"
-  },
-  {
     "host": "sg.lavalink.heavencloud.in",
     "port": 443,
     "password": "heavencloud",
@@ -33,13 +26,6 @@
     "password": "https://seretia.link/discord",
     "secure": true,
     "name": "Serenetia"
-  },
-  {
-    "host": "lavalink.jirayu.net",
-    "port": 443,
-    "password": "youshallnotpass",
-    "secure": true,
-    "name": "Jirayu"
   },
   {
     "host": "lava-v4.millohost.my.id",
