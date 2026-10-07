@@ -1,5 +1,6 @@
 import { getHeapStatistics } from 'node:v8';
 import { logger } from '../utils/logger.js';
+import { sanitizeMessageText } from '../utils/embeds.js';
 
 const OWNER_ID = '1022691434974957618';
 const MONITOR_INTERVAL_MS = 60_000;
@@ -22,7 +23,7 @@ function formatBytes(bytes) {
 async function notifyOwner(client, message) {
   try {
     const owner = await client.users.fetch(OWNER_ID);
-    await owner.send(message);
+    await owner.send(sanitizeMessageText(message));
     return true;
   } catch (error) {
     logger.error('Failed to DM bot owner:', error);
