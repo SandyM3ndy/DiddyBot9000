@@ -4,6 +4,7 @@ import { logger } from './logger.js';
 import { MessageFlags } from 'discord.js';
 import { handleInteractionError, createError, ErrorTypes } from './errorHandler.js';
 import { ResponseCoordinator } from './responseCoordinator.js';
+import { sanitizeMessagePayload } from './embeds.js';
 
 const INTERACTION_TIMEOUT_MS = 15 * 60 * 1000;
 const DEFAULT_DEFER_OPTIONS = { flags: MessageFlags.Ephemeral };
@@ -18,6 +19,8 @@ function isInteractionUnavailableError(error) {
 function sanitizeResponseOptions(options = {}) {
     if (!options || typeof options !== 'object') return options;
 
+    options = sanitizeMessagePayload(options);
+
     const { ephemeral, ...rest } = options;
     if (ephemeral === true) {
         rest.flags = (rest.flags ?? 0) | MessageFlags.Ephemeral;
@@ -31,6 +34,8 @@ function sanitizeEditReplyOptions(options = {}) {
     if (!options || typeof options !== 'object') {
         return options;
     }
+
+    options = sanitizeMessagePayload(options);
 
     const { flags, ephemeral, ...rest } = options;
 
