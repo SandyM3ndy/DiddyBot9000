@@ -1,6 +1,6 @@
 // responseCoordinator.js — single respond-once gate for prefix and slash commands
 
-import { buildUserErrorEmbed } from './embeds.js';
+import { buildUserErrorEmbed, sanitizeMessagePayload } from './embeds.js';
 import { logger } from './logger.js';
 
 function getCommandJson(commandData) {
@@ -86,7 +86,7 @@ export class ResponseCoordinator {
       return null;
     }
 
-    const sentMessage = await this.message.channel.send(payload);
+    const sentMessage = await this.message.channel.send(sanitizeMessagePayload(payload));
     this.setReplyMessage(sentMessage);
     return sentMessage;
   }
@@ -150,7 +150,7 @@ export class ResponseCoordinator {
       } catch (error) {
         logger.debug(`ResponseCoordinator edit failed: ${error.message}`);
         if (this.message?.channel) {
-          const sentMessage = await this.message.channel.send(payload);
+          const sentMessage = await this.message.channel.send(sanitizeMessagePayload(payload));
           this.setReplyMessage(sentMessage);
           return sentMessage;
         }
@@ -175,7 +175,7 @@ export class ResponseCoordinator {
       return this.message.channel.send(payload);
     }
 
-    return this.interaction.followUp(payload);
+    return this.interaction.followUp(sanitizeMessagePayload(payload));
   }
 
   async respondUsage(usageLine) {
