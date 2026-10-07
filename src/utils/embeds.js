@@ -22,12 +22,6 @@ export function sanitizeMessagePayload(payload) {
   if (typeof sanitized.content === 'string') {
     sanitized.content = sanitizeMessageText(sanitized.content);
   }
-  if (Array.isArray(sanitized.embeds)) {
-    sanitized.embeds = sanitized.embeds.map(sanitizeMessagePayload);
-  }
-  if (Array.isArray(sanitized.components)) {
-    sanitized.components = sanitized.components.map(sanitizeMessagePayload);
-  }
   return sanitized;
 }
 
