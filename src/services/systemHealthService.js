@@ -107,7 +107,7 @@ export function startSystemHealthMonitor(client) {
 
         await notifyOwner(
           client,
-          `⚠️ **Beacon health warning**\\n\\nThe bot is starting to show signs of degraded health.\\n\\n**Reason:** ${reasonText}\\n**RAM:** ${formatBytes(health.memory.rss)}\\n**Uptime:** ${Math.floor(process.uptime() / 3600)}h ${Math.floor((process.uptime() % 3600) / 60)}m\\n\\nI will only send this warning once unless the bot recovers and becomes unhealthy again.`
+          `⚠️ **Beacon health warning**\n\nThe bot is starting to show signs of degraded health.\n\n**Reason:** ${reasonText}\n**RAM:** ${formatBytes(health.memory.rss)}\n**Uptime:** ${Math.floor(process.uptime() / 3600)}h ${Math.floor((process.uptime() % 3600) / 60)}m\n\nI will only send this warning once unless the bot recovers and becomes unhealthy again.`
         );
       }
 
@@ -142,7 +142,7 @@ export async function scheduleAutomaticRestart(client) {
 
       await notifyOwner(
         client,
-        '🔄 **Beacon scheduled restart**\\n\\nThe bot has been running for 12 hours and is restarting now to keep memory usage healthy. I will only message again if the restart does not recover successfully.'
+        '🔄 **Beacon scheduled restart**\n\nThe bot has been running for 12 hours and is restarting now to keep memory usage healthy. I will only message again if the restart does not recover successfully.'
       );
 
       const { spawn } = await import('node:child_process');
@@ -175,7 +175,7 @@ export async function scheduleAutomaticRestart(client) {
       logger.error('Scheduled restart failed before shutdown:', error);
       await notifyOwner(
         client,
-        `🚨 **Beacon restart failed**\\n\\nThe scheduled 12-hour restart could not be started cleanly.\\n\\n**Error:** ${error.message}`
+        `🚨 **Beacon restart failed**\n\nThe scheduled 12-hour restart could not be started cleanly.\n\n**Error:** ${error.message}`
       );
     }
   }, RESTART_INTERVAL_MS);
