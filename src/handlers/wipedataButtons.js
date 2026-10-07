@@ -6,12 +6,10 @@ import { logger } from '../utils/logger.js';
 import { replyUserError, ErrorTypes } from '../utils/errorHandler.js';
 import {
     getEconomyKey,
-    getUserLevelKey,
     getAFKKey,
     getWarningsKey,
     getUserNotesKey,
     getEconomyPrefix,
-    getUserLevelPrefix,
 } from '../utils/database.js';
 const wipedataConfirmHandler = {
   name: 'wipedata_yes',
@@ -25,7 +23,6 @@ const wipedataConfirmHandler = {
 
       const dataKeyPatterns = [
         getEconomyKey(guildId, userId),
-        getUserLevelKey(guildId, userId),
         getAFKKey(guildId, userId),
         getWarningsKey(guildId, userId),
         getUserNotesKey(guildId, userId),
@@ -75,7 +72,7 @@ const wipedataConfirmHandler = {
             `${guildId}:${userId}`,
             `${guildId}:`,
             getEconomyPrefix(guildId),
-            getUserLevelPrefix(guildId),
+            `level:${guildId}:`,
             `level:${guildId}:`,
             `xp:${guildId}:`,
             `user:${guildId}:`
