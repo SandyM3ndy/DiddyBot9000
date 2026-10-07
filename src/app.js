@@ -283,8 +283,8 @@ class BeaconClient extends Client {
   }
 
   async runDatabaseBackup() {
-    if (process.env.POSTGRES_URL === undefined) {
-      logger.warn('Skipping scheduled database backup: POSTGRES_URL is not configured');
+    if (!process.env.POSTGRES_URL?.trim() && !process.env.DATABASE_URL?.trim()) {
+      logger.warn('Skipping scheduled database backup: PostgreSQL URL is not configured');
       return;
     }
 
