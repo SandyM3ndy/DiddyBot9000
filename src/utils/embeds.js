@@ -4,12 +4,39 @@ import { EmbedBuilder } from 'discord.js';
 import { getColor, botConfig } from '../config/bot.js';
 
 
+export function sanitizeMessageText(value) {
+  if (typeof value !== 'string') return value;
+
+  return value
+    .replace(/\\\\r\\\\n/g, '\\n')
+    .replace(/\\\\n/g, '\\n')
+    .replace(/\\\\r/g, '\\n');
+}
+
+export function sanitizeMessagePayload(payload) {
+  if (typeof payload === 'string') return sanitizeMessageText(payload);
+  if (!payload || typeof payload !== 'object') return payload;
+  if (Array.isArray(payload)) return payload.map(sanitizeMessagePayload);
+
+  const sanitized = { ...payload };
+  if (typeof sanitized.content === 'string') {
+    sanitized.content = sanitizeMessageText(sanitized.content);
+  }
+  if (Array.isArray(sanitized.embeds)) {
+    sanitized.embeds = sanitized.embeds.map(sanitizeMessagePayload);
+  }
+  if (Array.isArray(sanitized.components)) {
+    sanitized.components = sanitized.components.map(sanitizeMessagePayload);
+  }
+  return sanitized;
+}
+
 function sanitizeEmbedText(text = '') {
   if (typeof text !== 'string') {
     return text;
   }
 
-  return text
+  return sanitizeMessageText(text)
     .replace(/[ \t]+/g, ' ')  // Replace consecutive spaces/tabs with single space
     .replace(/[ \t]\n/g, '\n')  // Remove spaces before newlines
     .replace(/\n[ \t]/g, '\n')  // Remove spaces after newlines
