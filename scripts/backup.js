@@ -95,7 +95,7 @@ async function pruneBackups(backupDir, retentionDays) {
 
 async function run() {
   const args = parseArgs(process.argv.slice(2));
-  const databaseUrl = process.env.POSTGRES_URL?.trim() || process.env.DATABASE_URL?.trim();
+  const databaseUrl = process.env.DATABASE_URL?.trim() || process.env.POSTGRES_URL?.trim();
   if (!databaseUrl) {
     throw new Error('Missing required environment variable: POSTGRES_URL or DATABASE_URL');
   }
