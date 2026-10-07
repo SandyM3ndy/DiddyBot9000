@@ -97,6 +97,7 @@ export class ResponseCoordinator {
   }
 
   async respond(payload) {
+    payload = sanitizeMessagePayload(payload);
     if (this.isUsageFinalized()) {
       return this.getReplyMessage();
     }
@@ -139,6 +140,7 @@ export class ResponseCoordinator {
   }
 
   async edit(payload) {
+    payload = sanitizeMessagePayload(payload);
     if (this.isUsageFinalized()) {
       return this.getReplyMessage();
     }
@@ -171,6 +173,7 @@ export class ResponseCoordinator {
   }
 
   async followUp(payload) {
+    payload = sanitizeMessagePayload(payload);
     if (this.message?.channel) {
       return this.message.channel.send(payload);
     }
