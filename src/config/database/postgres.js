@@ -51,7 +51,7 @@ export function resolveSslConfig() {
         return { rejectUnauthorized: false };
     }
 
-    const url = process.env.POSTGRES_URL || process.env.DATABASE_URL || '';
+    const url = process.env.DATABASE_URL || process.env.POSTGRES_URL || '';
     if (/sslmode=(require|verify-ca|verify-full|prefer)/i.test(url)) {
         return { rejectUnauthorized: false };
     }
@@ -69,7 +69,7 @@ export function resolveSslConfig() {
 
 export function resolvePostgresPoolConfig() {
     const ssl = resolveSslConfig();
-    const url = (process.env.POSTGRES_URL || process.env.DATABASE_URL || '').trim();
+    const url = (process.env.DATABASE_URL || process.env.POSTGRES_URL || '').trim();
     const sharedOptions = {
         max: parseInt(process.env.POSTGRES_MAX_CONNECTIONS) || 20,
         min: parseInt(process.env.POSTGRES_MIN_CONNECTIONS) || 2,
@@ -97,7 +97,7 @@ export function resolvePostgresPoolConfig() {
 }
 
 export const pgConfig = {
-    url: process.env.POSTGRES_URL || process.env.DATABASE_URL || DEFAULT_POSTGRES_URL,
+    url: process.env.DATABASE_URL || process.env.POSTGRES_URL || DEFAULT_POSTGRES_URL,
     
     options: {
         
