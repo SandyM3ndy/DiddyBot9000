@@ -138,6 +138,10 @@ export async function scheduleAutomaticRestart(client) {
     client.restarting = true;
 
     try {
+      if (client.user) {
+        client.normalPresence = client.normalPresence || structuredClone(client.config?.bot?.presence || { activities: [{ name: 'V1 🎉 | Moderating...', type: 0 }], status: 'online' });
+        client.user.setPresence({ status: 'online', activities: [{ name: 'Doing a Scheduled Restart ⚙️', type: 0 }] });
+      }
       const port = client.webPort || Number(client.config?.api?.port || process.env.PORT || 3000);
       const healthUrl = `http://127.0.0.1:${port}/ready`;
 
@@ -173,6 +177,7 @@ export async function scheduleAutomaticRestart(client) {
       await client.shutdown('SCHEDULED_RESTART', 1);
     } catch (error) {
       client.restarting = false;
+      if (client.user && client.normalPresence) client.user.setPresence(client.normalPresence);
       logger.error('Scheduled restart failed before shutdown:', error);
       await notifyOwner(
         client,
