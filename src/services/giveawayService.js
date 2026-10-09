@@ -8,6 +8,27 @@ import { getEndedGiveaways, markGiveawayEnded } from '../utils/database.js';
 import { logEvent, EVENT_TYPES } from './loggingService.js';
 
 const GIVEAWAY_CONFIG = botConfig.giveaways || {};
+
+const userInteractionTimestamps = new Map();
+const USER_INTERACTION_COOLDOWN_MS = 3000;
+
+export function isUserRateLimited(userId, giveawayMessageId) {
+    const key = `${giveawayMessageId}:${userId}`;
+    const lastInteraction = userInteractionTimestamps.get(key) || 0;
+    return Date.now() - lastInteraction < USER_INTERACTION_COOLDOWN_MS;
+}
+
+export function recordUserInteraction(userId, giveawayMessageId) {
+    const key = `${giveawayMessageId}:${userId}`;
+    userInteractionTimestamps.set(key, Date.now());
+    if (userInteractionTimestamps.size > 5000) {
+        const cutoff = Date.now() - USER_INTERACTION_COOLDOWN_MS;
+        for (const [entry, timestamp] of userInteractionTimestamps) {
+            if (timestamp < cutoff) userInteractionTimestamps.delete(entry);
+        }
+    }
+}
+
 export function parseDuration(durationString) {
     if (!durationString || typeof durationString !== 'string') {
         throw new TitanBotError(
