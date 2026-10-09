@@ -13,7 +13,8 @@ export default {
 
   async execute(client) {
     try {
-      client.user.setPresence(config.bot.presence);
+      client.normalPresence = structuredClone(config.bot.presence);
+      client.user.setPresence(client.normalPresence);
 
       startupLog(`Ready! Logged in as ${client.user.tag}`);
       startupLog(`Serving ${client.guilds.cache.size} guild(s)`);
