@@ -174,6 +174,9 @@ export async function scheduleAutomaticRestart(client) {
         healthUrl,
       });
 
+      // Keep the scheduled-restart activity visible for 20 seconds before disconnecting.
+      await new Promise((resolve) => setTimeout(resolve, 20_000));
+
       await client.shutdown('SCHEDULED_RESTART', 1);
     } catch (error) {
       client.restarting = false;
