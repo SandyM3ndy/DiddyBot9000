@@ -176,13 +176,16 @@ async function registerGlobalCommands(client, clientId, commands, totalSubcomman
     const commandsToRegister = prepareCommandsForRegistration(commands);
     await client.rest.put(`/applications/${clientId}/commands`, { body: commandsToRegister });
     logger.info(`Successfully registered ${commandsToRegister.length} global commands`);
+    // Beacon uses global application commands only. Registering the same
+    // payload globally and per-guild makes Discord display duplicates in each server.
+    // Clear old guild-scoped commands so only the global versions remain.
     if (client.guilds?.cache?.size) {
         for (const guild of client.guilds.cache.values()) {
             try {
-                await client.rest.put(`/applications/${clientId}/guilds/${guild.id}/commands`, { body: commandsToRegister });
-                logger.info(`Registered ${commandsToRegister.length} commands in guild ${guild.id} (${guild.name})`);
+                await client.rest.put(`/applications/${clientId}/guilds/${guild.id}/commands`, { body: [] });
+                logger.info(`Cleared guild-scoped commands in ${guild.id} (${guild.name}); global commands remain available`);
             } catch (error) {
-                logger.warn(`Failed to register commands in guild ${guild.id} (${guild.name}): ${error.message}`);
+                logger.warn(`Failed to clear guild-scoped commands in guild ${guild.id} (${guild.name}): ${error.message}`);
             }
         }
     }
