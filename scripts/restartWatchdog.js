@@ -56,7 +56,7 @@ try {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      content: '🚨 **Beacon restart warning**\n\nThe scheduled 12-hour restart was started, but the bot did not become healthy again within 2 minutes. Please check the bot process/host immediately.',
+      content: `🚨 **Beacon restart warning**\n\nThe ${restartReason} restart was started, but the bot did not become healthy again within 2 minutes. Please check the bot process/host immediately.`,
     }),
   });
 } catch {
