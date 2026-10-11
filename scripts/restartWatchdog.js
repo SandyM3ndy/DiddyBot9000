@@ -2,7 +2,7 @@ import 'dotenv/config';
 
 const healthUrl = process.env.BEACON_RESTART_HEALTH_URL;
 const ownerId = process.env.BEACON_RESTART_OWNER_ID || '1022691434974957618';
-const token = process.env.DISCORD_TOKEN || process.env.BOT_TOKEN;
+const token = process.env.DISCORD_TOKEN || process.env.TOKEN || process.env.BOT_TOKEN;
 
 if (!healthUrl || !token) {
   process.exit(1);
@@ -55,7 +55,7 @@ try {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      content: '🚨 **Beacon restart warning**\\n\\nThe scheduled 12-hour restart was started, but the bot did not become healthy again within 2 minutes. Please check the bot process/host immediately.',
+      content: '🚨 **Beacon restart warning**\n\nThe scheduled 12-hour restart was started, but the bot did not become healthy again within 2 minutes. Please check the bot process/host immediately.',
     }),
   });
 } catch {
