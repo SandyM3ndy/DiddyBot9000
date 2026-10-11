@@ -168,6 +168,12 @@ export async function registerGuildCommands(client, guildId, options = {}) {
     return commandsToRegister.length;
 }
 
+export async function clearGuildScopedCommands(client, clientId = client.config?.bot?.clientId) {
+    if (!clientId || !client.rest || !client.guilds?.cache?.size) return;
+
+    await clearGuildScopedCommands(client, clientId);
+}
+
 async function registerGlobalCommands(client, clientId, commands, totalSubcommands) {
     if (!clientId) throw new Error('CLIENT_ID is required for global command registration');
     if (!client.rest) throw new Error('Discord REST client is not available for slash command registration');
