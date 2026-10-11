@@ -166,6 +166,7 @@ export async function performScheduledRestart(client, { manual = false } = {}) {
           ...process.env,
           BEACON_RESTART_HEALTH_URL: healthUrl,
           BEACON_RESTART_OWNER_ID: OWNER_ID,
+          BEACON_RESTART_REASON: manual ? 'owner-requested' : 'scheduled 12-hour',
         },
         detached: true,
         stdio: 'ignore',
