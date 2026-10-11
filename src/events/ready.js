@@ -6,6 +6,7 @@ import { reconcileTicketPanels, reconcileVerificationPanels, reconcileReactionRo
 import { initRiffyAfterReady } from "../services/music/riffySetup.js";
 import { loadLockdownStates } from "../services/lockdownService.js";
 import { loadAllPersistedAntiNukeConfigs } from "../services/antinukeService.js";
+import { clearGuildScopedCommands } from "../handlers/loaders/commandLoader.js";
 
 export default {
   name: Events.ClientReady,
@@ -22,21 +23,8 @@ export default {
 
       await loadLockdownStates(client);
       await loadAllPersistedAntiNukeConfigs(client);
-      // Force-sync the complete command set directly to every guild after the
-      // Discord client is fully ready. This bypasses global-command propagation
-      // delays and guarantees existing servers receive the current commands.
-      const guildCommands = Array.from(client.commands.values())
-        .filter((command) => command?.data && typeof command.data.toJSON === "function")
-        .map((command) => command.data.toJSON());
-
-      for (const guild of client.guilds.cache.values()) {
-        try {
-          await guild.commands.set(guildCommands);
-          startupLog(`Synced ${guildCommands.length} slash commands to ${guild.name}`);
-        } catch (error) {
-          logger.error(`Failed to sync slash commands to ${guild.name}:`, error);
-        }
-      }
+      // Keep commands global-only and remove old guild-scoped copies that caused duplicates.
+      await clearGuildScopedCommands(client);
 
 
       if (client.config?.features?.music) {
