@@ -125,68 +125,96 @@ export function startSystemHealthMonitor(client) {
   check();
 }
 
+export async function performScheduledRestart(client, { manual = false } = {}) {
+  if (client.restarting || client.isShuttingDown) {
+    return { started: false, reason: 'already_restarting' };
+  }
+
+  client.restarting = true;
+
+  try {
+    if (client.user) {
+      client.normalPresence = client.normalPresence || structuredClone(
+        client.config?.bot?.presence || {
+          activities: [{ name: 'V1 🎉 | Moderating...', type: 4 }],
+          status: 'online',
+        }
+      );
+      client.user.setPresence({
+        status: 'online',
+        activities: [{ name: 'Doing a Scheduled Restart ⚙️', type: 0 }],
+      });
+    }
+
+    const port = client.webPort || Number(client.config?.api?.port || process.env.PORT || 3000);
+    const healthUrl = `http://127.0.0.1:${port}/ready`;
+
+    await notifyOwner(
+      client,
+      manual
+        ? '🔄 **Beacon manual restart**\\n\\nThe bot owner has requested a restart. Beacon will disconnect in 20 seconds and should come back online automatically.'
+        : '🔄 **Beacon scheduled restart**\\n\\nThe bot has been running for 12 hours and is restarting now to keep memory usage healthy. I will only message again if the restart does not recover successfully.'
+    );
+
+    const { spawn } = await import('node:child_process');
+    const watchdog = spawn(
+      process.execPath,
+      ['scripts/restartWatchdog.js'],
+      {
+        cwd: process.cwd(),
+        env: {
+          ...process.env,
+          BEACON_RESTART_HEALTH_URL: healthUrl,
+          BEACON_RESTART_OWNER_ID: OWNER_ID,
+        },
+        detached: true,
+        stdio: 'ignore',
+      }
+    );
+
+    watchdog.on('error', (error) => {
+      logger.error('Failed to start scheduled restart watchdog:', error);
+    });
+    watchdog.unref();
+
+    logger.warn(manual ? 'Starting owner-requested restart' : 'Starting scheduled 12-hour restart', {
+      event: manual ? 'system.restart.manual' : 'system.restart.scheduled',
+      healthUrl,
+      requestedBy: manual ? OWNER_ID : undefined,
+    });
+
+    // Give Discord time to show the restart activity and the owner notice.
+    await new Promise((resolve) => setTimeout(resolve, 20_000));
+
+    await client.shutdown(manual ? 'OWNER_REQUESTED_RESTART' : 'SCHEDULED_RESTART', 1);
+    return { started: true };
+  } catch (error) {
+    client.restarting = false;
+    if (client.user && client.normalPresence) {
+      client.user.setPresence(client.normalPresence);
+    }
+    logger.error('Scheduled restart failed before shutdown:', error);
+    await notifyOwner(
+      client,
+      `🚨 **Beacon restart failed**\\n\\nThe ${manual ? 'owner-requested' : 'scheduled 12-hour'} restart could not be started cleanly.\\n\\n**Error:** ${error.message}`
+    );
+    return { started: false, reason: 'restart_failed', error };
+  }
+}
+
 export async function scheduleAutomaticRestart(client) {
   if (client.automaticRestartTimer) {
     return;
   }
 
-  client.automaticRestartTimer = setInterval(async () => {
-    if (client.restarting) {
+  client.automaticRestartTimer = setInterval(() => {
+    if (client.restarting || client.isShuttingDown) {
       return;
     }
 
-    client.restarting = true;
-
-    try {
-      if (client.user) {
-        client.normalPresence = client.normalPresence || structuredClone(client.config?.bot?.presence || { activities: [{ name: 'V1 🎉 | Moderating...', type: 0 }], status: 'online' });
-        client.user.setPresence({ status: 'online', activities: [{ name: 'Doing a Scheduled Restart ⚙️', type: 0 }] });
-      }
-      const port = client.webPort || Number(client.config?.api?.port || process.env.PORT || 3000);
-      const healthUrl = `http://127.0.0.1:${port}/ready`;
-
-      await notifyOwner(
-        client,
-        '🔄 **Beacon scheduled restart**\n\nThe bot has been running for 12 hours and is restarting now to keep memory usage healthy. I will only message again if the restart does not recover successfully.'
-      );
-
-      const { spawn } = await import('node:child_process');
-
-      const watchdog = spawn(
-        process.execPath,
-        ['scripts/restartWatchdog.js'],
-        {
-          cwd: process.cwd(),
-          env: {
-            ...process.env,
-            BEACON_RESTART_HEALTH_URL: healthUrl,
-            BEACON_RESTART_OWNER_ID: OWNER_ID,
-          },
-          detached: true,
-          stdio: 'ignore',
-        }
-      );
-
-      watchdog.unref();
-
-      logger.warn('Starting scheduled 12-hour restart', {
-        event: 'system.restart.scheduled',
-        healthUrl,
-      });
-
-      // Keep the scheduled-restart activity visible for 20 seconds before disconnecting.
-      await new Promise((resolve) => setTimeout(resolve, 20_000));
-
-      await client.shutdown('SCHEDULED_RESTART', 1);
-    } catch (error) {
-      client.restarting = false;
-      if (client.user && client.normalPresence) client.user.setPresence(client.normalPresence);
-      logger.error('Scheduled restart failed before shutdown:', error);
-      await notifyOwner(
-        client,
-        `🚨 **Beacon restart failed**\n\nThe scheduled 12-hour restart could not be started cleanly.\n\n**Error:** ${error.message}`
-      );
-    }
+    void performScheduledRestart(client).catch((error) => {
+      logger.error('Unexpected scheduled restart failure:', error);
+    });
   }, RESTART_INTERVAL_MS);
 
   client.automaticRestartTimer.unref?.();
