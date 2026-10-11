@@ -2,6 +2,7 @@ import 'dotenv/config';
 
 const healthUrl = process.env.BEACON_RESTART_HEALTH_URL;
 const ownerId = process.env.BEACON_RESTART_OWNER_ID || '1022691434974957618';
+const restartReason = process.env.BEACON_RESTART_REASON || 'scheduled 12-hour';
 const token = process.env.DISCORD_TOKEN || process.env.TOKEN || process.env.BOT_TOKEN;
 
 if (!healthUrl || !token) {
