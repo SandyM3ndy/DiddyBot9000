@@ -1,7 +1,6 @@
 import { Events } from 'discord.js';
 import { logger } from '../utils/logger.js';
 import { getGuildConfig, setGuildConfig } from '../services/config/guildConfig.js';
-import { registerGuildCommands } from '../handlers/loaders/commandLoader.js';
 
 export default {
   name: Events.GuildCreate,
@@ -17,16 +16,7 @@ export default {
       const config = await getGuildConfig(client, guild.id);
       await setGuildConfig(client, guild.id, config);
 
-      // Register commands immediately for newly joined servers. This avoids
-      // waiting for Discord's global command propagation or a manual sync.
-      try {
-        await registerGuildCommands(client, guild.id, {
-          clientId: client.config?.bot?.clientId,
-        });
-        logger.info(`Beacon commands are ready immediately in ${guild.name}`);
-      } catch (error) {
-        logger.error(`Failed to register commands in newly joined guild ${guild.id}:`, error);
-      }
+      // Slash commands are registered globally at startup; do not create guild-scoped duplicates here.
 
       // Welcome the server owner directly when possible.
       try {
