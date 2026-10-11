@@ -152,8 +152,8 @@ export async function performScheduledRestart(client, { manual = false } = {}) {
     await notifyOwner(
       client,
       manual
-        ? '🔄 **Beacon manual restart**\\n\\nThe bot owner has requested a restart. Beacon will disconnect in 20 seconds and should come back online automatically.'
-        : '🔄 **Beacon scheduled restart**\\n\\nThe bot has been running for 12 hours and is restarting now to keep memory usage healthy. I will only message again if the restart does not recover successfully.'
+        ? '🔄 **Beacon manual restart**\n\nThe bot owner has requested a restart. Beacon will disconnect in 20 seconds and should come back online automatically.'
+        : '🔄 **Beacon scheduled restart**\n\nThe bot has been running for 12 hours and is restarting now to keep memory usage healthy. I will only message again if the restart does not recover successfully.'
     );
 
     const { spawn } = await import('node:child_process');
@@ -196,7 +196,7 @@ export async function performScheduledRestart(client, { manual = false } = {}) {
     logger.error('Scheduled restart failed before shutdown:', error);
     await notifyOwner(
       client,
-      `🚨 **Beacon restart failed**\\n\\nThe ${manual ? 'owner-requested' : 'scheduled 12-hour'} restart could not be started cleanly.\\n\\n**Error:** ${error.message}`
+      `🚨 **Beacon restart failed**\n\nThe ${manual ? 'owner-requested' : 'scheduled 12-hour'} restart could not be started cleanly.\n\n**Error:** ${error.message}`
     );
     return { started: false, reason: 'restart_failed', error };
   }
