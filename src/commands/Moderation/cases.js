@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, MessageFlags } from 'discord.js';
-import { createEmbed, successEmbed } from '../../utils/embeds.js';
+import { createEmbed, infoEmbed } from '../../utils/embeds.js';
 import { getModerationCases } from '../../utils/moderation.js';
 import { logger } from '../../utils/logger.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
@@ -59,10 +59,16 @@ export default {
             const cases = await getModerationCases(interaction.guild.id, filters);
 
             if (cases.length === 0) {
-                throw new Error(targetUser 
-                    ? `No moderation cases found for ${targetUser.tag}`
-                    : `No ${filterType === 'all' ? '' : filterType} cases found in this server.`
-                );
+                const emptyMessage = targetUser
+                    ? `There are no moderation cases recorded for ${targetUser.tag} in this server.`
+                    : filterType === 'all'
+                        ? 'There are no moderation cases recorded in this server yet.'
+                        : `There are no ${filterType.toLowerCase()} cases recorded in this server yet.`;
+
+                return await interaction.editReply({
+                    embeds: [infoEmbed('No Moderation Cases', emptyMessage)],
+                    components: []
+                });
             }
 
             const CASES_PER_PAGE = 5;
