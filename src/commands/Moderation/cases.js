@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, MessageFlags } from 'discord.js';
-import { createEmbed, successEmbed } from '../../utils/embeds.js';
+import { createEmbed, infoEmbed } from '../../utils/embeds.js';
 import { getModerationCases } from '../../utils/moderation.js';
 import { logger } from '../../utils/logger.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
@@ -59,10 +59,18 @@ export default {
             const cases = await getModerationCases(interaction.guild.id, filters);
 
             if (cases.length === 0) {
-                throw new Error(targetUser 
-                    ? `No moderation cases found for ${targetUser.tag}`
-                    : `No ${filterType === 'all' ? '' : filterType} cases found in this server.`
-                );
+                let emptyMessage = 'There are no moderation cases recorded in this server yet.';
+
+                if (targetUser) {
+                    emptyMessage = `There are no moderation cases recorded for ${targetUser.tag} in this server.`;
+                } else if (filterType !== 'all') {
+                    emptyMessage = `There are no ${filterType.toLowerCase()} cases recorded in this server yet.`;
+                }
+
+                return await interaction.editReply({
+                    embeds: [infoEmbed('No Moderation Cases', emptyMessage)],
+                    components: []
+                });
             }
 
             const CASES_PER_PAGE = 5;
@@ -101,7 +109,7 @@ export default {
                 });
 
                 embed.setFooter({
-                    text: `Total cases: ${cases.length} | Filter: ${filterType}${targetUser ?` | User: ${targetUser.tag}`: ''}`
+                    text: `Total cases: ${cases.length} | Filter: ${filterType}${targetUser ? ` | User: ${targetUser.tag}` : ''}`
                 });
 
                 return embed;
@@ -139,7 +147,7 @@ export default {
 
             const collector = message.createMessageComponentCollector({
                 componentType: ComponentType.Button,
-time: 120000
+                time: 120000
             });
 
             collector.on('collect', async (buttonInteraction) => {
