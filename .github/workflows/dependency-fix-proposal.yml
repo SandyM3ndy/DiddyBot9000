@@ -2,10 +2,6 @@ name: Dependency security fix proposal
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/dependency-fix-proposal.yml'
 
 permissions:
   contents: write
@@ -44,4 +40,5 @@ jobs:
           git add package.json package-lock.json
           git commit -m 'security: propose compatible npm audit fixes'
           git push origin "$branch"
-          gh pr create --base main --head "$branch" --title 'Security: proposed npm dependency vulnerability fixes' --body 'Automated **proposal only**. npm audit fix was run against the production lockfile and npm ci plus Beacon preflight passed. Review updated dependency versions, CI security results, and runtime compatibility before merging. No production changes are automatically merged.'
+          echo "Dependency fix branch pushed: $branch" >> "$GITHUB_STEP_SUMMARY"
+          echo 'Open a PR from this branch for review; GitHub Actions is not permitted to create PRs in this repository.' >> "$GITHUB_STEP_SUMMARY"
