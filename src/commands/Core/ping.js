@@ -14,15 +14,16 @@ export default {
             const pingingMessage = await interaction.reply({ content: 'Pinging...' });
 
             const latency = Date.now() - startTime;
-            const apiLatency = Math.max(0, Math.round(interaction.client.ws.ping));
+            const apiLatency = Number.isFinite(interaction.client.ws?.ping) && interaction.client.ws.ping >= 0
+                ? `${Math.round(interaction.client.ws.ping)}ms` : 'Unavailable';
 
             const embed = createEmbed({
                 title: '🏓 Pong!',
                 description: 'Connection looks healthy.',
                 color: 'success',
             }).addFields(
-                { name: '⚡ Bot Latency', value: `${latency}ms`, inline: true },
-                { name: '🌐 API Latency', value: `${apiLatency}ms`, inline: true },
+                { name: '⚡ Response Latency', value: `${latency}ms`, inline: true },
+                { name: '🌐 Gateway Heartbeat', value: apiLatency, inline: true },
             );
 
             await pingingMessage.edit({ content: null, embeds: [embed] });
@@ -37,9 +38,7 @@ export default {
     },
 
     async execute(interaction) {
-        logger.info('execute called - checking if slash command or prefix command');
-        logger.info(`execute - has _commandStartTime: ${!!interaction._commandStartTime}, createdTimestamp: ${interaction.createdTimestamp}`);
-        
+
         const deferSuccess = await InteractionHelper.safeDefer(interaction);
         if (!deferSuccess) {
             logger.warn(`Ping interaction defer failed`, {
@@ -56,18 +55,17 @@ export default {
             });
 
             const startTime = interaction._commandStartTime || interaction.createdTimestamp;
-            logger.info(`execute - using startTime: ${startTime}, type: ${interaction._commandStartTime ? 'prefix' : 'slash'}`);
             const latency = Math.max(0, Date.now() - startTime);
-            const apiLatency = Math.max(0, Math.round(interaction.client.ws.ping));
-            logger.info(`execute - calculated latency: ${latency}ms, apiLatency: ${apiLatency}ms`);
+            const apiLatency = Number.isFinite(interaction.client.ws?.ping) && interaction.client.ws.ping >= 0
+                ? `${Math.round(interaction.client.ws.ping)}ms` : 'Unavailable';
 
             const embed = createEmbed({
                 title: "🏓 Pong!",
                 description: "Connection looks healthy.",
                 color: "success",
             }).addFields(
-                { name: "⚡ Bot Latency", value: `${latency}ms`, inline: true },
-                { name: "🌐 API Latency", value: `${apiLatency}ms`, inline: true },
+                { name: "⚡ Response Latency", value: `${latency}ms`, inline: true },
+                { name: "🌐 Gateway Heartbeat", value: apiLatency, inline: true },
             );
 
             await InteractionHelper.safeEditReply(interaction, {

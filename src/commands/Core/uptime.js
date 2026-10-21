@@ -10,7 +10,7 @@ export default {
 
   async execute(interaction) {
     try {
-      await InteractionHelper.safeDefer(interaction);
+      if (!(await InteractionHelper.safeDefer(interaction))) return;
       
       let totalSeconds = interaction.client.uptime / 1000;
       let days = Math.floor(totalSeconds / 86400);

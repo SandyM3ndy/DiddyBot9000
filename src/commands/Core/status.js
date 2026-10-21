@@ -1,6 +1,7 @@
 import { SlashCommandBuilder, MessageFlags } from 'discord.js';
 import { createEmbed } from '../../utils/embeds.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
+import { isBotOwner } from '../../config/bot.js';
 
 export default {
   data: new SlashCommandBuilder()
@@ -11,6 +12,7 @@ export default {
 
   async execute(interaction) {
     const client = interaction.client;
+    const isOwner = isBotOwner(interaction.user.id);
     const dbStatus = client.db?.getStatus?.() || {
       connectionType: 'none',
       isDegraded: true,
@@ -48,7 +50,7 @@ export default {
       color: overallHealthy ? 'success' : 'warning',
     }).addFields(
       { name: '💬 Discord', value: discordHealthy ? `Online • ${wsPing}ms` : 'Unavailable', inline: true },
-      { name: '🗄️ Database', value: databaseHealthy ? `PostgreSQL • Connected` : `Degraded • ${dbStatus.degradedReason || 'Unavailable'}`, inline: true },
+      { name: '🗄️ Database', value: databaseHealthy ? 'PostgreSQL • Connected' : (isOwner ? `Degraded • ${String(dbStatus.degradedReason || 'Unavailable').slice(0, 200)}` : 'Service degraded'), inline: true },
       { name: '⏱️ Uptime', value: formatUptime(uptimeSeconds), inline: true },
       { name: '🌐 Servers', value: `${client.guilds.cache.size.toLocaleString()}`, inline: true },
       { name: '📦 Commands', value: `${client.commands?.size ?? 0}`, inline: true },
@@ -57,7 +59,8 @@ export default {
       text: `Node.js ${process.version} • Last checked`
     });
 
-    if (pg?.getLastFailure) {
+    // Database error details can contain infrastructure information: owner access only.
+    if (isOwner && pg?.getLastFailure) {
       const failure = pg.getLastFailure();
       if (failure?.message) {
         embed.addFields({
