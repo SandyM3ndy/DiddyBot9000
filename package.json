@@ -16,7 +16,9 @@
     "backup:drill": "node scripts/restore-drill.js",
     "test": "node scripts/check.js",
     "check": "node scripts/check.js",
-    "test:unit": "node --test tests/*.test.js"
+    "test:unit": "node --test tests/*.test.js",
+    "audit:commands": "node scripts/command-audit.js",
+    "preflight": "npm run check && npm run test:unit && npm run audit:commands"
   },
   "dependencies": {
     "@discordjs/rest": "^2.6.1",

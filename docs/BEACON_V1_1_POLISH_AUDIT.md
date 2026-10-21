@@ -33,3 +33,11 @@ Status: **In development**. Successful GitHub commits do not mean the release ha
 - [ ] CI and Docker image syntax checks pass
 - [ ] No unexpected changes to existing server configuration
 - [ ] Publish official v1.1 changelog and only then update release version
+
+## Later v1.1 polish commits
+- `/generatepassword` uses unbiased secure random generation with automated unit tests.
+- `/verify` now defers promptly, and `/apply` form submission acknowledges before database work.
+- `/announcement` and `/broadcast` have bounded lengths and safer mention handling; broadcasts no longer create server invites.
+- URL shortening rejects non-web URL schemes and has updated Beacon branding.
+- A static command audit is part of the preflight checks, reporting `/poll` as an existing duplicate awaiting owner decision.
+- Native Discord monetization has **not** been implemented; see `docs/BEACON_PREMIUM_CONCEPT.md`.

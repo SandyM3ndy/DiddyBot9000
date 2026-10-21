@@ -11,7 +11,7 @@ RUN apk add --no-cache postgresql-client \
 COPY . .
 
 # Fail the image build if any command or utility contains invalid JavaScript.
-RUN npm run check && npm run test:unit
+RUN npm run preflight
 
 # Run as the unprivileged Node user, while granting it ownership of runtime-write directories.
 RUN mkdir -p /usr/src/app/logs /usr/src/app/backups \
