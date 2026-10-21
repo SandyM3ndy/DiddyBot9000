@@ -1,20 +1,14 @@
 import { createEmbed } from '../../utils/embeds.js';
 import { createButton, getPaginationRow } from '../../utils/components.js';
-import fs from 'fs/promises';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import { Collection, ActionRowBuilder, MessageFlags } from 'discord.js';
 import { logger } from '../../utils/logger.js';
 import { handleInteractionError } from '../../utils/errorHandler.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const BACK_BUTTON_ID = "help-back-to-main";
 const ALL_COMMANDS_ID = "help-all-commands";
 const PAGINATION_PREFIX = "help-page";
 const CATEGORY_SELECT_ID = "help-category-select";
-const FOOTER_TEXT = "Made with ❤️";
+const FOOTER_TEXT = "Beacon • Your community's all-in-one Discord assistant";
 const SUBCOMMAND_TYPE = 1;
 const SUBCOMMAND_GROUP_TYPE = 2;
 
@@ -56,7 +50,8 @@ function getCommandAccess(commandData) {
     if (name === "close") return "Manage Server, Ticket Staff, or ticket creator";
 
     const permissions = commandData?.default_member_permissions;
-    if (!permissions || permissions === "0") return "Everyone";
+    if (permissions === "0" || permissions === 0 || permissions === 0n) return "Server administrators";
+    if (permissions == null) return "Everyone";
 
     try {
         const value = BigInt(permissions);
@@ -167,54 +162,51 @@ function normalizeCommandData(command) {
     };
 }
 
+
+const COMMAND_REGISTRY_CACHE_MS = 60_000;
+
+// Cache registered command mentions to avoid an API request on every help menu page.
+async function getRegisteredCommands(client) {
+    const cached = client?._beaconHelpCommandCache;
+    if (cached && cached.expiresAt > Date.now()) return cached.commands;
+
+    const registered = new Collection();
+    try {
+        if (client?.application?.commands?.fetch) {
+            const commands = await client.application.commands.fetch();
+            for (const command of commands.values()) {
+                registered.set(command.name, command);
+            }
+        }
+    } catch (error) {
+        logger.warn('Could not fetch registered commands for help mentions:', error);
+    }
+    if (client) {
+        client._beaconHelpCommandCache = {
+            commands: registered,
+            expiresAt: Date.now() + COMMAND_REGISTRY_CACHE_MS,
+        };
+    }
+    return registered;
+}
+
 async function createCategoryCommandsMenu(category, client) {
     const categoryName = formatCategoryName(category);
     const icon = CATEGORY_ICONS[categoryName] || "🔍";
 
     const categoryCommands = [];
 
-    try {
-        const categoryPath = path.join(__dirname, "../../commands", category);
-        const commandFiles = (await fs.readdir(categoryPath))
-            .filter((file) => file.endsWith(".js"))
-            .sort();
-
-        for (const file of commandFiles) {
-            const filePath = path.join(categoryPath, file);
-            const commandModule = await import(`file://${filePath}`);
-            const command = commandModule.default;
-            const commandData = normalizeCommandData(command);
-
-            if (commandData) {
-                if (
-                    commandData.name === "help" ||
-                    commandData.name === "commandlist"
-                )
-                    continue;
-
-                categoryCommands.push(...buildHelpEntries(command, categoryName));
-            }
-        }
-    } catch (error) {
-        logger.error(
-            `Error reading commands from category ${category}:`,
-            error,
-        );
+    // Use the actual loaded registry, not every JavaScript file on disk.
+    for (const command of client?.commands?.values() || []) {
+        const commandData = normalizeCommandData(command);
+        if (!commandData?.name || command.category !== category) continue;
+        if (commandData.name === 'help' || commandData.name === 'commandlist') continue;
+        categoryCommands.push(...buildHelpEntries(command, categoryName));
     }
 
     categoryCommands.sort((a, b) => a.displayName.localeCompare(b.displayName));
 
-    let registeredCommands = new Collection();
-    try {
-        if (client?.application?.commands?.fetch) {
-            const commands = await client.application.commands.fetch();
-            for (const cmd of commands.values()) {
-                registeredCommands.set(cmd.name, cmd);
-            }
-        }
-    } catch (error) {
-        logger.error('Error fetching registered commands:', error);
-    }
+    const registeredCommands = await getRegisteredCommands(client);
 
     const embed = createEmbed({
         title: `${icon} ${categoryName} Commands`,
@@ -289,64 +281,16 @@ export async function createAllCommandsMenu(page = 1, client) {
     const commandsPerPage = 15;
     const allCommands = [];
 
-    const commandsPath = path.join(__dirname, "../../commands");
-    const categoryDirs = (
-        await fs.readdir(commandsPath, { withFileTypes: true })
-    )
-        .filter((dirent) => dirent.isDirectory())
-        .map((dirent) => dirent.name)
-        .sort();
-
-    for (const category of categoryDirs) {
-        try {
-            const categoryPath = path.join(
-                __dirname,
-                "../../commands",
-                category,
-            );
-            const commandFiles = (await fs.readdir(categoryPath))
-                .filter((file) => file.endsWith(".js"))
-                .sort();
-
-            for (const file of commandFiles) {
-                const filePath = path.join(categoryPath, file);
-                const commandModule = await import(`file://${filePath}`);
-                const command = commandModule.default;
-                const commandData = normalizeCommandData(command);
-
-                if (commandData) {
-                    if (
-                        commandData.name === "help" ||
-                        commandData.name === "commandlist"
-                    )
-                        continue;
-
-                    const categoryName = formatCategoryName(category);
-
-                    allCommands.push(...buildHelpEntries(command, categoryName));
-                }
-            }
-        } catch (error) {
-            logger.error(
-                `Error reading commands from category ${category}:`,
-                error,
-            );
-        }
+    for (const command of client?.commands?.values() || []) {
+        const commandData = normalizeCommandData(command);
+        if (!commandData?.name || commandData.name === 'help' || commandData.name === 'commandlist') continue;
+        const categoryName = formatCategoryName(command.category || 'Other');
+        allCommands.push(...buildHelpEntries(command, categoryName));
     }
 
     allCommands.sort((a, b) => a.displayName.localeCompare(b.displayName));
 
-    let registeredCommands = new Collection();
-    try {
-        if (client?.application?.commands?.fetch) {
-            const commands = await client.application.commands.fetch();
-            for (const cmd of commands.values()) {
-                registeredCommands.set(cmd.name, cmd);
-            }
-        }
-    } catch (error) {
-        logger.error('Error fetching registered commands:', error);
-    }
+    const registeredCommands = await getRegisteredCommands(client);
 
     const totalPages = Math.ceil(allCommands.length / commandsPerPage);
     const startIndex = (page - 1) * commandsPerPage;

@@ -3,12 +3,6 @@ import { logger } from "../../utils/logger.js";
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 import { createEmbed } from "../../utils/embeds.js";
 import { createSelectMenu } from "../../utils/components.js";
-import fs from "fs/promises";
-import path from "path";
-import { fileURLToPath } from "url";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 const CATEGORY_SELECT_ID = "help-category-select";
 const ALL_COMMANDS_ID = "help-all-commands";
 const HELP_MENU_TIMEOUT_MS = 5 * 60 * 1000;
@@ -16,12 +10,16 @@ const CATEGORY_ICONS = { Core: "ℹ️", Moderation: "🛡️", Economy: "💰",
 function formatCategoryName(rawCategory) { return rawCategory.replace(/_/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').replace(/\b\w/g, (char) => char.toUpperCase()); }
 
 export async function createInitialHelpMenu(client) {
-  const commandsPath = path.join(__dirname, "../../commands");
-  const categoryDirs = (await fs.readdir(commandsPath, { withFileTypes: true })).filter((dirent) => dirent.isDirectory()).map((dirent) => dirent.name).sort();
+  const categoryDirs = [...new Set(
+    [...(client?.commands?.values() || [])]
+      .filter((command) => command?.data?.name && command.data.name !== 'help')
+      .map((command) => command.category)
+      .filter(Boolean)
+  )].sort();
   const options = [{ label: "📋 All Commands", description: "Browse every available command in a single list", value: ALL_COMMANDS_ID }, ...categoryDirs.map((category) => { const categoryName = formatCategoryName(category); return { label: `${CATEGORY_ICONS[categoryName] || "🔍"} ${categoryName}`, description: `View commands in the ${categoryName} category`, value: category }; })];
   const botName = client?.user?.username || "Beacon";
-  const embed = createEmbed({ title: `📖 ${botName} Help`, description: `Your community's all-in-one Discord assistant. Browse commands by category, see what each command does, and check who can use it.`, color: 'primary', thumbnail: client.user?.displayAvatarURL?.({ size: 1024 }), fields: [{ name: '🚀 Getting Started', value: ['**1. Configure** — Run `/dashboard` to set up the server.', '**2. Manage access** — Use `/commands dashboard` to control commands and categories.', '**3. Explore** — Pick a category below to see what Beacon can do.'].join('\n'), inline: false }, { name: 'ℹ️ How It Works', value: ['• Dashboard commands manage each feature visually', '• Settings are saved per server', '• Slash commands are available immediately after installation'].join('\n'), inline: false }, { name: '\u200B', value: '-# Need help, want to report an issue, or have an idea? Use the support server below.', inline: false }] });
-  embed.setFooter({ text: "Beacon v1.0 • Your community's all-in-one Discord assistant." }).setTimestamp();
+  const embed = createEmbed({ title: `📖 ${botName} Help`, description: `Your community's all-in-one Discord assistant. Browse commands by category, see what each command does, and check who can use it.`, color: 'primary', thumbnail: client.user?.displayAvatarURL?.({ size: 1024 }), fields: [{ name: '🚀 Getting Started', value: ['**1. Configure** — Run `/dashboard` to set up the server.', '**2. Manage access** — Open `/dashboard` and select **Command Access** to manage permissions.', '**3. Explore** — Pick a category below to see what Beacon can do.'].join('\n'), inline: false }, { name: 'ℹ️ How It Works', value: ['• Dashboard commands manage each feature visually', '• Settings are saved per server', '• Slash commands are available immediately after installation'].join('\n'), inline: false }, { name: '\u200B', value: '-# Need help, want to report an issue, or have an idea? Use the support server below.', inline: false }] });
+  embed.setFooter({ text: "Beacon • Your community's all-in-one Discord assistant." }).setTimestamp();
   const supportButton = new ButtonBuilder().setLabel("Support Server").setURL("https://discord.gg/76N2EM6v6k").setStyle(ButtonStyle.Link);
   return { embeds: [embed], components: [new ActionRowBuilder().addComponents(supportButton), createSelectMenu(CATEGORY_SELECT_ID, "Select to view the commands", options)] };
 }
