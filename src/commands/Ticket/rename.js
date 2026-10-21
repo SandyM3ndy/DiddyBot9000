@@ -13,7 +13,7 @@ export default {
   category: 'Ticket',
 
   async execute(interaction, config, client) {
-    if (!interaction.inGuild?.()) {
+    if (!interaction.guildId) {
       return InteractionHelper.safeReply(interaction, { content: 'Use this command inside a server ticket.', flags: MessageFlags.Ephemeral });
     }
     if (!(await InteractionHelper.safeDefer(interaction, { flags: MessageFlags.Ephemeral }))) return;
