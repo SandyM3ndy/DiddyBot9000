@@ -11,7 +11,8 @@ RUN apk add --no-cache postgresql-client \
 COPY . .
 
 # Fail the image build if any command or utility contains invalid JavaScript.
-RUN npm run preflight
+# Run tests without production-only secret requirements; NODE_ENV remains production at runtime.
+RUN NODE_ENV=test npm run preflight
 
 # Run as the unprivileged Node user, while granting it ownership of runtime-write directories.
 RUN mkdir -p /usr/src/app/logs /usr/src/app/backups \
