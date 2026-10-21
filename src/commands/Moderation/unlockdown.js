@@ -6,8 +6,8 @@ import { isLockdownActive, restoreLockdown } from '../../services/lockdownServic
 export default {
   data: new SlashCommandBuilder()
     .setName('unlockdown')
-    .setDescription('Restore the server after an emergency lockdown.')
-  category: 'moderation',
+    .setDescription('Restore the server after an emergency lockdown.'),
+  category: 'Moderation',
 
   async execute(interaction, config, client) {
     if (!interaction.guild || interaction.user.id !== interaction.guild.ownerId) {

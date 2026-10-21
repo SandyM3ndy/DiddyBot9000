@@ -6,8 +6,8 @@ import { isLockdownActive } from '../../services/lockdownService.js';
 export default {
   data: new SlashCommandBuilder()
     .setName('lockdown')
-    .setDescription('Emergency-lock the entire server except the server owner.')
-  category: 'moderation',
+    .setDescription('Emergency-lock the entire server except the server owner.'),
+  category: 'Moderation',
 
   async execute(interaction, config, client) {
     if (!interaction.guild || interaction.user.id !== interaction.guild.ownerId) {
