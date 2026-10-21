@@ -6,7 +6,9 @@ npm-debug.log*
 .git
 .github
 .cursor
-tests
+# Include unit tests for the pre-deployment build check.
+!tests/
+!tests/**
 backups
 logs
 *.md
