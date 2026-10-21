@@ -2,6 +2,7 @@ import { SlashCommandBuilder, MessageFlags } from 'discord.js';
 import { createEmbed } from '../../utils/embeds.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 import { getGuildConfig } from '../../services/config/guildConfig.js';
+import { logger } from '../../utils/logger.js';
 
 const OWNER_ID = '1022691434974957618';
 
@@ -13,12 +14,12 @@ export default {
       .setName('title')
       .setDescription('Announcement title')
       .setRequired(true)
-      .setMaxLength(256))
+      .setMaxLength(150))
     .addStringOption(option => option
       .setName('message')
       .setDescription('Announcement message')
       .setRequired(true)
-      .setMaxLength(4000)),
+      .setMaxLength(1800)),
   category: 'Owner',
 
   async execute(interaction) {
@@ -32,7 +33,8 @@ export default {
     const title = interaction.options.getString('title', true).trim();
     const message = interaction.options.getString('message', true).trim();
 
-    await InteractionHelper.safeDefer(interaction, { flags: MessageFlags.Ephemeral });
+    if (!(await InteractionHelper.safeDefer(interaction, { flags: MessageFlags.Ephemeral }))) return;
+    if (!title || !message) return InteractionHelper.safeEditReply(interaction, { content: 'Title and message cannot be empty.' });
 
     let sent = 0;
     let skipped = 0;
@@ -60,22 +62,20 @@ export default {
           content: `📢 **${title}**
 
 ${message}`,
+          allowedMentions: { parse: [] },
         });
 
         sent++;
       } catch (error) {
         failed++;
+        logger.warn('Announcement delivery failed', { guildId: guild.id, error: error?.message });
       }
     }
 
     return InteractionHelper.safeEditReply(interaction, {
       embeds: [createEmbed({
         title: '📢 Update Broadcast Complete',
-        description:
-          `The update was sent to every server with an updates channel configured.\\n\\n` +
-          `✅ **Sent:** ${sent}\\n` +
-          `🔕 **Not configured:** ${skipped}\\n` +
-          `❌ **Failed:** ${failed}`,
+        description: `Updates delivered to configured channels.\n\n✅ **Sent:** ${sent}\n🔕 **Not configured:** ${skipped}\n❌ **Failed:** ${failed}`,
         color: failed > 0 ? 'warning' : 'success',
         footer: 'Only configured update channels receive announcements.',
       })],
