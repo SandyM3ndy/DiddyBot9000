@@ -65,7 +65,7 @@ export async function loadCommands(client) {
             }
             const commandDir = path.dirname(filePath);
             const category = path.basename(commandDir);
-            const commandModule = await import(`file://${filePath}`);
+            const commandModule = await import(pathToFileURL(filePath).href);
             const command = commandModule.default || commandModule;
             if (!command.data || !command.execute) {
                 logger.warn(`Command at ${filePath} is missing required "data" or "execute" property.`);
@@ -74,10 +74,12 @@ export async function loadCommands(client) {
             command.category = category;
             command.filePath = normalizedPath;
             const primaryCommandName = command.data.name;
-            if (!uniqueCommandNames.has(primaryCommandName)) {
-                uniqueCommandNames.add(primaryCommandName);
-                client.commands.set(primaryCommandName, command);
+            if (uniqueCommandNames.has(primaryCommandName)) {
+                logger.warn(`Duplicate command /${primaryCommandName} in ${normalizedPath}; keeping the first registered implementation.`);
+                continue;
             }
+            uniqueCommandNames.add(primaryCommandName);
+            client.commands.set(primaryCommandName, command);
             const subcommands = getSubcommandInfo(command.data.toJSON());
             logger.info(`Loaded command: ${primaryCommandName} from ${normalizedPath} (category: ${category})`);
             if (subcommands.length > 0) logger.info(`  - Subcommands: ${subcommands.join(', ')}`);

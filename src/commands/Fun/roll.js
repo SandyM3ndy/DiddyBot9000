@@ -68,7 +68,7 @@ export default {
 
     const resultsDetail =
       numDice > 1 ? `**Rolls:** ${rolls.join(" + ")}\n` : "";
-    const modifierText = modifier !== 0 ? `+ (${modifier})` : "";
+    const modifierText = modifier > 0 ? ` + ${modifier}` : modifier < 0 ? ` - ${Math.abs(modifier)}` : "";
 
     const embed = successEmbed(
       `🎲 Rolling ${numDice}d${numSides}${modifier !== 0 ? match[3] : ""}`,

@@ -151,28 +151,34 @@ export default {
             });
 
             collector.on('collect', async (buttonInteraction) => {
-                await buttonInteraction.deferUpdate();
+                try {
+                    if (buttonInteraction.user.id !== interaction.user.id) {
+                        await buttonInteraction.reply({
+                            content: 'You cannot use these buttons. Run `/cases` to get your own case view.',
+                            flags: MessageFlags.Ephemeral
+                        });
+                        return;
+                    }
 
-                if (buttonInteraction.user.id !== interaction.user.id) {
-                    await buttonInteraction.followUp({
-                        content: 'You cannot use these buttons. Run `/cases` to get your own case view.',
-                        flags: MessageFlags.Ephemeral
+                    if (buttonInteraction.customId === 'prev_page' && currentPage > 1) {
+                        currentPage--;
+                    } else if (buttonInteraction.customId === 'next_page' && currentPage < totalPages) {
+                        currentPage++;
+                    }
+
+                    await buttonInteraction.update({
+                        embeds: [createCasesEmbed(currentPage)],
+                        components: [createNavigationRow(currentPage)]
                     });
-                    return;
+                } catch (error) {
+                    logger.warn('Case navigation failed:', error);
+                    if (!buttonInteraction.deferred && !buttonInteraction.replied) {
+                        await buttonInteraction.reply({
+                            content: 'Could not change pages. Please run `/cases` again.',
+                            flags: MessageFlags.Ephemeral
+                        }).catch(() => {});
+                    }
                 }
-
-                const { customId } = buttonInteraction;
-
-                if (customId === 'prev_page' && currentPage > 1) {
-                    currentPage--;
-                } else if (customId === 'next_page' && currentPage < totalPages) {
-                    currentPage++;
-                }
-
-                await interaction.editReply({
-                    embeds: [createCasesEmbed(currentPage)],
-                    components: [createNavigationRow(currentPage)]
-                });
             });
 
             collector.on('end', async () => {
