@@ -1,84 +1,82 @@
-import { SlashCommandBuilder, PermissionFlagsBits, PermissionsBitField, ChannelType, MessageFlags } from 'discord.js';
-import { createEmbed, successEmbed } from '../../utils/embeds.js';
+import { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } from 'discord.js';
+import { successEmbed } from '../../utils/embeds.js';
 import { logEvent } from '../../utils/moderation.js';
 import { logger } from '../../utils/logger.js';
-import { getColor } from '../../config/bot.js';
-
 import { InteractionHelper } from '../../utils/interactionHelper.js';
-import { replyUserError, ErrorTypes } from '../../utils/errorHandler.js';
+
 export default {
-    data: new SlashCommandBuilder()
-    .setName("purge")
-    .setDescription("Delete a specific amount of messages")
-    .addIntegerOption((option) =>
-      option
-        .setName("amount")
-        .setDescription("Number of messages (1-100)")
-        .setRequired(true),
-    )
-.setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
-  category: "moderation",
+  data: new SlashCommandBuilder()
+    .setName('purge')
+    .setDescription('Delete up to 100 recent messages from this channel')
+    .setDMPermission(false)
+    .addIntegerOption(option => option
+      .setName('amount')
+      .setDescription('Number of recent messages to delete (1–100)')
+      .setMinValue(1)
+      .setMaxValue(100)
+      .setRequired(true))
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
+  category: 'moderation',
   abuseProtection: { maxAttempts: 5, windowMs: 60_000 },
 
   async execute(interaction, config, client) {
-    const deferSuccess = await InteractionHelper.safeDefer(interaction, {
-      flags: MessageFlags.Ephemeral,
-    });
-    if (!deferSuccess) {
-      logger.warn(`Purge interaction defer failed`, {
-        userId: interaction.user.id,
-        guildId: interaction.guildId,
-        commandName: 'purge'
-      });
-      return;
+    if (!(await InteractionHelper.safeDefer(interaction, { flags: MessageFlags.Ephemeral }))) return;
+    const amount = interaction.options.getInteger('amount');
+    const channel = interaction.channel;
+    if (!Number.isInteger(amount) || amount < 1 || amount > 100) {
+      return InteractionHelper.safeEditReply(interaction, { content: 'Choose between 1 and 100 messages.' });
+    }
+    if (!interaction.guildId || !channel?.messages?.fetch || typeof channel.bulkDelete !== 'function') {
+      return InteractionHelper.safeEditReply(interaction, { content: 'Message purging is only supported in server text channels.' });
     }
 
-    const amount = interaction.options.getInteger("amount");
-    const channel = interaction.channel;
+    const bot = interaction.guild?.members?.me || await interaction.guild?.members?.fetchMe?.().catch(() => null);
+    if (!bot || !channel.permissionsFor(bot)?.has([
+      PermissionFlagsBits.ManageMessages,
+      PermissionFlagsBits.ReadMessageHistory,
+      PermissionFlagsBits.ViewChannel,
+    ])) {
+      return InteractionHelper.safeEditReply(interaction, {
+        content: 'Beacon needs **Manage Messages**, **Read Message History** and **View Channel** here.',
+      });
+    }
 
-    if (amount < 1 || amount > 100)
-      return await replyUserError(interaction, { type: ErrorTypes.VALIDATION, message: 'Please specify a number between 1 and 100.' });
-
+    let deletedCount;
+    let skippedCount;
     try {
       const fetched = await channel.messages.fetch({ limit: amount });
       const deleted = await channel.bulkDelete(fetched, true);
-      const deletedCount = deleted.size;
+      deletedCount = deleted.size;
+      skippedCount = Math.max(0, fetched.size - deletedCount);
+    } catch (error) {
+      logger.warn('Purge message deletion failed', { guildId: interaction.guildId, channelId: channel.id, error: error?.message });
+      return InteractionHelper.safeEditReply(interaction, {
+        content: 'Could not delete those messages. Check my permissions. Discord cannot bulk-delete messages older than 14 days.',
+      });
+    }
 
+    try {
       await logEvent({
-        client,
+        client: client || interaction.client,
         guild: interaction.guild,
         event: {
-          action: "Messages Purged",
+          action: 'Messages Purged',
           target: `${channel} (${deletedCount} messages)`,
           executor: `${interaction.user.tag} (${interaction.user.id})`,
           reason: `Deleted ${deletedCount} messages`,
-          metadata: {
-            channelId: channel.id,
-            messageCount: deletedCount,
-            requestedAmount: amount,
-            moderatorId: interaction.user.id
-          }
-        }
+          metadata: { channelId: channel.id, messageCount: deletedCount, requestedAmount: amount, skippedCount, moderatorId: interaction.user.id },
+        },
       });
-
-      await InteractionHelper.safeEditReply(interaction, {
-        embeds: [
-          successEmbed(
-            "Messages Purged",
-            `Deleted ${deletedCount} messages in ${channel}.`,
-          ),
-        ],
-        flags: MessageFlags.Ephemeral,
-      });
-
-      setTimeout(() => {
-        interaction.deleteReply().catch(err => 
-          logger.debug('Failed to auto-delete purge response:', err)
-        );
-      }, 3000);
     } catch (error) {
-      logger.error('Purge command error:', error);
-      await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: 'An unexpected error occurred during message deletion. Note: Messages older than 14 days cannot be bulk deleted.' });
+      // A logging outage must not turn an already-successful deletion into a reported failure.
+      logger.warn('Purge succeeded but moderation logging failed', { channelId: channel.id, error: error?.message });
     }
-  }
+
+    return InteractionHelper.safeEditReply(interaction, {
+      embeds: [successEmbed('🧹 Messages Purged',
+        `Deleted **${deletedCount}** message(s) in ${channel}.`
+        + (skippedCount ? `\n⚠️ **${skippedCount}** message(s) could not be bulk-deleted (possibly older than 14 days).` : '')
+        + '\n\nOnly you can see this confirmation.')],
+    });
+  },
 };
