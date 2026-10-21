@@ -23,6 +23,7 @@ export default {
                 .setDescription("The message ID of the giveaway to end.")
                 .setRequired(true),
         )
+        .setDMPermission(false)
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 
     async execute(interaction) {
@@ -56,6 +57,8 @@ export default {
                 { providedId: messageId }
             );
         }
+
+        if (!(await InteractionHelper.safeDefer(interaction, { flags: MessageFlags.Ephemeral }))) return;
 
         const giveaways = await getGuildGiveaways(interaction.client, interaction.guildId);
         const giveaway = giveaways.find(g => g.messageId === messageId);
@@ -132,6 +135,7 @@ export default {
                 .join(",");
             const winnerPingMsg = await channel.send({
                 content: `🎉 CONGRATULATIONS ${winnerMentions}! You won the **${updatedGiveaway.prize}** giveaway! Please contact the host <@${updatedGiveaway.hostId}> to claim your prize.`,
+                allowedMentions: { parse: [], users: [...winners, updatedGiveaway.hostId].filter(Boolean) },
             });
             updatedGiveaway.winnerPingMessageId = winnerPingMsg.id;
             await saveGiveaway(interaction.client, interaction.guildId, updatedGiveaway);
@@ -172,6 +176,7 @@ export default {
         } else {
             await channel.send({
                 content: `The giveaway for **${updatedGiveaway.prize}** has ended with no valid entries.`,
+                allowedMentions: { parse: [] },
             });
             logger.info(`Giveaway ended with no winners: ${messageId}`);
         }

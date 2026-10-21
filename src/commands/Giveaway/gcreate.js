@@ -28,6 +28,7 @@ export default {
                 .setDescription(
                     "How long the giveaway should last (e.g., 1h, 30m, 5d).",
                 )
+                .setMaxLength(20)
                 .setRequired(true),
         )
         .addIntegerOption((option) =>
@@ -42,6 +43,7 @@ export default {
             option
                 .setName("prize")
                 .setDescription("The prize being given away.")
+                .setMaxLength(200)
                 .setRequired(true),
         )
         .addChannelOption((option) =>
@@ -51,11 +53,12 @@ export default {
                 .addChannelTypes(ChannelType.GuildText)
                 .setRequired(false),
         )
+        .setDMPermission(false)
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 
     async execute(interaction) {
         // Defer up front: sending the giveaway message + DB write can exceed the 3s window
-        await InteractionHelper.safeDefer(interaction, { flags: MessageFlags.Ephemeral });
+        if (!(await InteractionHelper.safeDefer(interaction, { flags: MessageFlags.Ephemeral }))) return;
 
         if (!interaction.inGuild()) {
             throw new TitanBotError(
@@ -115,6 +118,20 @@ export default {
         const embed = createGiveawayEmbed(initialGiveawayData, "active");
         const row = createGiveawayButtons(false);
 
+        const botMember = interaction.guild.members.me
+            || await interaction.guild.members.fetchMe().catch(() => null);
+        if (!botMember || !targetChannel.permissionsFor(botMember)?.has([
+            PermissionFlagsBits.SendMessages,
+            PermissionFlagsBits.EmbedLinks,
+            PermissionFlagsBits.ViewChannel,
+        ])) {
+            throw new TitanBotError(
+                'Missing giveaway channel permissions',
+                ErrorTypes.PERMISSION,
+                'Beacon needs **View Channel**, **Send Messages** and **Embed Links** in the giveaway channel.',
+            );
+        }
+
         const giveawayMessage = await targetChannel.send({
             content: "🎉 **NEW GIVEAWAY** 🎉",
             embeds: [embed],
@@ -129,7 +146,21 @@ export default {
         );
 
         if (!saved) {
-            logger.warn(`Failed to save giveaway to database: ${giveawayMessage.id}`);
+            logger.error('Giveaway could not be saved; removing untracked giveaway message', {
+                guildId: interaction.guildId, messageId: giveawayMessage.id,
+            });
+            await giveawayMessage.delete().catch(async (error) => {
+                logger.warn('Unable to delete untracked giveaway message', { messageId: giveawayMessage.id, error: error?.message });
+                await giveawayMessage.edit({
+                    content: '⚠️ **GIVEAWAY UNAVAILABLE** — Could not save this giveaway.',
+                    components: [],
+                }).catch(() => {});
+            });
+            throw new TitanBotError(
+                'Giveaway persistence failed',
+                ErrorTypes.DATABASE,
+                'Giveaway creation failed because its data could not be saved. No active giveaway was created.',
+            );
         }
 
         try {

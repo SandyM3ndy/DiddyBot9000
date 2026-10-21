@@ -21,6 +21,7 @@ export default {
                 .setDescription("The message ID of the ended giveaway.")
                 .setRequired(true),
         )
+        .setDMPermission(false)
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 
     async execute(interaction) {
@@ -54,6 +55,8 @@ export default {
                 { providedId: messageId }
             );
         }
+
+        if (!(await InteractionHelper.safeDefer(interaction, { flags: MessageFlags.Ephemeral }))) return;
 
         const giveaways = await getGuildGiveaways(
             interaction.client,
@@ -156,10 +159,12 @@ export default {
             if (existingPingMsg) {
                 await existingPingMsg.edit({
                     content: `🔄 **GIVEAWAY REROLL** 🔄 New winners for **${giveaway.prize}**: ${winnerMentions}!`,
+                    allowedMentions: { parse: [], users: [...newWinners, giveaway.hostId].filter(Boolean) },
                 });
             } else {
                 const newPingMsg = await channel.send({
                     content: `🔄 **GIVEAWAY REROLL** 🔄 New winners for **${giveaway.prize}**: ${winnerMentions}!`,
+                    allowedMentions: { parse: [], users: [...newWinners, giveaway.hostId].filter(Boolean) },
                 });
                 updatedGiveaway.winnerPingMessageId = newPingMsg.id;
             }
@@ -234,10 +239,12 @@ export default {
         if (existingPingMsg) {
             await existingPingMsg.edit({
                 content: `🔄 **REROLL WINNERS** 🔄 CONGRATULATIONS ${winnerMentions}! You are the new winner(s) for the **${giveaway.prize}** giveaway! Please contact the host <@${giveaway.hostId}> to claim your prize.`,
+                    allowedMentions: { parse: [], users: [...newWinners, giveaway.hostId].filter(Boolean) },
             });
         } else {
             const newPingMsg = await channel.send({
                 content: `🔄 **REROLL WINNERS** 🔄 CONGRATULATIONS ${winnerMentions}! You are the new winner(s) for the **${giveaway.prize}** giveaway! Please contact the host <@${giveaway.hostId}> to claim your prize.`,
+                    allowedMentions: { parse: [], users: [...newWinners, giveaway.hostId].filter(Boolean) },
             });
             updatedGiveaway.winnerPingMessageId = newPingMsg.id;
         }

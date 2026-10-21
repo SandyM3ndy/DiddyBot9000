@@ -18,6 +18,7 @@ export default {
                 .setDescription("The message ID of the giveaway to delete.")
                 .setRequired(true),
         )
+        .setDMPermission(false)
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 
     async execute(interaction) {
@@ -51,6 +52,8 @@ export default {
                 { providedId: messageId }
             );
         }
+
+        if (!(await InteractionHelper.safeDefer(interaction, { flags: MessageFlags.Ephemeral }))) return;
 
         const giveaways = await getGuildGiveaways(interaction.client, interaction.guildId);
         const giveaway = giveaways.find(g => g.messageId === messageId);
