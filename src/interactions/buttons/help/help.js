@@ -2,6 +2,7 @@ import {
   helpBackButton,
   helpBugReportButton,
   helpPaginationButton,
+  helpCategoryPaginationButton,
 } from '../../../handlers/help/helpButtons.js';
 
 const paginationIds = [
@@ -16,4 +17,10 @@ const paginationInteractions = paginationIds.map((name) => ({
   execute: helpPaginationButton.execute,
 }));
 
-export default [helpBackButton, helpBugReportButton, ...paginationInteractions];
+export default [
+  helpBackButton,
+  helpBugReportButton,
+  ...paginationInteractions,
+  { name: 'help-cat-prev', execute: helpCategoryPaginationButton.execute },
+  { name: 'help-cat-next', execute: helpCategoryPaginationButton.execute },
+];

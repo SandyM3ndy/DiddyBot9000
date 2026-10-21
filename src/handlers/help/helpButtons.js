@@ -1,5 +1,5 @@
 import { createEmbed } from '../../utils/embeds.js';
-import { createAllCommandsMenu } from './helpSelectMenus.js';
+import { createAllCommandsMenu, createCategoryCommandsMenu } from './helpSelectMenus.js';
 import { createInitialHelpMenu } from '../../commands/Core/help.js';
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } from 'discord.js';
 import { logger } from '../../utils/logger.js';
@@ -134,6 +134,27 @@ export const helpPaginationButton = {
             }
 
             throw error;
+        }
+    },
+};
+
+// Category page controls carry category and current page after the ':' separator.
+export const helpCategoryPaginationButton = {
+    name: 'help-cat-prev',
+    async execute(interaction, client, args = []) {
+        if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate();
+        try {
+            const [category, current] = args;
+            if (!category || !/^\d+$/.test(String(current))) {
+                await interaction.editReply({ content: 'Invalid help page. Run /help again.', embeds: [], components: [] });
+                return;
+            }
+            const direction = interaction.customId.startsWith('help-cat-next:') ? 1 : -1;
+            const { embeds, components } = await createCategoryCommandsMenu(category, client, Number(current) + direction);
+            await interaction.editReply({ embeds, components });
+        } catch (error) {
+            logger.warn('Help category pagination failed', { error: error?.message, customId: interaction.customId });
+            await interaction.editReply({ content: 'Could not load that category page. Use /help again.', embeds: [], components: [] }).catch(() => {});
         }
     },
 };

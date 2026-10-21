@@ -3,6 +3,7 @@ import { createButton, getPaginationRow } from '../../utils/components.js';
 import { Collection, ActionRowBuilder, MessageFlags } from 'discord.js';
 import { logger } from '../../utils/logger.js';
 import { handleInteractionError } from '../../utils/errorHandler.js';
+import { paginateHelpEntries, splitHelpEntries } from '../../utils/helpPagination.js';
 
 const BACK_BUTTON_ID = "help-back-to-main";
 const ALL_COMMANDS_ID = "help-all-commands";
@@ -190,7 +191,7 @@ async function getRegisteredCommands(client) {
     return registered;
 }
 
-async function createCategoryCommandsMenu(category, client) {
+export async function createCategoryCommandsMenu(category, client, page = 1) {
     const categoryName = formatCategoryName(category);
     const icon = CATEGORY_ICONS[categoryName] || "🔍";
 
@@ -215,49 +216,16 @@ async function createCategoryCommandsMenu(category, client) {
             : `No commands found in the **${categoryName}** category.`
     });
 
-    if (categoryCommands.length > 0) {
-        const commandMentions = categoryCommands
-            .map((cmd) => {
-                const registeredCmd = registeredCommands.get(cmd.baseName);
-                if (registeredCmd && registeredCmd.id) {
-                    return formatHelpEntry(cmd, registeredCommands);
-                }
-                return formatHelpEntry(cmd, registeredCommands);
-            })
-            .join("\n");
-
-        const maxLength = 900;
-        if (commandMentions.length <= maxLength) {
-            embed.addFields({
-                name: "Commands",
-                value: commandMentions,
-                inline: false,
-            });
-        } else {
-            const chunks = [];
-            let currentChunk = "";
-            const lines = commandMentions.split("\n");
-
-            for (const line of lines) {
-                if ((currentChunk + "\n" + line).length > maxLength) {
-                    if (currentChunk) chunks.push(currentChunk);
-                    currentChunk = line;
-                } else {
-                    currentChunk += (currentChunk ? "\n" : "") + line;
-                }
-            }
-            if (currentChunk) chunks.push(currentChunk);
-
-            chunks.forEach((chunk, index) => {
-                embed.addFields({
-                    name: `Commands (Part ${index + 1})`,
-                    value: chunk,
-                    inline: false,
-                });
-            });
+    const categoryPage = paginateHelpEntries(categoryCommands, page, 8);
+    if (categoryPage.items.length) {
+        const chunks = splitHelpEntries(categoryPage.items.map(cmd => formatHelpEntry(cmd, registeredCommands)), 900);
+        for (const [index, chunk] of chunks.entries()) {
+            embed.addFields({ name: chunks.length > 1 ? `Commands (${index + 1}/${chunks.length})` : 'Commands', value: chunk, inline: false });
         }
     }
-
+    if (categoryPage.totalPages > 1) {
+        embed.setDescription(`Browse **${categoryName}** commands — page **${categoryPage.page} of ${categoryPage.totalPages}**.`);
+    }
     embed.setFooter({ text: FOOTER_TEXT });
     embed.setTimestamp();
 
@@ -269,16 +237,18 @@ async function createCategoryCommandsMenu(category, client) {
         false,
     );
 
-    const buttonRow = new ActionRowBuilder().addComponents(backButton);
-
-    return {
-        embeds: [embed],
-        components: [buttonRow],
-    };
+    const components = [];
+    if (categoryPage.totalPages > 1) {
+        components.push(new ActionRowBuilder().addComponents(
+            createButton(`help-cat-prev:${category}:${categoryPage.page}`, '◀ Previous', 'secondary', null, categoryPage.page <= 1),
+            createButton(`help-cat-next:${category}:${categoryPage.page}`, 'Next ▶', 'secondary', null, categoryPage.page >= categoryPage.totalPages),
+        ));
+    }
+    components.push(new ActionRowBuilder().addComponents(backButton));
+    return { embeds: [embed], components, currentPage: categoryPage.page, totalPages: categoryPage.totalPages };
 }
 
 export async function createAllCommandsMenu(page = 1, client) {
-    const commandsPerPage = 15;
     const allCommands = [];
 
     for (const command of client?.commands?.values() || []) {
@@ -292,10 +262,7 @@ export async function createAllCommandsMenu(page = 1, client) {
 
     const registeredCommands = await getRegisteredCommands(client);
 
-    const totalPages = Math.ceil(allCommands.length / commandsPerPage);
-    const startIndex = (page - 1) * commandsPerPage;
-    const endIndex = startIndex + commandsPerPage;
-    const pageCommands = allCommands.slice(startIndex, endIndex);
+    const { page: currentPage, totalPages, items: pageCommands } = paginateHelpEntries(allCommands, page, 10);
 
     const embed = createEmbed({
         title: "📋 All Commands",
@@ -306,38 +273,17 @@ export async function createAllCommandsMenu(page = 1, client) {
     embed.setTimestamp();
 
     if (pageCommands.length > 0) {
-        const commandMentions = pageCommands.map((cmd) => {
-            const registeredCmd = registeredCommands.get(cmd.baseName);
-            if (registeredCmd && registeredCmd.id) {
-                return formatHelpEntry(cmd, registeredCommands);
-            }
-            return formatHelpEntry(cmd, registeredCommands);
-        });
-
-        const columnCount = pageCommands.length > 20 ? 3 : (pageCommands.length > 10 ? 2 : 1);
-        const chunkSize = Math.ceil(commandMentions.length / columnCount);
-
-        for (let i = 0; i < columnCount; i++) {
-            const chunk = commandMentions
-                .slice(i * chunkSize, (i + 1) * chunkSize)
-                .join("\n");
-
-            if (!chunk) continue;
-
-            embed.addFields({
-                name: i === 0 ? `Commands (Page ${page})` : "Commands (cont.)",
-                value: chunk,
-                inline: columnCount > 1,
-            });
+        const chunks = splitHelpEntries(pageCommands.map(cmd => formatHelpEntry(cmd, registeredCommands)), 900);
+        for (const [index, chunk] of chunks.entries()) {
+            embed.addFields({ name: index === 0 ? `Commands (Page ${currentPage})` : 'Commands (cont.)', value: chunk, inline: false });
         }
     }
-
     const components = [];
 
     if (totalPages > 1) {
         const paginationRow = getPaginationRow(
             PAGINATION_PREFIX,
-            page,
+            currentPage,
             totalPages,
         );
         components.push(paginationRow);
@@ -357,7 +303,7 @@ export async function createAllCommandsMenu(page = 1, client) {
     return {
         embeds: [embed],
         components,
-        currentPage: page,
+        currentPage,
         totalPages,
     };
 }
