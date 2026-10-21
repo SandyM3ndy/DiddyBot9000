@@ -15,7 +15,12 @@ for (const folder of await readdir(root, { withFileTypes: true })) {
   const directory = path.join(root, folder.name);
   for (const file of await readdir(directory, { withFileTypes: true })) {
     if (!file.isFile() || !file.name.endsWith('.js')) continue;
-    const source = await readFile(path.join(directory, file.name), 'utf8');
+    let source = await readFile(path.join(directory, file.name), 'utf8');
+    // Some command entrypoints re-export a command from a module file.
+    const reexport = source.match(/export\s*\{\s*default\s*\}\s*from\s*['"]([^'"]+)['"]/);
+    if (reexport) {
+      source = await readFile(path.resolve(directory, reexport[1]), 'utf8');
+    }
     const pathLabel = `${folder.name}/${file.name}`;
     filesChecked++;
     // Every top-level slash command declares its name via the first .setName call.
