@@ -10,6 +10,9 @@ RUN apk add --no-cache postgresql-client \
 
 COPY . .
 
+# Fail the image build if any command or utility contains invalid JavaScript.
+RUN npm run check
+
 # Run as the unprivileged Node user, while granting it ownership of runtime-write directories.
 RUN mkdir -p /usr/src/app/logs /usr/src/app/backups \
     && chown -R node:node /usr/src/app

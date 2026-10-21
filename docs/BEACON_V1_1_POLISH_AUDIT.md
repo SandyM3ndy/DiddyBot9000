@@ -1,0 +1,35 @@
+# Beacon v1.1 — Polish Update (Part 1)
+
+Status: **In development**. Successful GitHub commits do not mean the release has passed Discord or Railway testing.
+
+## Confirmed removals
+- `/fight` — command implementation and prefix alias removed with owner approval.
+- **No other commands have been removed.**
+
+## Command audit: owner decisions required
+- Two implementations define `/poll`: `src/commands/Community/poll.js` uses one pipe-separated options input; `src/commands/Tools/poll.js` uses several separate option fields. The loader currently keeps the first implementation. Owner must choose a preferred behaviour before they are merged.
+- `/stats`, `/status`, `/uptime`, `/ping`, and `/botinfo` overlap in reporting bot information, but serve some distinct purposes. Decide which to retain/merge before modifying registration.
+- `/lock` and `/lockdown` are different scopes and should not be treated as duplicates automatically.
+- Configuration commands hidden in the loader should not be shown in `/help`. Server configuration is accessed through `/dashboard`.
+
+## Development stages
+1. **Command cleanup:** initial file-level command audit; approved `/fight` removal; loader now logs duplicate command names.
+2. **Bug fixes:** `/uptime` syntax repaired; `/cases` button interactions acknowledged correctly; stale dashboard instructions corrected.
+3. **Visual consistency:** corrected old TitanBot bug-report branding and support URL; first pass on Fun-command responses.
+4. **System polishing:** first pass on Core, Fun and moderation; security, tickets, applications, music, giveaway, community and economy still need QA.
+5. **Help redesign:** help now lists actual loaded commands, not every file on disk; permission wording corrected.
+6. **Performance and diagnostics:** help command mentions cached; command-loader file URLs corrected; duplicate logging improved.
+7. **Release checks:** build-time syntax check and GitHub CI added; manual interactive tests still required.
+
+## Verification checklist (not yet complete)
+- [ ] All slash commands register successfully, without duplicate names
+- [ ] `/help` opens, displays correct categories and navigates through categories and pages
+- [ ] Hidden/removed commands do not appear in Discord command picker or `/help`
+- [ ] Moderator cases and buttons work for permitted and unauthorized users
+- [ ] Permission failures show helpful messages and do not crash the bot
+- [ ] Anti-nuke and emergency lockdowns work only with authorized server owners
+- [ ] Ticket, applications, giveaway, verification, music, leveling, and economy workflows
+- [ ] PostgreSQL data persists after a Railway restart
+- [ ] CI and Docker image syntax checks pass
+- [ ] No unexpected changes to existing server configuration
+- [ ] Publish official v1.1 changelog and only then update release version
