@@ -91,7 +91,13 @@ function cleanupCountdown(countdownId, activeCountdowns) {
 
 async function countdownButtonHandler(interaction, client, args) {
     const { activeCountdowns } = await import('../commands/Tools/countdown.js');
-    const [action, countdownId] = args;
+    // Discord's router passes only the data after ':' as args; the action lives in the prefix.
+    const action = interaction.customId.startsWith('countdown_pause:') ? 'pause'
+        : interaction.customId.startsWith('countdown_cancel:') ? 'cancel' : null;
+    const countdownId = args?.[0];
+    if (!action || !countdownId) {
+        return interaction.reply({ content: 'This timer control is invalid. Start a new countdown.', flags: ['Ephemeral'] });
+    }
     const countdownData = activeCountdowns.get(countdownId);
 
     if (!countdownData) {
