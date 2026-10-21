@@ -1,0 +1,47 @@
+name: Dependency security fix proposal
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/dependency-fix-proposal.yml'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  propose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Apply compatible npm vulnerability fixes
+        run: npm audit fix --omit=dev || true
+      - name: Verify updated lockfile and Beacon preflight
+        run: npm ci && npm run preflight
+      - name: Report remaining vulnerabilities (non-blocking for proposal)
+        run: npm audit --omit=dev --audit-level=high || true
+      - name: Propose changes for review; never modify main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          if git diff --quiet -- package.json package-lock.json; then
+            echo 'No compatible dependency changes were found.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          branch="beacon/dependency-fix-${GITHUB_RUN_ID}"
+          git checkout -b "$branch"
+          git add package.json package-lock.json
+          git commit -m 'security: propose compatible npm audit fixes'
+          git push origin "$branch"
+          gh pr create --base main --head "$branch" --title 'Security: proposed npm dependency vulnerability fixes' --body 'Automated **proposal only**. npm audit fix was run against the production lockfile and npm ci plus Beacon preflight passed. Review updated dependency versions, CI security results, and runtime compatibility before merging. No production changes are automatically merged.'
