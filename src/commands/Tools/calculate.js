@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } from 'discord.js';
+import { SlashCommandBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, MessageFlags } from 'discord.js';
 import { createEmbed, successEmbed, infoEmbed, warningEmbed } from '../../utils/embeds.js';
 import { logger } from '../../utils/logger.js';
 import { replyUserError, ErrorTypes } from '../../utils/errorHandler.js';
@@ -26,7 +26,8 @@ export default {
                 .setDescription(
                     "The mathematical expression to evaluate (e.g., 2+2*3, sin(45 deg), 16^0.5)",
                 )
-                .setRequired(true),
+                .setRequired(true)
+                .setMaxLength(200),
         ),
 
     async execute(interaction) {
@@ -154,18 +155,20 @@ export default {
                 components: [row],
             });
 
-            const filter = (i) =>
-                i.customId.startsWith(`calc_${interaction.id}`) &&
-                i.user.id === interaction.user.id;
-            const BUTTON_TIMEOUT = 300000;
-            const collector =
-                interaction.channel.createMessageComponentCollector({
-                    filter,
-                    time: BUTTON_TIMEOUT,
-                });
+            // Listen only to this message, not unrelated interactions in the channel.
+            const calculationMessage = await interaction.fetchReply();
+            const filter = i => i.customId.startsWith(`calc_${interaction.id}_`);
+            const collector = calculationMessage.createMessageComponentCollector({
+                filter,
+                time: 300000,
+            });
 
             collector.on("collect", async (i) => {
                 try {
+                    if (i.user.id !== interaction.user.id) {
+                        await i.reply({ content: 'This calculator belongs to someone else. Use /calculate to make your own.', flags: MessageFlags.Ephemeral });
+                        return;
+                    }
                     const operation = i.customId.split("_")[2];
 
                     if (operation === "history") {
@@ -217,15 +220,25 @@ export default {
                     }
 
                     try {
-                        const contextKey = `${i.user.id}_${operation}`;
-                        calculationContexts.set(contextKey, {
+                        if (!operator) {
+                            await i.reply({ content: 'Unknown calculator action.', flags: MessageFlags.Ephemeral });
+                            return;
+                        }
+                        const contextKey = `${interaction.id}_${operation}`;
+                        const context = {
                             expression,
                             formattedResult,
                             operator,
-                            messageId: interaction.message?.id,
+                            messageId: calculationMessage.id,
                             channelId: interaction.channelId,
-                            userId: i.user.id
-                        });
+                            userId: i.user.id,
+                            createdAt: Date.now(),
+                        };
+                        calculationContexts.set(contextKey, context);
+                        const expiry = setTimeout(() => {
+                            if (calculationContexts.get(contextKey) === context) calculationContexts.delete(contextKey);
+                        }, 15 * 60 * 1000);
+                        expiry.unref?.();
 
                         await i.showModal({
                             customId: `calc_modal:${operation}`,
@@ -237,7 +250,7 @@ export default {
                                         {
                                             type: 4,
                                             customId: `operand:${contextKey}`,
-                                            label: `Number to ${operator} with ${formattedResult}`,
+                                            label: `Number to ${operation}`,
                                             placeholder: "Enter a number...",
                                             style: 1,
                                             required: true,
@@ -249,6 +262,7 @@ export default {
                         });
                     } catch (modalError) {
                         logger.error("Failed to show modal:", modalError);
+                        calculationContexts.delete(`${interaction.id}_${operation}`);
                         if (!i.replied && !i.deferred) {
                             await i.reply({
                                 content: "Failed to open calculator. Please try again.",
