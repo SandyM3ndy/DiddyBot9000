@@ -32,6 +32,7 @@ export default {
             option
                 .setName("title")
                 .setDescription("Optional title for the countdown")
+                .setMaxLength(100)
                 .setRequired(false),
         ),
 
@@ -61,7 +62,7 @@ export default {
         }
 
         const endTime = Date.now() + totalSeconds * 1000;
-        const countdownId = `${interaction.channelId}-${Date.now()}`;
+        const countdownId = interaction.id;
 
         const row = createControlButtons(countdownId);
 
@@ -77,6 +78,7 @@ export default {
 
         const countdownData = {
             message,
+            ownerId: interaction.user.id,
             endTime,
             remainingTime: totalSeconds * 1000,
             isPaused: false,

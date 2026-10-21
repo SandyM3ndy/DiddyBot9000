@@ -36,59 +36,49 @@ function startCountdown(countdownId, countdownData, activeCountdowns) {
         countdownData.interval = null;
     }
 
-    logger.info(`Countdown started: ${countdownData.title} (${countdownData.remainingTime / 1000}s remaining)`);
+    logger.info(`Countdown active: ${countdownData.title} (${Math.ceil(countdownData.remainingTime / 1000)}s remaining)`);
 
+    // Tick once per second, but reduce Discord API edits on long-running timers.
+    // Never issue overlapping message edits when Discord responds slowly.
     countdownData.interval = setInterval(async () => {
+        if (countdownData.isPaused || countdownData.updating || !activeCountdowns.has(countdownId)) return;
+        countdownData.updating = true;
+
         try {
-            if (countdownData.isPaused) return;
-
             const now = Date.now();
-            const remaining = Math.max(0, countdownData.endTime - now);
-            countdownData.remainingTime = remaining;
+            const remainingMs = Math.max(0, countdownData.endTime - now);
+            countdownData.remainingTime = remainingMs;
+            const seconds = Math.ceil(remainingMs / 1000);
 
-            if (now - countdownData.lastUpdate >= 1000) {
-                countdownData.lastUpdate = now;
-
-                const embed = successEmbed(
-                    `⏱️ ${countdownData.title}`,
-                    `Time remaining: **${formatTime(Math.ceil(remaining / 1000))}**`,
-                );
-
-                try {
-                    await countdownData.message.edit({
-                        embeds: [embed],
-                        components: [
-                            createControlButtons(
-                                countdownId,
-                                countdownData.isPaused,
-                            ),
-                        ],
-                    });
-                } catch (error) {
-                    logger.error("Error updating countdown message:", error);
-                }
-            }
-
-            if (remaining <= 0) {
-                clearInterval(countdownData.interval);
-
-                const finishedEmbed = successEmbed(
-                    `⏱️ ${countdownData.title} (Finished!)`,
-                    "⏰ Time's up!",
-                );
-
+            if (seconds <= 0) {
+                cleanupCountdown(countdownId, activeCountdowns);
                 await countdownData.message.edit({
-                    embeds: [finishedEmbed],
+                    embeds: [successEmbed(`⏱️ ${countdownData.title} (Finished!)`, "⏰ Time's up!")],
                     components: [],
                 });
+                return;
+            }
 
+            const cadence = seconds > 3600 ? 60_000 : seconds > 60 ? 10_000 : 1000;
+            if (now - countdownData.lastUpdate < cadence) return;
+            countdownData.lastUpdate = now;
+            await countdownData.message.edit({
+                embeds: [successEmbed(
+                    `⏱️ ${countdownData.title}`,
+                    `Time remaining: **${formatTime(seconds)}**`,
+                )],
+                components: [createControlButtons(countdownId, false)],
+            });
+        } catch (error) {
+            logger.warn('Countdown message update failed', { countdownId, error: error?.message });
+            // Missing channel/message or missing permissions are not transient.
+            if ([10003, 10008, 50001, 50013].includes(Number(error?.code))) {
                 cleanupCountdown(countdownId, activeCountdowns);
             }
-        } catch (error) {
-            logger.error("Countdown update error:", error);
-            cleanupCountdown(countdownId, activeCountdowns);
+        } finally {
+            countdownData.updating = false;
         }
-    }, 100);
+    }, 1000);
 }
 
 function cleanupCountdown(countdownId, activeCountdowns) {
@@ -100,91 +90,64 @@ function cleanupCountdown(countdownId, activeCountdowns) {
 }
 
 async function countdownButtonHandler(interaction, client, args) {
+    const { activeCountdowns } = await import('../commands/Tools/countdown.js');
+    const [action, countdownId] = args;
+    const countdownData = activeCountdowns.get(countdownId);
+
+    if (!countdownData) {
+        return interaction.reply({ content: 'This countdown has finished or is no longer active.', flags: ['Ephemeral'] });
+    }
+
+    const canModerate = interaction.memberPermissions?.has(PermissionFlagsBits.ManageMessages)
+        || interaction.member?.permissions?.has?.(PermissionFlagsBits.ManageMessages);
+    if (countdownData.ownerId !== interaction.user.id && !canModerate) {
+        return interaction.reply({ content: 'Only the countdown creator or a moderator can control this timer.', flags: ['Ephemeral'] });
+    }
+
+    // Acknowledge before editing a possibly rate-limited timer message.
+    await interaction.deferReply({ flags: ['Ephemeral'] });
+
     try {
-        const { activeCountdowns } = await import('../commands/Tools/countdown.js');
-        const action = args[0];
-        const countdownId = args[1];
-
-        const countdownData = activeCountdowns.get(countdownId);
-        if (!countdownData) {
-            return await interaction.reply({
-                content: "This countdown has expired or was cancelled.",
-                flags: ["Ephemeral"],
-            });
-        }
-
-        if (!interaction.member.permissions.has(PermissionFlagsBits.ManageMessages)) {
-            return await interaction.reply({
-                content: 'You need the "Manage Messages" permission to control countdowns.',
-                flags: ["Ephemeral"],
-            });
-        }
-
-        switch (action) {
-            case "pause":
-                if (countdownData.isPaused) {
-                    countdownData.isPaused = false;
-                    countdownData.endTime = Date.now() + countdownData.remainingTime;
-                    startCountdown(countdownId, countdownData, activeCountdowns);
-
-                    const currentEmbed = countdownData.message.embeds[0];
-                    await countdownData.message.edit({
-                        embeds: [currentEmbed],
-                        components: [createControlButtons(countdownId, false)],
-                    });
-
-                    await interaction.reply({
-                        content: "▶️ Countdown resumed!",
-                        flags: ["Ephemeral"],
-                    });
-                } else {
-                    clearInterval(countdownData.interval);
-                    countdownData.isPaused = true;
-                    countdownData.remainingTime = countdownData.endTime - Date.now();
-
-                    const currentEmbed = countdownData.message.embeds[0];
-                    await countdownData.message.edit({
-                        embeds: [currentEmbed],
-                        components: [createControlButtons(countdownId, true)],
-                    });
-
-                    await interaction.reply({
-                        content: "⏸️ Countdown paused!",
-                        flags: ["Ephemeral"],
-                    });
-                }
-                break;
-
-            case "cancel":
-                clearInterval(countdownData.interval);
-
-                const embed = successEmbed(
-                    `⏱️ ${countdownData.title} (Cancelled)`,
-                    "The countdown was cancelled.",
-                );
-
+        if (action === 'pause') {
+            if (countdownData.isPaused) {
+                countdownData.isPaused = false;
+                countdownData.endTime = Date.now() + countdownData.remainingTime;
+                countdownData.lastUpdate = 0;
+                startCountdown(countdownId, countdownData, activeCountdowns);
                 await countdownData.message.edit({
-                    embeds: [embed],
-                    components: [],
+                    embeds: [successEmbed(`⏱️ ${countdownData.title}`, `Time remaining: **${formatTime(Math.ceil(countdownData.remainingTime / 1000))}**`)],
+                    components: [createControlButtons(countdownId, false)],
                 });
-
-                cleanupCountdown(countdownId, activeCountdowns);
-
-                await interaction.reply({
-                    content: "❌ Countdown cancelled!",
-                    flags: ["Ephemeral"],
-                });
-                break;
-        }
-    } catch (error) {
-        logger.error('Countdown button handler error:', error);
-        try {
-            if (!interaction.replied && !interaction.deferred) {
-                await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: 'An error occurred controlling the countdown.' });
+                await interaction.editReply({ content: '▶️ Countdown resumed.' });
+                return;
             }
-        } catch (err) {
-            logger.error('Failed to send error message:', err);
+
+            countdownData.isPaused = true;
+            countdownData.remainingTime = Math.max(0, countdownData.endTime - Date.now());
+            if (countdownData.interval) clearInterval(countdownData.interval);
+            countdownData.interval = null;
+            await countdownData.message.edit({
+                embeds: [successEmbed(`⏱️ ${countdownData.title} (Paused)`, `Paused at **${formatTime(Math.ceil(countdownData.remainingTime / 1000))}**`)],
+                components: [createControlButtons(countdownId, true)],
+            });
+            await interaction.editReply({ content: '⏸️ Countdown paused.' });
+            return;
         }
+
+        if (action === 'cancel') {
+            cleanupCountdown(countdownId, activeCountdowns);
+            await countdownData.message.edit({
+                embeds: [successEmbed(`⏱️ ${countdownData.title} (Cancelled)`, 'The countdown was cancelled.')],
+                components: [],
+            });
+            await interaction.editReply({ content: '❌ Countdown cancelled.' });
+            return;
+        }
+
+        await interaction.editReply({ content: 'Unknown countdown action.' });
+    } catch (error) {
+        logger.warn('Countdown control failed', { countdownId, action, error: error?.message });
+        await interaction.editReply({ content: 'Could not update this timer. Check my channel permissions and try again.' }).catch(() => {});
     }
 }
 
