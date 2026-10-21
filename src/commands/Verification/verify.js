@@ -1,33 +1,33 @@
 import { SlashCommandBuilder, MessageFlags } from 'discord.js';
 import { infoEmbed, successEmbed } from '../../utils/embeds.js';
-import { replyUserError, ErrorTypes } from '../../utils/errorHandler.js';
 import { verifyUser } from '../../services/verificationService.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 
 export default {
     data: new SlashCommandBuilder()
         .setName('verify')
-        .setDescription('Verify yourself and gain access to the server'),
+        .setDescription('Verify yourself and gain access to the server')
+        .setDMPermission(false),
 
     async execute(interaction, config, client) {
-        const guild = interaction.guild;
-
-        const result = await verifyUser(client, guild.id, interaction.user.id, {
+        if (!interaction.guild) return InteractionHelper.safeReply(interaction, { content: 'Run this command in a server.', flags: MessageFlags.Ephemeral });
+        if (!(await InteractionHelper.safeDefer(interaction, { flags: MessageFlags.Ephemeral }))) return;
+        const result = await verifyUser(client, interaction.guild.id, interaction.user.id, {
             source: 'command_self',
             moderatorId: null
         });
 
         if (result.status === 'already_verified') {
-            return await InteractionHelper.safeReply(interaction, {
+            return await InteractionHelper.safeEditReply(interaction, {
                 embeds: [infoEmbed('Already Verified', "You are already verified.")],
                 flags: MessageFlags.Ephemeral
             });
         }
 
-        await InteractionHelper.safeReply(interaction, {
+        await InteractionHelper.safeEditReply(interaction, {
             embeds: [successEmbed(
                 "Verification Complete",
-                `You have been verified and given the **${result.roleName}** role! Welcome to the server! 🎉`
+                `You have been verified and given the **${result.roleName || 'verified'}** role! Welcome to the server! 🎉`
             )],
             flags: MessageFlags.Ephemeral
         });
