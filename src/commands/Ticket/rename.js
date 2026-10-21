@@ -1,27 +1,50 @@
-import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
+import { SlashCommandBuilder, MessageFlags } from 'discord.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
+import { getTicketPermissionContext } from '../../utils/ticket/ticketPermissions.js';
+import { logger } from '../../utils/logger.js';
+import { normalizeTicketChannelName } from '../../utils/ticket/ticketCommandHelpers.js';
 
 export default {
-    data: new SlashCommandBuilder()
-        .setName('ticketrename')
-        .setDescription('Rename the current ticket channel')
-        .addStringOption(o => o.setName('name').setDescription('New ticket name').setRequired(true).setMaxLength(80))
-        .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels.toString()),
+  data: new SlashCommandBuilder()
+    .setName('ticketrename')
+    .setDescription('Rename an existing support ticket')
+    .setDMPermission(false)
+    .addStringOption(o => o.setName('name').setDescription('New ticket channel name').setRequired(true).setMaxLength(80)),
+  category: 'Ticket',
 
-    async execute(interaction) {
-        const name = interaction.options.getString('name', true).trim().toLowerCase()
-            .replace(/[^a-z0-9-_ ]/g, '')
-            .replace(/\s+/g, '-')
-            .slice(0, 90);
+  async execute(interaction, config, client) {
+    if (!interaction.inGuild?.()) {
+      return InteractionHelper.safeReply(interaction, { content: 'Use this command inside a server ticket.', flags: MessageFlags.Ephemeral });
+    }
+    if (!(await InteractionHelper.safeDefer(interaction, { flags: MessageFlags.Ephemeral }))) return;
 
-        if (!name) {
-            return InteractionHelper.safeReply(interaction, { content: 'Please provide a valid channel name.', ephemeral: true });
-        }
-        if (!interaction.channel?.setName) {
-            return InteractionHelper.safeReply(interaction, { content: 'This command can only be used in a server channel.', ephemeral: true });
-        }
+    try {
+      const { ticketData, canManageTicket } = await getTicketPermissionContext({ client: client || interaction.client, interaction });
+      if (!ticketData) {
+        return InteractionHelper.safeEditReply(interaction, { content: 'This channel is not a Beacon ticket. Use the command in an open ticket.' });
+      }
+      if (ticketData.status === 'closed') {
+        return InteractionHelper.safeEditReply(interaction, { content: 'This ticket is closed and cannot be modified.' });
+      }
+      if (!canManageTicket) {
+        return InteractionHelper.safeEditReply(interaction, { content: 'Only members with **Manage Channels** or the configured **Ticket Staff Role** can do that.' });
+      }
+      if (typeof interaction.channel?.setName !== 'function') {
+        return InteractionHelper.safeEditReply(interaction, { content: 'This ticket channel does not support the requested operation.' });
+      }
 
-        await interaction.channel.setName(name);
-        await InteractionHelper.safeReply(interaction, { content: 'Ticket renamed to **' + name + '**.' });
-    },
+      const name = normalizeTicketChannelName(interaction.options.getString('name', true));
+      if (!name) {
+        return InteractionHelper.safeEditReply(interaction, { content: 'That name contains no valid characters. Use letters, numbers, spaces, dashes or underscores.' });
+      }
+      if (interaction.channel.name === name) {
+        return InteractionHelper.safeEditReply(interaction, { content: `This ticket is already named **${name}**.` });
+      }
+      await interaction.channel.setName(name, `Renamed by ${interaction.user.id}`);
+      return InteractionHelper.safeEditReply(interaction, { content: `✅ Ticket renamed to **${name}**.` });
+    } catch (error) {
+      logger.warn('Ticket rename failed', { guildId: interaction.guildId, channelId: interaction.channelId, error: error?.message });
+      return InteractionHelper.safeEditReply(interaction, { content: 'Could not update this ticket. Check Beacon\'s channel permissions and role position, then try again.' });
+    }
+  },
 };
