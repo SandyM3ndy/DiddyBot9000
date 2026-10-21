@@ -143,7 +143,7 @@ export async function handleApplicationModal(interaction) {
         questions = roleSettings.questions;
     }
     
-    for (let i = 0; i < questions.length; i++) {
+    for (let i = 0; i < Math.min(questions.length, 5); i++) {
         const answer = interaction.fields.getTextInputValue(`q${i}`);
         answers.push({
             question: questions[i],
@@ -298,7 +298,7 @@ async function handleSubmit(interaction, settings) {
 
     const modal = new ModalBuilder()
         .setCustomId(`app_modal_${applicationRole.roleId}`)
-        .setTitle(`Application for ${applicationRole.name}`);
+        .setTitle(`Application for ${applicationRole.name}`.slice(0, 45));
 
     let questions = settings.questions?.length ? settings.questions : getDefaultApplicationQuestions();
     const roleSettings = await getApplicationRoleSettings(interaction.client, interaction.guild.id, applicationRole.roleId);
