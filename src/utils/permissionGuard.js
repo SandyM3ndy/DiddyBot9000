@@ -14,10 +14,11 @@ export function getCommandDefaultPermissions(commandData) {
   const json = commandData?.toJSON?.() ?? commandData;
   const value = json?.default_member_permissions;
 
-  if (value == null || value === '0') {
+  if (value == null) {
     return null;
   }
-
+  // Discord's "0" means disabled by default for non-administrators,
+  // not an unrestricted command. Prefix commands must respect that.
   return BigInt(value);
 }
 
@@ -54,7 +55,10 @@ export function memberHasConfiguredModeratorRole(member, guildConfig) {
 
   const modRoleId = normalizeRoleId(guildConfig.modRole);
 
-  return Boolean(modRoleId && member.roles.cache.has(modRoleId));
+  return Boolean(modRoleId && (
+    member.roles?.cache?.has?.(modRoleId) ||
+    (Array.isArray(member.roles) && member.roles.includes(modRoleId))
+  ));
 }
 
 /**
@@ -99,6 +103,11 @@ export function memberMeetsCommandPermissions(member, permissionBitfield, option
 
   if (!member) {
     return false;
+  }
+
+  if (permissionBitfield === 0n) {
+    return member.guild?.ownerId === member.id ||
+      Boolean(member.permissions?.has?.(PermissionFlagsBits.Administrator));
   }
 
   const { guildConfig = null, commandCategory = null } = options;
