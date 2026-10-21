@@ -1,4 +1,5 @@
 import { successEmbed } from '../utils/embeds.js';
+import { MessageFlags } from 'discord.js';
 import { logger } from '../utils/logger.js';
 import { evaluateMathExpression } from '../utils/safeMathParser.js';
 
@@ -20,15 +21,19 @@ async function calculateModalHandler(interaction, client, args) {
         const { calculationContexts } = await import('../commands/Tools/calculate.js');
         const context = calculationContexts.get(contextKey);
         
-        if (!context) {
+        if (!context || !context.createdAt || Date.now() - context.createdAt > 15 * 60 * 1000) {
+            calculationContexts.delete(contextKey);
             return await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: 'This calculation has expired. Please start a new calculation.' });
         }
+        if (context.userId !== interaction.user.id || contextKey.split('_')[1] !== operation) {
+            return await replyUserError(interaction, { type: ErrorTypes.PERMISSION, message: 'That calculation does not belong to you.' });
+        }
 
-        await interaction.deferReply({ ephemeral: false });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
         const operand = interaction.fields.getTextInputValue(operandInput.customId);
         
-        if (!operand || isNaN(operand)) {
+        if (!operand || !Number.isFinite(Number(operand))) {
             return await replyUserError(interaction, { type: ErrorTypes.VALIDATION, message: 'Please provide a valid number.' });
         }
 
