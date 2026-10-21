@@ -41,3 +41,12 @@ Status: **In development**. Successful GitHub commits do not mean the release ha
 - URL shortening rejects non-web URL schemes and has updated Beacon branding.
 - A static command audit is part of the preflight checks, reporting `/poll` as an existing duplicate awaiting owner decision.
 - Native Discord monetization has **not** been implemented; see `docs/BEACON_PREMIUM_CONCEPT.md`.
+
+## Follow-up: 21 October 2026
+
+- Fixed and reduced countdown message edits; owners can now control their own timers.
+- Added paginated categories and bounded embed fields to `/help` with automated tests.
+- Fixed concurrent calculator sessions and the target message for modal updates.
+- Added expiry and ownership checks for calculator modals.
+- Current automated checks pass, but manual Discord regression testing remains outstanding.
+- See `BEACON_V1_1_CHANGELOG_DRAFT.md` for the full development summary.

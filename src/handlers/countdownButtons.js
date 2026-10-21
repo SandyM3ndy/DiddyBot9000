@@ -1,6 +1,7 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits } from 'discord.js';
 import { successEmbed } from '../utils/embeds.js';
 import { logger } from '../utils/logger.js';
+import { getCountdownEditCadence } from '../utils/countdownCadence.js';
 
 import { replyUserError, ErrorTypes } from '../utils/errorHandler.js';
 function createControlButtons(countdownId, isPaused = false) {
@@ -59,7 +60,7 @@ function startCountdown(countdownId, countdownData, activeCountdowns) {
                 return;
             }
 
-            const cadence = seconds > 3600 ? 60_000 : seconds > 60 ? 10_000 : 1000;
+            const cadence = getCountdownEditCadence(seconds);
             if (now - countdownData.lastUpdate < cadence) return;
             countdownData.lastUpdate = now;
             await countdownData.message.edit({
