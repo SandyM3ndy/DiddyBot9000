@@ -1,5 +1,5 @@
 import { getColor, getDefaultApplicationQuestions } from '../../config/bot.js';
-import { SlashCommandBuilder, ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } from 'discord.js';
+import { SlashCommandBuilder, ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle, ComponentType, MessageFlags } from 'discord.js';
 import { createEmbed, successEmbed } from '../../utils/embeds.js';
 import { logger } from '../../utils/logger.js';
 import { handleInteractionError, withErrorHandling, createError, ErrorTypes, replyUserError } from '../../utils/errorHandler.js';
@@ -78,10 +78,9 @@ export default {
         const { options, guild, member } = interaction;
         const subcommand = options.getSubcommand();
 
-        if (subcommand !== "submit") {
-            const isListCommand = subcommand === "list";
-            await InteractionHelper.safeDefer(interaction, { flags: isListCommand ? [] : ["Ephemeral"] });
-        }
+        // Acknowledge before database reads. Submit uses a fresh button interaction to show its modal.
+        const isListCommand = subcommand === 'list';
+        if (!(await InteractionHelper.safeDefer(interaction, { flags: isListCommand ? [] : ["Ephemeral"] }))) return;
 
         logger.info(`Apply command executed: ${subcommand}`, {
             userId: interaction.user.id,
@@ -119,6 +118,7 @@ export async function handleApplicationModal(interaction) {
     const customId = interaction.customId;
     if (!customId.startsWith('app_modal_')) return;
     
+    if (!(await InteractionHelper.safeDefer(interaction, { flags: MessageFlags.Ephemeral }))) return;
     const roleId = customId.split('_')[2];
     
     const applicationRoles = await getApplicationRoles(interaction.client, interaction.guild.id);
@@ -306,7 +306,7 @@ async function handleSubmit(interaction, settings) {
         questions = roleSettings.questions;
     }
 
-    questions.forEach((question, index) => {
+    questions.slice(0, 5).forEach((question, index) => {
         const input = new TextInputBuilder()
             .setCustomId(`q${index}`)
             .setLabel(
@@ -322,7 +322,38 @@ async function handleSubmit(interaction, settings) {
         modal.addComponents(row);
     });
 
-    await interaction.showModal(modal);
+    const buttonId = 'app_open_modal';
+    const openButton = new ButtonBuilder()
+        .setCustomId(buttonId)
+        .setLabel('Open Application Form')
+        .setStyle(ButtonStyle.Primary)
+        .setEmoji('📝');
+    const row = new ActionRowBuilder().addComponents(openButton);
+    await InteractionHelper.safeEditReply(interaction, {
+        content: `Your application form for **${applicationRole.name}** is ready. Select the button below to begin.`,
+        components: [row],
+    });
+    const reply = await interaction.fetchReply();
+    const collector = reply.createMessageComponentCollector({
+        componentType: ComponentType.Button,
+        time: 5 * 60 * 1000,
+        max: 1,
+        filter: click => click.customId === buttonId && click.user.id === interaction.user.id,
+    });
+    collector.on('collect', async click => {
+        try {
+            await click.showModal(modal);
+        } catch (error) {
+            logger.warn('Unable to open application form', { guildId: interaction.guildId, error: error?.message });
+            if (!click.deferred && !click.replied) {
+                await click.reply({ content: 'Could not open the form. Run `/apply submit` again.', flags: MessageFlags.Ephemeral }).catch(() => {});
+            }
+        }
+    });
+    collector.on('end', async () => {
+        openButton.setDisabled(true);
+        await InteractionHelper.safeEditReply(interaction, { components: [new ActionRowBuilder().addComponents(openButton)] }).catch(() => {});
+    });
 }
 
 async function handleStatus(interaction) {
