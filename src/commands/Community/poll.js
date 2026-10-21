@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
+import { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } from 'discord.js';
 import { createEmbed } from '../../utils/embeds.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 
@@ -10,7 +10,8 @@ export default {
         .setDescription('Create a poll for your server')
         .addStringOption(o => o.setName('question').setDescription('The poll question').setRequired(true).setMaxLength(200))
         .addStringOption(o => o.setName('options').setDescription('Options separated with | (2-10 options)').setRequired(true).setMaxLength(1000))
-        .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages.toString()),
+        .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages.toString())
+        .setDMPermission(false),
 
     async execute(interaction) {
         const question = interaction.options.getString('question', true).trim();
@@ -25,15 +26,23 @@ export default {
 
         const embed = createEmbed({
             title: '📊 Poll',
-            description: '**' + question + '**\\n\\n' + choices.map((choice, i) => EMOJIS[i] + ' ' + choice).join('\\n'),
+            description: '**' + question + '**\n\n' + choices.map((choice, i) => EMOJIS[i] + ' ' + choice).join('\n'),
             color: 'primary',
         }).setFooter({ text: 'Poll by ' + interaction.user.tag }).setTimestamp();
 
-        await InteractionHelper.safeReply(interaction, { embeds: [embed] });
+        await InteractionHelper.safeReply(interaction, { embeds: [embed], allowedMentions: { parse: [] } });
         const message = await interaction.fetchReply();
 
+        let reactionsAdded = 0;
         for (let i = 0; i < choices.length; i++) {
-            await message.react(EMOJIS[i]).catch(() => {});
+            const added = await message.react(EMOJIS[i]).then(() => true).catch(() => false);
+            if (added) reactionsAdded++;
+        }
+        if (reactionsAdded !== choices.length) {
+            await interaction.followUp({
+                content: 'Poll posted, but I could not add all voting reactions. Please grant **Add Reactions** and **Read Message History** permissions.',
+                flags: MessageFlags.Ephemeral,
+            }).catch(() => {});
         }
     },
 };
