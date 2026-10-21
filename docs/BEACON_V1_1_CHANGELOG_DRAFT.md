@@ -19,6 +19,24 @@
 - Fixed three missing PostgreSQL schema table mappings; migration tests now pass.
 - Updated production dependency lockfile using a reviewable PR, clearing the previously reported npm production audit vulnerabilities.
 
+
+## Polish Round 3 — 21 October 2026
+- Restricted `/ticketadd`, `/ticketremove`, and `/ticketrename` to actual tickets and authorised ticket managers; added user-friendly role/channel permission errors.
+- Protected ticket creators, server owners and Beacon itself against `/ticketremove`; sanitized channel names and added regression tests.
+- Corrected the special `default_member_permissions: 0` case for prefix commands, ensuring administrative restrictions stay enforced; added coverage for admin/mod roles.
+- Polished `/purge` with Discord age-limit reporting, precise permissions, reliable audit logging and persistent private results.
+- Polished `/suggest` with early acknowledgement, mention safety, permissions diagnostics, and failed-reaction alerts.
+- Improved `/queue` and `/nowplaying` server-only behaviour and command acknowledgement.
+- Improved giveaway creation rollback: failed persistence no longer silently leaves a live clickable giveaway behind.
+- Improved `/gdelete`, `/gend`, and `/greroll` by acknowledging long-running actions before database work.
+- Limited winner-announcement mention parsing to actual selected users/host.
+- Clarified `/ping` heartbeat vs response latency and reduced unnecessary log noise.
+- Restricted internal database failure detail shown by `/status` to the bot owner.
+- Fixed preflight execution in the Docker build so unit tests do not require production-only startup secrets.
+- Automated verification: 271/271 JavaScript syntax checks, 18/18 unit tests, command audit, security audit, migrations and Docker build all passed for this round.
+
+**Remaining limitations:** No live Railway runtime or interactive Discord smoke-test verification has been performed. The existing `/poll` duplicate needs explicit owner approval before merging or removing either implementation. 
+
 ## Explicitly pending
 - v1.1 is still under development; `package.json` remains version 1.0.0.
 - `/poll` has two existing variants. The owner must approve any merge/removal.
