@@ -15,7 +15,8 @@
     "restore:db": "node scripts/restore.js",
     "backup:drill": "node scripts/restore-drill.js",
     "test": "node scripts/check.js",
-    "check": "node scripts/check.js"
+    "check": "node scripts/check.js",
+    "test:unit": "node --test tests/*.test.js"
   },
   "dependencies": {
     "@discordjs/rest": "^2.6.1",
