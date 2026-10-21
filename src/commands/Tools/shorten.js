@@ -41,7 +41,8 @@ export default {
         const custom = interaction.options.getString("custom");
 
         try {
-            new URL(url);
+            const parsed = new URL(url);
+            if (!['http:', 'https:'].includes(parsed.protocol) || !parsed.hostname || parsed.username || parsed.password) throw new Error('Unsupported URL');
         } catch (e) {
             return replyUserError(interaction, {
                 type: ErrorTypes.VALIDATION,
@@ -49,10 +50,10 @@ export default {
             });
         }
 
-        if (custom && !/^[a-zA-Z0-9_-]+$/.test(custom)) {
+        if (custom && (custom.length > 30 || !/^[a-zA-Z0-9_-]+$/.test(custom))) {
             return replyUserError(interaction, {
                 type: ErrorTypes.VALIDATION,
-                message: 'Custom URL can only contain letters, numbers, underscores, and hyphens.',
+                message: 'Custom URL must be 1-30 characters using letters, digits, underscores, or hyphens.',
             });
         }
 
@@ -69,7 +70,7 @@ export default {
             response = await fetch(apiUrl, {
                 signal: controller.signal,
                 headers: {
-                    'User-Agent': 'TitanBot URL Shortener/1.0'
+                    'User-Agent': 'Beacon URL Shortener/1.1'
                 }
             });
         } catch (networkError) {
