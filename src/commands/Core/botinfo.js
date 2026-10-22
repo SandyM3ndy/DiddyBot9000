@@ -1,4 +1,4 @@
-import { SlashCommandBuilder } from 'discord.js';
+import { SlashCommandBuilder, version as discordVersion } from 'discord.js';
 import { createEmbed } from '../../utils/embeds.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 import { isAntiNukeAIConfigured, getAntiNukeAIModel } from '../../services/aiSecurityService.js';
@@ -24,12 +24,14 @@ export default {
             fields: [
                 { name: '🏠 Servers', value: String(client.guilds.cache.size), inline: true },
                 { name: '👥 Cached Users', value: String(client.users.cache.size), inline: true },
+                { name: '👤 Members (estimated)', value: String(client.guilds.cache.reduce((sum, guild) => sum + (guild.memberCount || 0), 0)), inline: true },
                 { name: '📦 Commands', value: String(client.commands?.size ?? 0), inline: true },
                 { name: '⚡ API Latency', value: String(Math.max(0, Math.round(client.ws.ping))) + 'ms', inline: true },
                 { name: '⏱️ Process Uptime', value: days + 'd ' + hours + 'h ' + minutes + 'm', inline: true },
                 { name: '🧠 Memory', value: Math.round(memory.rss / 1024 / 1024) + ' MB RSS', inline: true },
+                { name: '📊 Heap Usage', value: (memory.heapUsed / 1024 / 1024).toFixed(1) + ' MB', inline: true },
                 { name: '🟢 Node.js', value: process.version, inline: true },
-                { name: '📚 discord.js', value: 'v14', inline: true },
+                { name: '📚 discord.js', value: 'v' + discordVersion, inline: true },
                 { name: '🛡️ AI Anti-Nuke', value: isAntiNukeAIConfigured() ? `Enabled • ${getAntiNukeAIModel()}` : 'Local adaptive mode', inline: true },
             ],
         }).setFooter({ text: 'Beacon • Built for Discord communities' }).setTimestamp();

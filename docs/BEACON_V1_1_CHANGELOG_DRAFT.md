@@ -66,3 +66,14 @@ Publish the final release notes and update the bot version only after these test
 - `/warnings` displays private paginated warning lists, stable delete indices, better error handling and faster modals.
 - Additional regression tests cover mass actions, permission labels, warning totals and warning pages.
 - Proposed `/diagnose`, `/roleaudit`, and `/suggestions` remain **unregistered**. See `BEACON_V1_1_NEW_COMMANDS_PLAN.md`.
+
+## 22 October 2026 — Approved command cleanup
+
+- Removed `/hexcolor` entirely.
+- Combined `/avatar` with `/userinfo`: all profile cards now include a full-size avatar, and the `avatar` option can hide or show the full image.
+- Preserved prefix aliases `avatar`, `pfp` and `icon` by mapping them to `/userinfo`.
+- Merged duplicate `/poll` definitions into one command in Community; accepts both a pipe-separated `options` field and individual `option1`–`option10` fields. Voting uses Discord reactions (visible to server members).
+- Consolidated `/stats` into `/botinfo`, including member estimate, Node.js/Discord.js and memory metrics.
+- Consolidated `/uptime` into `/status`, which already shows uptime and service health.
+- Retained prefix aliases `stats → botinfo` and `uptime → status`. Removed the redundant slash entries from registration.
+- This is a v1.1 development change; actual Discord command registration after deployment remains to be checked.

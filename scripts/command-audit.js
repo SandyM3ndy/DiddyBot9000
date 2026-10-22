@@ -29,7 +29,7 @@ for (const folder of await readdir(root, { withFileTypes: true })) {
       errors.push(`No literal slash command name detected in ${pathLabel}`);
       continue;
     }
-    if (['fight', 'hexcolor', 'avatar'].includes(name)) errors.push(`Removed command /${name} was reintroduced.`);
+    if (['fight', 'hexcolor', 'avatar', 'stats', 'uptime'].includes(name)) errors.push(`Removed command /${name} was reintroduced.`);
     if (seen.has(name)) {
       const message = `/${name}: ${seen.get(name)} and ${pathLabel}`;
       if (knownLegacyDuplicates.has(name)) duplicateWarnings.push(message);

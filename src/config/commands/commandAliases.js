@@ -21,6 +21,8 @@ export const commandAliases = {
     'send': 'pay',
 
     'ping': 'ping',
+    'stats': 'botinfo',
+    'uptime': 'status',
     'help': 'help',
     'h': 'help',
     'info': 'help',
