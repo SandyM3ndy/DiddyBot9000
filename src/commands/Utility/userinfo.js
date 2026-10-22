@@ -16,7 +16,7 @@ export default {
     if (!(await InteractionHelper.safeDefer(interaction, { flags: MessageFlags.Ephemeral }))) return;
     try {
       const user = interaction.options.getUser('target') || interaction.user;
-      const showAvatar = interaction.options.getBoolean?.('avatar') ?? false;
+      const showAvatar = interaction.options.getBoolean?.('avatar') ?? true;
       const member = interaction.guild?.members?.cache?.get(user.id) ||
         await interaction.guild?.members?.fetch?.(user.id).catch(() => null);
       const avatar = member?.displayAvatarURL?.({ size: 2048 }) || user.displayAvatarURL({ size: 2048 });
