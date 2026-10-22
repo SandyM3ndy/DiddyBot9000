@@ -41,9 +41,9 @@ export const commandAliases = {
     'items': 'inventory',
 
     'user': 'userinfo',
-    'avatar': 'avatar',
-    'pfp': 'avatar',
-    'icon': 'avatar',
+    'avatar': 'userinfo',
+    'pfp': 'userinfo',
+    'icon': 'userinfo',
 
     'flip': 'flip',
     'coin': 'flip',

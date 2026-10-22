@@ -1,72 +1,48 @@
-import { SlashCommandBuilder } from 'discord.js';
+import { SlashCommandBuilder, MessageFlags } from 'discord.js';
 import { createEmbed } from '../../utils/embeds.js';
 import { logger } from '../../utils/logger.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
+
 export default {
-    data: new SlashCommandBuilder()
-    .setName("userinfo")
-    .setDescription("Get detailed information about a user")
-    .addUserOption((option) =>
-      option
-        .setName("target")
-        .setDescription("The user to inspect (defaults to you)"),
-    ),
+  data: new SlashCommandBuilder()
+    .setName('userinfo')
+    .setDescription('Inspect a user, view their roles, and see their avatar')
+    .addUserOption(o => o.setName('target').setDescription('User to inspect (defaults to you)'))
+    .addBooleanOption(o => o.setName('avatar').setDescription('Show the full-size avatar in the info card'))
+    .setDMPermission(false),
+  category: 'Utility',
 
   async execute(interaction) {
-    const deferSuccess = await InteractionHelper.safeDefer(interaction);
-    if (!deferSuccess) {
-      logger.warn(`UserInfo interaction defer failed`, {
-        userId: interaction.user.id,
-        guildId: interaction.guildId,
-        commandName: 'userinfo'
-      });
-      return;
+    if (!(await InteractionHelper.safeDefer(interaction, { flags: MessageFlags.Ephemeral }))) return;
+    try {
+      const user = interaction.options.getUser('target') || interaction.user;
+      const showAvatar = interaction.options.getBoolean?.('avatar') ?? false;
+      const member = interaction.guild?.members?.cache?.get(user.id) ||
+        await interaction.guild?.members?.fetch?.(user.id).catch(() => null);
+      const avatar = member?.displayAvatarURL?.({ size: 2048 }) || user.displayAvatarURL({ size: 2048 });
+      const created = Math.floor(user.createdAt.getTime() / 1000);
+      const joined = member?.joinedAt ? Math.floor(member.joinedAt.getTime() / 1000) : null;
+      const roles = member?.roles?.cache?.filter(role => role.id !== interaction.guildId);
+      const roleNames = roles?.map(role => role.name).slice(0, 8).join(', ') || 'None';
+      const embed = createEmbed({
+        title: `👤 ${user.username}`,
+        description: `[View or download full-size avatar](${avatar})`,
+        color: 'info',
+      })
+        .setThumbnail(avatar)
+        .addFields(
+          { name: 'User ID', value: user.id, inline: true },
+          { name: 'Bot account', value: user.bot ? 'Yes' : 'No', inline: true },
+          { name: 'Account created', value: `<t:${created}:R>`, inline: true },
+          { name: 'Joined server', value: joined ? `<t:${joined}:R>` : 'Not in server', inline: true },
+          { name: 'Highest role', value: member?.roles?.highest?.name || 'None', inline: true },
+          { name: 'Roles', value: roleNames.slice(0, 1000), inline: false },
+        );
+      if (showAvatar) embed.setImage(avatar);
+      await InteractionHelper.safeEditReply(interaction, { embeds: [embed] });
+    } catch (error) {
+      logger.warn('User info failed', { guildId: interaction.guildId, error: error?.message });
+      await InteractionHelper.safeEditReply(interaction, { content: 'Could not load that profile. Please try again.' });
     }
-
-    const user = interaction.options.getUser("target") || interaction.user;
-    const member = interaction.guild.members.cache.get(user.id);
-
-    const createdTimestamp = Math.floor(user.createdAt.getTime() / 1000);
-    const joinedTimestamp = member?.joinedAt ? Math.floor(member.joinedAt.getTime() / 1000) : null;
-
-    const embed = createEmbed({ title: `User Info: ${user.username}` })
-      .setThumbnail(user.displayAvatarURL({ size: 256 }))
-      .addFields(
-        { name: "ID", value: user.id, inline: true },
-        { name: "Bot", value: user.bot ? "Yes" : "No", inline: true },
-        {
-          name: "Roles",
-          value:
-            member && member.roles.cache.size > 1
-              ? member.roles.cache
-                  .map((r) => r.name)
-                  .slice(0, 5)
-                  .join(",")
-              : "None",
-          inline: true,
-        },
-        {
-          name: "Account Created",
-          value: `<t:${createdTimestamp}:R>`,
-          inline: false,
-        },
-        {
-          name: "Joined Server",
-          value: joinedTimestamp ? `<t:${joinedTimestamp}:R>` : "Not in server",
-          inline: false,
-        },
-        {
-          name: "Highest Role",
-          value: member?.roles?.highest?.name || "None",
-          inline: true,
-        },
-      );
-
-    await InteractionHelper.safeEditReply(interaction, { embeds: [embed] });
-    logger.info(`UserInfo command executed`, {
-      userId: interaction.user.id,
-      targetUserId: user.id,
-      guildId: interaction.guildId
-    });
   },
 };

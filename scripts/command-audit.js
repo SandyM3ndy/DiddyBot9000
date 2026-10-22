@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '../src/commands');
-const knownLegacyDuplicates = new Set(['poll']);
+const knownLegacyDuplicates = new Set();
 const seen = new Map();
 const duplicateWarnings = [];
 const errors = [];
@@ -29,7 +29,7 @@ for (const folder of await readdir(root, { withFileTypes: true })) {
       errors.push(`No literal slash command name detected in ${pathLabel}`);
       continue;
     }
-    if (name === 'fight') errors.push('The removed /fight command was reintroduced.');
+    if (['fight', 'hexcolor', 'avatar'].includes(name)) errors.push(`Removed command /${name} was reintroduced.`);
     if (seen.has(name)) {
       const message = `/${name}: ${seen.get(name)} and ${pathLabel}`;
       if (knownLegacyDuplicates.has(name)) duplicateWarnings.push(message);
