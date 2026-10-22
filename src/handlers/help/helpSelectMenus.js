@@ -3,6 +3,7 @@ import { createButton, getPaginationRow } from '../../utils/components.js';
 import { Collection, ActionRowBuilder, MessageFlags } from 'discord.js';
 import { logger } from '../../utils/logger.js';
 import { handleInteractionError } from '../../utils/errorHandler.js';
+import { formatDefaultMemberPermissions } from '../../utils/helpPermissionLabels.js';
 import { paginateHelpEntries, splitHelpEntries } from '../../utils/helpPagination.js';
 
 const BACK_BUTTON_ID = "help-back-to-main";
@@ -44,38 +45,13 @@ function formatCategoryName(rawCategory) {
 
 
 function getCommandAccess(commandData) {
-    const name = String(commandData?.name || "").toLowerCase();
+    const name = String(commandData?.name || '').toLowerCase();
 
-    if (["broadcast", "popularity", "announcement", "giveexp", "removeleaderboard", "restoreleaderboard"].includes(name)) return "Bot Owner only";
-    if (name === "claim" || name === "priority") return "Manage Server or Ticket Staff";
-    if (name === "close") return "Manage Server, Ticket Staff, or ticket creator";
+    if (['broadcast', 'popularity', 'announcement', 'giveexp', 'removeleaderboard', 'restoreleaderboard'].includes(name)) return 'Bot Owner only';
+    if (name === 'claim' || name === 'priority') return 'Manage Server or Ticket Staff';
+    if (name === 'close') return 'Manage Server, Ticket Staff, or ticket creator';
 
-    const permissions = commandData?.default_member_permissions;
-    if (permissions === "0" || permissions === 0 || permissions === 0n) return "Server administrators";
-    if (permissions == null) return "Everyone";
-
-    try {
-        const value = BigInt(permissions);
-        const flags = [
-            [3n, "Administrator"],
-            [5n, "Manage Server"],
-            [4n, "Manage Channels"],
-            [13n, "Manage Messages"],
-            [1n, "Kick Members"],
-            [2n, "Ban Members"],
-            [28n, "Manage Roles"],
-            [40n, "Moderate Members"],
-            [7n, "View Audit Log"],
-        ];
-        const names = [];
-        for (const [bitIndex, label] of flags) {
-            const bit = 1n << bitIndex;
-            if ((value & bit) === bit && !names.includes(label)) names.push(label);
-        }
-        return names.length ? names.join(" or ") : "Restricted";
-    } catch {
-        return "Restricted";
-    }
+    return formatDefaultMemberPermissions(commandData?.default_member_permissions);
 }
 
 function formatHelpEntry(cmd, registeredCommands) {
