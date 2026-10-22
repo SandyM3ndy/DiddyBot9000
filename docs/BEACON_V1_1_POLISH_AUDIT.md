@@ -50,3 +50,14 @@ Status: **In development**. Successful GitHub commits do not mean the release ha
 - Added expiry and ownership checks for calculator modals.
 - Current automated checks pass, but manual Discord regression testing remains outstanding.
 - See `BEACON_V1_1_CHANGELOG_DRAFT.md` for the full development summary.
+
+## 22 October 2026 — Additional polishing
+
+- `/antinuke` acknowledges interaction promptly, sends private branded results and rolls back in-memory changes when persistence fails.
+- `/massban` and `/masskick` reject malformed and oversized lists, deduplicate IDs, disallow owner targeting, and never misreport a successful punishment solely because logging failed.
+- `/help` now labels multi-permission requirements using **and**, never the inaccurate **or**.
+- `/say` disables unexpected mention pings; its delivery error is shown to the moderator.
+- `/warn` and the warning service now report counts of active, non-deleted warnings; logging failures do not misreport persisted warnings.
+- `/warnings` displays private paginated warning lists, stable delete indices, better error handling and faster modals.
+- Additional regression tests cover mass actions, permission labels, warning totals and warning pages.
+- Proposed `/diagnose`, `/roleaudit`, and `/suggestions` remain **unregistered**. See `BEACON_V1_1_NEW_COMMANDS_PLAN.md`.
