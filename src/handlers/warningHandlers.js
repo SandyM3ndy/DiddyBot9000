@@ -1,6 +1,8 @@
 import { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, MessageFlags } from 'discord.js';
 import { successEmbed } from '../utils/embeds.js';
 import { WarningService } from '../services/moderation/warningService.js';
+import { buildWarningsView } from '../utils/moderation/warningDisplay.js';
+import { PermissionFlagsBits } from 'discord.js';
 import { InteractionHelper } from '../utils/interactionHelper.js';
 import { logger } from '../utils/logger.js';
 
@@ -48,9 +50,7 @@ const warningClearAllHandler = {
         return await replyUserError(interaction, { type: ErrorTypes.PERMISSION, message: 'Only the moderator who viewed these warnings can clear them.' });
       }
 
-      const targetUser = await client.users.fetch(targetUserId).catch(() => null);
-      const targetName = targetUser ? targetUser.username : 'this user';
-
+      // Open the modal immediately. Fetching a user here can expire the button interaction.
       const clearModal = new ModalBuilder()
         .setCustomId(`warning_clear_confirm_modal:${targetUserId}:${interaction.user.id}`)
         .setTitle('Clear All Warnings')
@@ -84,7 +84,11 @@ async function warningDeleteModalHandler(interaction, client) {
     }
 
     const warningNumberInput = interaction.fields.getTextInputValue('warning_number');
-    const warningNumber = parseInt(warningNumberInput.replace('#', '').trim(), 10);
+    const normalized = warningNumberInput.trim();
+    if (!/^#?[1-9]\d*$/.test(normalized)) {
+      return replyUserError(interaction, { type: ErrorTypes.VALIDATION, message: 'Enter a warning number such as 1 or #2.' });
+    }
+    const warningNumber = Number(normalized.replace('#', ''));
 
     if (isNaN(warningNumber) || warningNumber < 1) {
       return await replyUserError(interaction, { type: ErrorTypes.VALIDATION, message: 'Please enter a valid warning number (e.g., 1, 2, 3).' });
@@ -158,7 +162,42 @@ async function warningClearConfirmModalHandler(interaction, client) {
   }
 }
 
+
+export const warningPageHandler = {
+  name: 'warning_page_prev',
+  async execute(interaction, client) {
+    const [, targetId, moderatorId, currentPage] = interaction.customId.split(':');
+    if (interaction.user.id !== moderatorId) {
+      return interaction.reply({ content: 'Only the moderator who opened this list can navigate it.', flags: MessageFlags.Ephemeral });
+    }
+    const permitted = interaction.guild?.ownerId === interaction.user.id
+      || interaction.memberPermissions?.has?.(PermissionFlagsBits.ModerateMembers)
+      || interaction.member?.permissions?.has?.(PermissionFlagsBits.ModerateMembers);
+    if (!permitted) {
+      return interaction.reply({ content: 'You need Moderate Members permission.', flags: MessageFlags.Ephemeral });
+    }
+
+    await interaction.deferUpdate();
+    try {
+      if (!/^\d{17,20}$/.test(String(targetId)) || !/^\d+$/.test(String(currentPage))) throw new Error('Invalid page data');
+      const direction = interaction.customId.startsWith('warning_page_next:') ? 1 : -1;
+      const records = await WarningService.getWarnings(interaction.guildId, targetId);
+      await interaction.editReply(buildWarningsView({
+        warnings: records, target: targetId, viewerId: interaction.user.id,
+        page: Number(currentPage) + direction,
+      }));
+    } catch (error) {
+      logger.warn('Warning pagination failed', { guildId: interaction.guildId, error: error?.message });
+      await interaction.followUp({
+        content: 'Could not load that page. Use /warnings again.',
+        flags: MessageFlags.Ephemeral,
+      }).catch(() => {});
+    }
+  },
+};
+
 export {
+  warningPageHandler,
   warningDeleteSpecificHandler,
   warningClearAllHandler,
   warningDeleteModalHandler,
