@@ -78,7 +78,8 @@ export default {
             timestamp: Date.now()
         });
 
-        await logModerationAction({
+        try {
+            await logModerationAction({
             client,
             guild: interaction.guild,
             event: {
@@ -94,7 +95,11 @@ export default {
                     warningId: id
                 }
             }
-        });
+            });
+        } catch (logError) {
+            // The warning was already persisted. A log outage must not report a false failure.
+            logger.warn('Warning saved but logging failed', { guildId, targetId: target.id, error: logError?.message });
+        }
 
         await InteractionHelper.safeEditReply(interaction, {
             embeds: [

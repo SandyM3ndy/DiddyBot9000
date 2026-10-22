@@ -2,6 +2,7 @@
 
 import { db, getFromDb, setInDb, getWarningsKey, getWarningsPrefix } from '../../utils/database.js';
 import { logger } from '../../utils/logger.js';
+import { countActiveWarnings } from '../../utils/moderation/warningCounts.js';
 import { createError, ErrorTypes, wrapServiceClassMethods } from '../../utils/errorHandler.js';
 
 class WarningService {
@@ -44,7 +45,7 @@ class WarningService {
 
     return {
       id: warning.id,
-      totalCount: warnings.length
+      totalCount: countActiveWarnings(warnings)
     };
   }
 
@@ -86,7 +87,7 @@ class WarningService {
   static async clearWarnings(guildId, userId) {
     const key = getWarningsKey(guildId, userId);
     const warnings = await getFromDb(key, []);
-    const count = warnings.length;
+    const count = countActiveWarnings(warnings);
 
     await setInDb(key, []);
 

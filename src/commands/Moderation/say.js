@@ -84,7 +84,8 @@ export default {
         }
 
         const memberPermissions = channel.permissionsFor(interaction.member);
-        const botPermissions = channel.permissionsFor(interaction.guild.members.me);
+        const me = interaction.guild.members.me || await interaction.guild.members.fetchMe().catch(() => null);
+        const botPermissions = me ? channel.permissionsFor(me) : null;
 
         if (!memberPermissions?.has(PermissionFlagsBits.SendMessages)) {
             return replyUserError(interaction, {
@@ -100,7 +101,16 @@ export default {
             });
         }
 
-        const sentMessage = await channel.send({ content: message });
+        let sentMessage;
+        try {
+            // Staff messages should not accidentally ping everyone or mass-mention roles.
+            sentMessage = await channel.send({ content: message, allowedMentions: { parse: [] } });
+        } catch (error) {
+            logger.warn('Unable to deliver /say message', { guildId: interaction.guildId, channelId: channel.id, error: error?.message });
+            return InteractionHelper.safeEditReply(interaction, {
+                content: 'Could not send the message. Check Beacon’s channel permissions and try again.',
+            });
+        }
 
         await logEvent({
             client,
