@@ -197,7 +197,6 @@ export const warningPageHandler = {
 };
 
 export {
-  warningPageHandler,
   warningDeleteSpecificHandler,
   warningClearAllHandler,
   warningDeleteModalHandler,
