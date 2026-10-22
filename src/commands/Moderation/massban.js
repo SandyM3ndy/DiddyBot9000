@@ -6,6 +6,7 @@ import { ModerationService } from '../../services/moderation/moderationService.j
 import { TitanBotError, replyUserError, ErrorTypes } from '../../utils/errorHandler.js';
 
 import { InteractionHelper } from '../../utils/interactionHelper.js';
+import { parseMassActionTargets } from '../../utils/moderation/massActionTargets.js';
 export default {
     data: new SlashCommandBuilder()
         .setName("massban")
@@ -15,6 +16,7 @@ export default {
                 .setName("users")
                 .setDescription("User IDs or mentions to ban (separated by spaces or commas)")
                 .setRequired(true)
+                .setMaxLength(800)
         )
         .addStringOption(option =>
             option.setName("reason")
@@ -29,12 +31,13 @@ export default {
                 .setMaxValue(7)
                 .setRequired(false)
         )
-        .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers),
+        .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers)
+        .setDMPermission(false),
     category: "moderation",
     abuseProtection: { maxAttempts: 3, windowMs: 60_000 },
 
     async execute(interaction, config, client) {
-        const deferSuccess = await InteractionHelper.safeDefer(interaction);
+        const deferSuccess = await InteractionHelper.safeDefer(interaction, { flags: MessageFlags.Ephemeral });
         if (!deferSuccess) {
             logger.warn(`Massban interaction defer failed`, {
                 userId: interaction.user.id,
@@ -49,11 +52,12 @@ export default {
         const deleteDays = interaction.options.getInteger("delete_days") || 0;
 
         try {
-            const userIds = usersInput
-.replace(/<@!?(\d+)>/g, '$1')
-.split(/[\s,]+/)
-.filter(id => id && /^\d+$/.test(id))
-.slice(0, 20);
+            let userIds;
+            try {
+                userIds = parseMassActionTargets(usersInput);
+            } catch (parseError) {
+                return replyUserError(interaction, { type: ErrorTypes.VALIDATION, message: parseError.message });
+            }
 
             if (userIds.length === 0) {
                 return await replyUserError(interaction, { type: ErrorTypes.VALIDATION, message: 'Please provide valid user IDs or mentions. Maximum 20 users at once.' });
@@ -61,6 +65,10 @@ export default {
 
             if (userIds.includes(interaction.user.id)) {
                 return await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: 'You cannot include yourself in a mass ban.' });
+            }
+
+            if (userIds.includes(interaction.guild.ownerId)) {
+                return replyUserError(interaction, { type: ErrorTypes.PERMISSION, message: 'You cannot target the server owner.' });
             }
 
             if (userIds.includes(client.user.id)) {
@@ -116,7 +124,8 @@ export default {
                         userId
                     });
 
-                    await logModerationAction({
+                    try {
+                        await logModerationAction({
                         client,
                         guild: interaction.guild,
                         event: {
@@ -132,6 +141,9 @@ export default {
                             }
                         }
                     });
+                    } catch (logError) {
+                        logger.warn('Mass ban succeeded but failed to record a moderation case', { userId, error: logError?.message });
+                    }
 
                 } catch (error) {
                     logger.error(`Failed to ban user ${userId}:`, error);
