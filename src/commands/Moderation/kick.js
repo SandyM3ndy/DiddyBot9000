@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
+import { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } from 'discord.js';
 import { successEmbed } from '../../utils/embeds.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 import { ModerationService } from '../../services/moderation/moderationService.js';
@@ -15,12 +15,14 @@ export default {
                 .setRequired(true),
         )
         .addStringOption((option) =>
-            option.setName("reason").setDescription("Reason for the kick"),
+            option.setName("reason").setDescription("Reason for the kick").setMaxLength(500),
         )
-        .setDefaultMemberPermissions(PermissionFlagsBits.KickMembers),
+        .setDefaultMemberPermissions(PermissionFlagsBits.KickMembers)
+        .setDMPermission(false),
     category: "moderation",
 
     async execute(interaction, config, client) {
+        if (!(await InteractionHelper.safeDefer(interaction, { flags: MessageFlags.Ephemeral }))) return;
         const targetUser = interaction.options.getUser("target");
         const member = interaction.options.getMember("target");
         const reason = interaction.options.getString("reason") || "No reason provided";
@@ -66,7 +68,7 @@ export default {
             reason,
         });
 
-        await InteractionHelper.universalReply(interaction, {
+        await InteractionHelper.safeEditReply(interaction, {
             embeds: [
                 successEmbed(
                     `👢 **Kicked** ${targetUser.tag}`,

@@ -34,9 +34,10 @@ export default {
                     .addChoices(...durationChoices),
         )
         .addStringOption((option) =>
-            option.setName("reason").setDescription("Reason for the timeout"),
+            option.setName("reason").setDescription("Reason for the timeout").setMaxLength(500),
         )
-        .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
+        .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers)
+        .setDMPermission(false),
     category: "moderation",
 
     async execute(interaction, config, client) {

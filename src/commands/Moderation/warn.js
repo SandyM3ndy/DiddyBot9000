@@ -20,9 +20,10 @@ export default {
             o
                 .setName("reason")
                 .setRequired(true)
-                .setDescription("Reason for the warning"),
+                .setDescription("Reason for the warning").setMaxLength(500),
         )
-        .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
+        .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers)
+        .setDMPermission(false),
     category: "moderation",
 
     async execute(interaction, config, client) {

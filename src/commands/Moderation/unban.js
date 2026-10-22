@@ -12,15 +12,16 @@ export default {
         .addStringOption(option =>
             option
                 .setName("target")
-                .setDescription("The ID (or mention) of the user to unban")
+                .setDescription("The ID (or mention) of the user to unban").setMaxLength(24)
                 .setRequired(true),
         )
         .addStringOption(option =>
             option.setName("reason")
-                .setDescription("Reason for the unban")
+                .setDescription("Reason for the unban").setMaxLength(500)
                 .setRequired(false),
         )
-        .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers),
+        .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers)
+        .setDMPermission(false),
     category: "moderation",
 
     async execute(interaction, config, client) {

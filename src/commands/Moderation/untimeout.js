@@ -15,7 +15,8 @@ export default {
                 .setDescription("User to untimeout")
                 .setRequired(true),
         )
-        .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
+        .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers)
+        .setDMPermission(false),
     category: "moderation",
 
     async execute(interaction, config, client) {
