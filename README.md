@@ -1,6 +1,6 @@
-# Beacon — Level Up Your Discord Community
+# Beacon — Your community's all-in-one Discord assistant.
 
-**Beacon** helps Discord communities grow through global server rankings, 25 rotating daily quests, weekly challenges, XP milestones, founding-community badges and shareable rank cards. It also includes moderation, tickets, reaction roles and essential server tools.
+**Beacon** is your community's all-in-one Discord assistant. Keep your server organised with moderation, tickets, logging, reaction roles and utilities, while bringing members together through global server rankings, 25 rotating daily quests, weekly challenges, milestones, founding-community badges and shareable rank cards.
 
 Built with Discord.js v14 and PostgreSQL. Existing server progression is designed to survive restarts and upgrades, subject to persistent hosting and reliable backups.
 
