@@ -58,23 +58,28 @@ function buildDashboardEmbed(cfg, guild) {
     const welcomePreview = `\`${rawWelcome.length > 55 ? rawWelcome.substring(0, 55) + '…' : rawWelcome}\``;
     const goodbyePreview = `\`${rawGoodbye.length > 55 ? rawGoodbye.substring(0, 55) + '…' : rawGoodbye}\``;
 
+    const warnings = [
+        cfg.enabled && !cfg.channelId && 'Set a welcome channel to deliver welcome messages.',
+        cfg.goodbyeEnabled && !cfg.goodbyeChannelId && 'Set a goodbye channel to deliver goodbye messages.',
+    ].filter(Boolean);
     return new EmbedBuilder()
         .setTitle('👋 Beacon • Welcome & Goodbye Center')
         .setDescription(
-            `**${guild.name}**\nCreate a great first impression and a friendly goodbye. Use the controls below to edit either message.`,
+            `**${guild.name}**\nMake every arrival and departure feel intentional.\n` +
+            (warnings.length ? '\n⚠️ **Setup reminders:** ' + warnings.join(' ') : '\n✅ No missing delivery channels for enabled messages.'),
         )
         .setColor(getColor('info'))
         .addFields(
             { name: 'Welcome Channel', value: welcomeChannel, inline: true },
             { name: 'Welcome Status', value: cfg.enabled ? '🟢 Enabled' : '⚪ Disabled', inline: true },
-            { name: 'Welcome Ping', value: cfg.welcomePing ? 'On' : 'Off', inline: true },
+            { name: 'Welcome Ping', value: cfg.welcomePing ? '🔔 On' : '🔕 Off', inline: true },
             { name: 'Goodbye Channel', value: goodbyeChannel, inline: true },
             { name: 'Goodbye Status', value: cfg.goodbyeEnabled ? '🟢 Enabled' : '⚪ Disabled', inline: true },
-            { name: 'Goodbye Ping', value: cfg.goodbyePing ? 'On' : 'Off', inline: true },
+            { name: 'Goodbye Ping', value: cfg.goodbyePing ? '🔔 On' : '🔕 Off', inline: true },
             { name: 'Welcome Message', value: welcomePreview, inline: false },
             { name: 'Goodbye Message', value: goodbyePreview, inline: false },
         )
-        .setFooter({ text: 'Dashboard closes after 10 minutes of inactivity' })
+        .setFooter({ text: 'Beacon • Private welcome settings • Session closes after 10 minutes' })
         .setTimestamp();
 }
 

@@ -12,6 +12,7 @@ import {
     ButtonBuilder,
     ButtonStyle,
     ChannelType,
+    PermissionFlagsBits,
     MessageFlags,
     ComponentType,
     EmbedBuilder,
@@ -84,7 +85,7 @@ export function buildPanelEmbed(config = {}) {
         .setTitle('✦ Beacon • Support Center')
         .setDescription([
             '**Need a hand? Our team is here to help.**',
-            config.ticketPanelMessage || 'Choose a category below to open a private conversation with the team.',
+            String(config.ticketPanelMessage || 'Choose a category below to open a private conversation with the team.').slice(0, 1500),
             '',
             '**How it works**',
             '1. Choose the type of help you need.',
@@ -101,7 +102,7 @@ export function buildPanelEmbed(config = {}) {
 
 export function buildPanelButtonRow(config = {}) {
     return new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('create_ticket:support').setLabel('Get Support')
+        new ButtonBuilder().setCustomId('create_ticket:support').setLabel(String(config.ticketButtonLabel || 'Get Support').trim().slice(0, 80) || 'Get Support')
             .setStyle(ButtonStyle.Primary).setEmoji('🎫'),
         new ButtonBuilder().setCustomId('create_ticket:report').setLabel('Report Issue')
             .setStyle(ButtonStyle.Secondary).setEmoji('🛡️'),
@@ -167,9 +168,14 @@ function buildDashboardEmbed(config, guild, panelStatus = null, ticketStats = nu
         !config.ticketCategoryId && 'Open ticket category',
         !config.ticketTranscriptChannelId && 'Private transcript channel',
     ].filter(Boolean);
+    const transcript = config.ticketTranscriptChannelId
+        ? guild.channels.cache.get(config.ticketTranscriptChannelId) : null;
+    const publicTranscript = transcript?.permissionsFor?.(guild.roles.everyone)
+        ?.has?.(PermissionFlagsBits.ViewChannel);
+    if (publicTranscript === true) missing.push('Transcript archive visible to @everyone');
     const setupHealth = missing.length
-        ? '⚠️ **Configuration needed:** ' + missing.join(', ')
-        : '✅ Core ticket settings are configured. Use /diagnose to check actual permissions.';
+        ? '⚠️ **Needs attention:** ' + missing.join(', ')
+        : '✅ Core settings saved. Use **/diagnose** for live permission checks.';
 
     const feedbackSummary = ticketStats?.feedbackCount
         ? `${ticketStats.avgRating}/5 (${ticketStats.feedbackCount} rating${ticketStats.feedbackCount !== 1 ? 's' : ''})`
@@ -177,29 +183,26 @@ function buildDashboardEmbed(config, guild, panelStatus = null, ticketStats = nu
 
     return new EmbedBuilder()
         .setTitle('🎫 Beacon • Ticket Support Center')
-        .setDescription(`**${guild.name}**\nManage support requests, staff access, categories and transcripts from one control center.`)
+        .setDescription(`**${guild.name}**\nManage panel design, ticket routing, your team and private archives.\n**Need to handle requests now?** Use /ticket queue.`)
         .setColor(getColor('info'))
         .addFields(
             { name: '📢 Panel Status', value: panelStatusValue, inline: false },
             { name: '🩺 Setup Health', value: setupHealth, inline: false },
-            { name: 'Panel Channel', value: panelChannel, inline: true },
-            { name: 'Staff Role', value: staffRole, inline: true },
-            { name: '\u200B', value: '\u200B', inline: true },
-            { name: 'Open Tickets Category', value: openCategory, inline: true },
-            { name: 'Closed Tickets Category', value: closedCategory, inline: true },
-            { name: '\u200B', value: '\u200B', inline: true },
+            { name: '📢 Panel Channel', value: panelChannel, inline: true },
+            { name: '🛡️ Staff Role', value: staffRole, inline: true },
+            { name: '📂 Open Category', value: openCategory, inline: true },
+            { name: '🔒 Closed Category', value: closedCategory, inline: true },
             { name: 'Panel Message', value: panelMsg, inline: false },
             { name: 'Button Label', value: btnLabel, inline: true },
             { name: 'Max Tickets/User', value: String(config.maxTicketsPerUser || 3), inline: true },
             { name: '📩 DM on Close', value: config.dmOnClose !== false ? '🟢 Enabled' : '⚪ Disabled', inline: true },
-            { name: 'Ticket Logs Channel', value: ticketLogsChannel, inline: true },
-            { name: 'Transcript Channel', value: transcriptChannel, inline: true },
-            { name: '\u200B', value: '\u200B', inline: true },
+            { name: '📝 Ticket Logs', value: ticketLogsChannel, inline: true },
+            { name: '📜 Private Archives', value: transcriptChannel, inline: true },
             { name: 'Open Tickets', value: openTickets, inline: true },
             { name: 'Unclaimed Queue', value: ticketStats ? String(ticketStats.unclaimedOpenCount) : '—', inline: true },
             { name: 'First Staff Reply', value: ticketStats ? formatCloseDuration(ticketStats.avgFirstResponseMs) : '—', inline: true },
             { name: 'Avg Close Time', value: avgCloseTime, inline: true },
-            { name: 'Feedback Rating', value: feedbackSummary, inline: true },
+            { name: '⭐ Customer Feedback', value: feedbackSummary, inline: true },
         )
         .setFooter({ text: 'Beacon • /ticket queue to manage work • Dashboard expires after 10 minutes' })
         .setTimestamp();

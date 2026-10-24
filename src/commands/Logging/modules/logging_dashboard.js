@@ -53,8 +53,8 @@ export async function buildLoggingDashboardView(interaction, client) {
   const { enabled: enabledCount, total } = countEnabledCategories(loggingStatus.enabledEvents, auditEnabled);
 
   const embed = new EmbedBuilder()
-    .setTitle('📝 Logging Dashboard')
-    .setDescription(`Manage server logging for **${interaction.guild.name}**. Use the menu below to configure channels, categories, and filters.`)
+    .setTitle('📝 Beacon • Logging Center')
+    .setDescription(`**${interaction.guild.name}**\nManage audit trails, destinations, event categories and ignore filters.\nChoose a control below to make changes.`)
     .setColor(auditEnabled ? getColor('success') : getColor('warning'))
     .addFields(
       {
@@ -90,7 +90,7 @@ export async function buildLoggingDashboardView(interaction, client) {
         inline: false,
       },
     )
-    .setFooter({ text: 'Ticket channels: configure via /ticket dashboard' })
+    .setFooter({ text: 'Beacon • Ticket destinations are configured in /ticket panel' })
     .setTimestamp();
 
   const components = createLoggingDashboardComponents(loggingStatus.enabledEvents, auditEnabled);
