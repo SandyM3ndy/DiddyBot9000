@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { createEmbed } from '../../../utils/embeds.js';
+import { formatBeaconFooter } from '../../../config/bot.js';
 import { logger } from '../../../utils/logger.js';
 import { handleInteractionError, replyUserError, ErrorTypes } from '../../../utils/errorHandler.js';
 import { InteractionHelper } from '../../../utils/interactionHelper.js';
@@ -82,7 +83,7 @@ export default {
                 }
             )
             .setFooter({
-                text: 'Urban Dictionary',
+                text: formatBeaconFooter('Urban Dictionary'),
                 iconURL: 'https://i.imgur.com/8aQrX3a.png'
             });
 
