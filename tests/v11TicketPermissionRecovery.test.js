@@ -7,7 +7,7 @@ test('closed tickets allow staff reopening and managers deletion', async () => {
   assert.match(code, /canDeleteTicket: Boolean\(isClosed && \(hasManageChannels \|\| isGuildOwner\)\)/);
   const buttons = await readFile('src/handlers/ticketButtons.js', 'utf8');
   assert.match(buttons, /'reopen tickets', \{ operation: 'reopen' \}/);
-  assert.match(buttons, /'delete tickets', \{ operation: 'delete' \}/);
+  assert.match(buttons, /'delete the ticket', \{ operation: 'delete' \}/);
 });
 test('ticket counts fail closed instead of reporting zero on database errors', async () => {
   const source = await readFile('src/utils/database/tickets.js', 'utf8');

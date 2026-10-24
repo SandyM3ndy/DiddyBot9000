@@ -22,6 +22,25 @@ const TICKET_DELETE_DELAY_MS = 3000;
 const TICKET_DELETE_DELAY_SECONDS = Math.floor(TICKET_DELETE_DELAY_MS / 1000);
 const TICKET_SERVICE = 'ticketService';
 
+// Serialize ticket creation per user within one Beacon process. This prevents
+// two simultaneous form submits from both passing the max-open-ticket check.
+const ticketCreationLocks = new Map();
+export async function withTicketCreationLock(guildId, userId, callback) {
+  const key = guildId + ':' + userId;
+  const previous = ticketCreationLocks.get(key) || Promise.resolve();
+  let release;
+  const next = new Promise(resolve => { release = resolve; });
+  ticketCreationLocks.set(key, next);
+  await previous;
+  try {
+    return await callback();
+  } finally {
+    if (ticketCreationLocks.get(key) === next) ticketCreationLocks.delete(key);
+    release();
+  }
+}
+
+
 function ticketUserError(message, userMessage, type = ErrorTypes.VALIDATION, context = {}) {
   throw createError(message, type, userMessage, { service: TICKET_SERVICE, ...context });
 }
@@ -81,6 +100,7 @@ export const getUserTicketCount = wrapServiceBoundary(async function getUserTick
 });
 
 export async function createTicket(guild, member, categoryId, reason = 'No reason provided', priority = 'none', ticketType = 'support') {
+  return withTicketCreationLock(guild.id, member.id, async () => {
   try {
     const config = await getGuildConfig(guild.client, guild.id);
     const ticketConfig = config.tickets || {};
@@ -242,8 +262,8 @@ export async function createTicket(guild, member, categoryId, reason = 'No reaso
   } catch (error) {
     rethrowTicketError(error, 'createTicket', 'Failed to create ticket. Please try again in a moment.', { guildId: guild?.id, userId: member?.id });
   }
+  });
 }
-
 export async function closeTicket(channel, closer, reason = 'No reason provided') {
   try {
     const ticketData = requireTicket(await getTicketData(channel.guild.id, channel.id), channel);

@@ -127,6 +127,22 @@ async function listGuildTickets(guildId) {
 }
 
 // Keep aggregation pure so support metrics are testable without Discord/DB mocks.
+export async function listTicketsForUser(guildId, userId) {
+    const tickets = await listGuildTickets(guildId);
+    return tickets.filter(ticket => String(ticket.userId) === String(userId))
+        .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+}
+
+export async function listOpenSupportQueue(guildId) {
+    const tickets = await listGuildTickets(guildId);
+    return tickets.filter(ticket => ticket.status === 'open')
+        .sort((a, b) => {
+            const ranks = { urgent: 0, high: 1, medium: 2, low: 3, none: 4 };
+            const aRank = ranks[a.priority] ?? 4, bRank = ranks[b.priority] ?? 4;
+            return aRank - bRank || new Date(a.createdAt || 0) - new Date(b.createdAt || 0);
+        });
+}
+
 export function summarizeGuildTickets(tickets) {
     let openCount = 0, closedCount = 0, totalCloseMs = 0, closeSamples = 0;
     let claimedCount = 0, unclaimedOpenCount = 0, totalClaimMs = 0, claimSamples = 0;
