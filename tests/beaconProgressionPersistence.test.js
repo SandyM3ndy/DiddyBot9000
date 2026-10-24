@@ -70,3 +70,18 @@ test('rank card returns a real PNG with fixed 1000 by 520 dimensions',()=>{
  assert.equal(png.readUInt32BE(20),520);
  assert.ok(png.length>1000);
 });
+
+test('contributor opt-out hides public ranking but retains saved lifetime totals',async()=>{
+ const store=new Map(),guildId='111111111111111111',userId='555555555555555555';
+ const first=mockClient(store);
+ await mutateServerProgression(first,guildId,data=>{
+  data.contributors.lifetime[userId]={messages:12,commands:4};
+  data.contributionOptOut=[userId];
+  return {changed:true};
+ });
+ const second=mockClient(store);
+ const loaded=await getServerProgression(second,guildId);
+ assert.equal(loaded.contributors.lifetime[userId].messages,12);
+ assert.equal(loaded.contributionOptOut.includes(userId),true);
+ assert.deepEqual(contributorRanking(loaded,'lifetime'),[]);
+});
