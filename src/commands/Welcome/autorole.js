@@ -1,4 +1,4 @@
-import { getColor } from '../../config/bot.js';
+import { getColor, formatBeaconFooter } from '../../config/bot.js';
 import { SlashCommandBuilder, PermissionFlagsBits, ChannelType, EmbedBuilder, MessageFlags } from 'discord.js';
 import { getWelcomeConfig, updateWelcomeConfig } from '../../utils/database.js';
 import { logger } from '../../utils/logger.js';
@@ -10,7 +10,7 @@ function createAutoroleInfoEmbed(description) {
     return new EmbedBuilder()
         .setColor(getColor('primary'))
         .setDescription(description)
-        .setFooter({ text: new Date().toLocaleString() });
+        .setFooter({ text: formatBeaconFooter(new Date().toLocaleString()) });
 }
 
 export default {
@@ -191,7 +191,7 @@ export default {
                     .setColor(getColor('info'))
                     .setTitle('Auto-Assigned Role')
                     .setDescription(`${validRoles[0]}${conflictSummary ?`\n\n⚠️ Setup blockers:\n${conflictSummary}`: ''}`)
-                    .setFooter({ text: 'Only one auto-role can be configured.' });
+                    .setFooter({ text: formatBeaconFooter('Only one auto-role can be configured.') });
 
                 await InteractionHelper.safeEditReply(interaction, {
                     embeds: [embed],
