@@ -71,10 +71,15 @@ export default {
             `Time remaining: **${formatTime(totalSeconds)}**`,
         );
 
-        const message = await interaction.channel.send({
+        // Use the public command response as the countdown itself. This avoids
+        // posting a second channel message plus an unnecessary confirmation.
+        const posted = await InteractionHelper.safeEditReply(interaction, {
             embeds: [initialEmbed],
             components: [row],
+            allowedMentions: { parse: [] },
         });
+        if (!posted) return;
+        const message = await interaction.fetchReply();
 
         const countdownData = {
             message,
@@ -90,9 +95,7 @@ export default {
         activeCountdowns.set(countdownId, countdownData);
         startCountdown(countdownId, countdownData, activeCountdowns);
 
-        await InteractionHelper.safeEditReply(interaction, {
-            content: "✅ Countdown started!",
-            flags: MessageFlags.Ephemeral,
-        });
+        // The countdown message above is the confirmation everyone sees.
+        return message;
     },
 };
