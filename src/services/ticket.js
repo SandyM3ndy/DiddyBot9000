@@ -892,6 +892,7 @@ export async function unclaimTicket(channel, unclaimer) {
     
     await saveTicketData(channel.guild.id, channel.id, ticketData);
     
+    try {
     const messages = await channel.messages.fetch();
     const ticketMessage = messages.find(m => 
       m.embeds.length > 0 && 
@@ -941,6 +942,10 @@ export async function unclaimTicket(channel, unclaimer) {
       await channel.send({ embeds: [unclaimEmbed] });
     }
     
+    } catch (presentationError) {
+      logger.warn('Ticket released but controls could not be updated', { channelId: channel.id, error: presentationError?.message });
+    }
+
     await logTicketEvent({
       client: channel.client,
       guildId: channel.guild.id,
@@ -984,6 +989,7 @@ export async function updateTicketPriority(channel, priority, updater) {
     );
     }
     
+    const previousPriority = ticketData.priority || 'none';
     ticketData.priority = priority;
     ticketData.priorityUpdatedBy = updater.id;
     ticketData.priorityUpdatedAt = new Date().toISOString();
@@ -1006,34 +1012,45 @@ export async function updateTicketPriority(channel, priority, updater) {
       }
     }
     
-    const messages = await channel.messages.fetch();
-    const ticketMessage = messages.find(m => 
-      m.embeds.length > 0 && 
-      m.embeds[0].title?.startsWith('Ticket #')
-    );
-    
-    if (ticketMessage) {
-      const embed = ticketMessage.embeds[0];
-      
-      const updatedEmbed = createEmbed({
-        title: embed.title || 'Ticket',
-        description: embed.description?.split('\n**Priority:**')[0] + `\n**Priority:** ${priorityInfo.emoji} ${priorityInfo.label}`,
-        color: priorityInfo.color,
-        fields: embed.fields || [],
-        footer: embed.footer
+    // The DB value is already saved. Message-edit outages must not cause
+    // false failure reports or roll back the new priority.
+    try {
+      const messages = await channel.messages.fetch();
+      const ticketMessage = messages.find(m =>
+        m.embeds.length > 0 && m.embeds[0].title?.startsWith('Ticket #')
+      );
+      if (ticketMessage) {
+        const oldEmbed = ticketMessage.embeds[0];
+        const fields = (oldEmbed.fields || []).map(field => ({
+          name: field.name,
+          value: field.name === 'Priority'
+            ? priorityInfo.emoji + ' ' + priorityInfo.label
+            : field.value,
+          inline: Boolean(field.inline),
+        }));
+        const updated = createEmbed({
+          title: oldEmbed.title || 'Ticket',
+          description: oldEmbed.description || 'Private support conversation.',
+          color: priorityInfo.color,
+          fields,
+          footer: oldEmbed.footer || undefined,
+        });
+        await ticketMessage.edit({ embeds: [updated] });
+      }
+      await channel.send({
+        embeds: [createEmbed({
+          title: '🎚️ Ticket Priority Updated',
+          description: 'Priority is now **' + priorityInfo.emoji + ' ' + priorityInfo.label +
+            '** • Changed by ' + updater.toString(),
+          color: priorityInfo.color,
+        })],
+        allowedMentions: { parse: [] },
       });
-      
-      await ticketMessage.edit({ embeds: [updatedEmbed] });
+    } catch (presentationError) {
+      logger.warn('Ticket priority saved but channel status display could not refresh',
+        { channelId: channel.id, error: presentationError?.message });
     }
-    
-    const updateEmbed = createEmbed({
-      title: 'Priority Updated',
-      description: `📊 Ticket priority updated to **${priorityInfo.emoji} ${priorityInfo.label}** by ${updater}`,
-      color: priorityInfo.color
-    });
-    
-    await channel.send({ embeds: [updateEmbed] });
-    
+
     await logTicketEvent({
       client: channel.client,
       guildId: channel.guild.id,
@@ -1045,7 +1062,7 @@ export async function updateTicketPriority(channel, priority, updater) {
         executorId: updater.id,
         priority: priority,
         metadata: {
-          previousPriority: ticketData.priority,
+          previousPriority,
           updatedAt: ticketData.priorityUpdatedAt
         }
       }
