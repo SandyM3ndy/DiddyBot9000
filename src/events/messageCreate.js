@@ -34,7 +34,7 @@ export default {
 
       const autoModTriggered = await handleBasicAutoMod(message, guildConfig);
       if (!autoModTriggered) {
-        await recordMessageActivity(client, message).catch(() => {});
+        await recordMessageActivity(client, message, guildConfig).catch(() => {});
       }
       // Detect new tickets by a permanent channel topic marker, not just their
       // editable channel names. Keep the legacy prefix for existing installations.
