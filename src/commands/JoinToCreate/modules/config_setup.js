@@ -1,4 +1,4 @@
-import { getColor } from '../../../config/bot.js';
+import { getColor, formatBeaconFooter } from '../../../config/bot.js';
 import {
     ActionRowBuilder,
     StringSelectMenuBuilder,
@@ -38,7 +38,7 @@ export default {
         }
 
         const embed = new EmbedBuilder()
-            .setTitle('Join to Create Configuration')
+            .setTitle('🔊 Beacon • Join to Create Configuration')
             .setDescription(`Configure settings for ${triggerChannel}`)
             .setColor(getColor('info'))
             .addFields(
@@ -58,7 +58,7 @@ export default {
                     inline: true
                 }
             )
-            .setFooter({ text: 'Select an option to configure below' })
+            .setFooter({ text: formatBeaconFooter('Select an option to configure below') })
             .setTimestamp();
 
         const selectMenu = new StringSelectMenuBuilder()
@@ -185,7 +185,7 @@ async function handleNameTemplateChange(interaction, triggerChannel, currentConf
             }
         )
         .setColor(getColor('info'))
-        .setFooter({ text: 'Type your new template in the chat below' });
+        .setFooter({ text: formatBeaconFooter('Type your new template in the chat below') });
 
     await interaction.followUp({ embeds: [embed], flags: MessageFlags.Ephemeral });
 
@@ -263,7 +263,7 @@ async function handleUserLimitChange(interaction, triggerChannel, currentConfig,
             }
         )
         .setColor(getColor('info'))
-        .setFooter({ text: 'Type the new limit in the chat below' });
+        .setFooter({ text: formatBeaconFooter('Type the new limit in the chat below') });
 
     await interaction.followUp({ embeds: [embed], flags: MessageFlags.Ephemeral });
 
@@ -346,7 +346,7 @@ async function handleBitrateChange(interaction, triggerChannel, currentConfig, c
             }
         )
         .setColor(getColor('info'))
-        .setFooter({ text: 'Type the new bitrate in the chat below' });
+        .setFooter({ text: formatBeaconFooter('Type the new bitrate in the chat below') });
 
     await interaction.followUp({ embeds: [embed], flags: MessageFlags.Ephemeral });
 
@@ -417,7 +417,7 @@ async function handleRemoveTrigger(interaction, triggerChannel, currentConfig, c
         .setTitle('Remove Trigger Channel')
         .setDescription(`Are you sure you want to remove ${triggerChannel} from the Join to Create system?`)
         .setColor('#ff6600')
-        .setFooter({ text: 'This action cannot be undone' });
+        .setFooter({ text: formatBeaconFooter('This action cannot be undone') });
 
     const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
