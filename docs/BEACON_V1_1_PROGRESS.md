@@ -2,6 +2,31 @@
 
 **Status:** In development on `main`. The deployed/public version remains 1.0.0 until release checks are complete.
 
+## 25 October 2026 — Stabilization before release
+
+Beacon's official motto is **Your community's all-in-one Discord assistant.** Progression is a flagship module, not the bot's entire identity.
+
+**Completed in code (still requires live Discord smoke tests):**
+- Daily and weekly quests now persist immediately when panels first open after UTC rollover, including archived quest results.
+- PostgreSQL advisory-lock concurrency now reserves connection headroom, handles queue handoff and refuses unsafe single-connection configurations.
+- Quest-reroll buttons acknowledge early and preserve existing dashboard controls on transient refresh errors.
+- Global leaderboard now uses bounded parallel database reads with stable ordering for tied XP.
+- Ticket permission checks cancel unneeded timeout timers.
+- PostgreSQL cleanup deletes only snapshots with Beacon-owned managed filenames, not arbitrary old .dump files. New snapshots use beacon-backup names; legacy diddybot9000-backup snapshots remain recognised.
+- Regression tests now cover rollover writes, refused saves, burst lock contention, ranking stability and backup cleanup safety.
+
+**Must-pass release blockers:**
+- [ ] Test two independent real Discord servers, one intentionally missing permissions. Cover dashboard, reaction roles, ticket information/transcripts/deletion, moderation, quest rerolls and rank cards.
+- [ ] Restart the deployed bot; verify XP, founder registry, weekly rewards, tickets and reroll limits in the actual PostgreSQL database.
+- [ ] Take an off-host backup, perform a real restore drill and retain recovery instructions. A green CI job alone does not validate production disaster recovery.
+- [ ] Confirm gateway intents, slash command registration, timeout handling, audit log privacy and permission denial messages.
+- [ ] Approve operator rollback and v1.1.0 release notes. Do not bump package.json version or announce a final release prematurely.
+
+**Small additions worth considering before launch:**
+1. One-page setup guide and first-time onboarding walkthrough.
+2. Easy support/bug report channel with reproducible issue details.
+3. Opt-in privacy-conscious onboarding metrics (install, first configuration, first completed quest, returning guild).
+4. Clear release changelog with real screenshots. Postpone leagues, seasons and paid feature gates.
 ## Completed in this iteration
 
 - [x] Make event module loading platform-safe: use `pathToFileURL` for paths with spaces and special characters.
