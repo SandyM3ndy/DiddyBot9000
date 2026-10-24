@@ -7,6 +7,7 @@ import { logger } from '../utils/logger.js';
 import { InteractionHelper } from '../utils/interactionHelper.js';
 import { replyUserError, ErrorTypes, handleInteractionError, createError } from '../utils/errorHandler.js';
 import { getTicketPermissionContext } from '../utils/ticket/ticketPermissions.js';
+import { showMyTickets } from '../commands/Ticket/modules/ticketActions.js';
 
 function escapeHtml(text) {
   if (!text) return '';
@@ -107,10 +108,11 @@ async function ensureTicketPermission(interaction, client, actionLabel, options 
 
 const createTicketHandler = {
   name: 'create_ticket',
-  async execute(interaction, client) {
+  async execute(interaction, client, args = []) {
     try {
       if (!(await ensureGuildContext(interaction))) return;
 
+      const presetType = ['support', 'report', 'bug', 'other'].includes(args[0]) ? args[0] : null;
       // The open-ticket count below is the authoritative creation guard.
       // Do not reference a separate rate-limit variable here; the previous implementation
       // referenced an undefined `allowed` value and prevented the modal from opening.
@@ -125,14 +127,14 @@ const createTicketHandler = {
       }
       
       const modal = new ModalBuilder()
-        .setCustomId('create_ticket_modal')
-        .setTitle('Create a Ticket');
+        .setCustomId('create_ticket_modal' + (presetType ? ':' + presetType : ''))
+        .setTitle(presetType ? 'New ' + presetType[0].toUpperCase() + presetType.slice(1) + ' Ticket' : 'Create Support Ticket');
 
       const reasonInput = new TextInputBuilder()
         .setCustomId('reason')
         .setLabel('Why are you creating this ticket?')
         .setStyle(TextInputStyle.Paragraph)
-        .setPlaceholder('Describe your issue...')
+        .setPlaceholder('Tell us what happened, what you expected, and what you need help with.')
         .setRequired(true)
         .setMaxLength(1000);
 
@@ -144,10 +146,8 @@ const createTicketHandler = {
         .setRequired(false)
         .setMaxLength(20);
 
-      modal.addComponents(
-        new ActionRowBuilder().addComponents(typeInput),
-        new ActionRowBuilder().addComponents(reasonInput),
-      );
+      if (!presetType) modal.addComponents(new ActionRowBuilder().addComponents(typeInput));
+      modal.addComponents(new ActionRowBuilder().addComponents(reasonInput));
 
       await interaction.showModal(modal);
     } catch (error) {
@@ -159,9 +159,16 @@ const createTicketHandler = {
   }
 };
 
+const myTicketsButtonHandler = {
+  name: 'ticket_my',
+  async execute(interaction) {
+    return showMyTickets(interaction);
+  },
+};
+
 const createTicketModalHandler = {
   name: 'create_ticket_modal',
-  async execute(interaction, client) {
+  async execute(interaction, client, args = []) {
     try {
       if (!(await ensureGuildContext(interaction))) return;
 
@@ -169,7 +176,7 @@ const createTicketModalHandler = {
       if (!deferSuccess) return;
       
       const reason = interaction.fields.getTextInputValue('reason');
-      const rawType = interaction.fields.getTextInputValue('ticket_type')?.trim().toLowerCase() || 'support';
+      const rawType = args[0] || interaction.fields.getTextInputValue('ticket_type')?.trim().toLowerCase() || 'support';
       const ticketType = ['support', 'report', 'bug', 'other'].includes(rawType) ? rawType : 'other';
       const config = await getGuildConfig(client, interaction.guildId);
       const categoryId = config.ticketCategoryId || null;
@@ -184,8 +191,8 @@ const createTicketModalHandler = {
       );
       await interaction.editReply({
         embeds: [successEmbed(
-          'Ticket Created',
-          `Your ticket has been created in ${channel}!`
+          '🎟️ Support Request Created',
+          `Your private ${ticketType} ticket is ready: ${channel}\n\nA support team member will respond when available. Please add any useful context inside the channel.`
         )]
       });
     } catch (error) {
@@ -522,7 +529,8 @@ const deleteTicketCancelHandler = {
 
 export default createTicketHandler;
 export { 
-  createTicketModalHandler, 
+  createTicketModalHandler,
+  myTicketsButtonHandler,
   closeTicketModalHandler,
   closeTicketHandler, 
   claimTicketHandler, 

@@ -79,20 +79,38 @@ async function persistPanelMessageId(client, guildId, guildConfig, messageId) {
     }
 }
 
-function buildPanelEmbed(config) {
+export function buildPanelEmbed(config = {}) {
     return new EmbedBuilder()
-        .setTitle('Support Tickets')
-        .setDescription(config.ticketPanelMessage || 'Click the button below to create a support ticket.')
-        .setColor(getColor('info'));
+        .setTitle('✦ Beacon • Support Center')
+        .setDescription([
+            '**Need a hand? Our team is here to help.**',
+            config.ticketPanelMessage || 'Choose a category below to open a private conversation with the team.',
+            '',
+            '**How it works**',
+            '1. Choose the type of help you need.',
+            '2. Describe the issue in the private form.',
+            '3. Our support team will respond when available.',
+        ].join('\n'))
+        .setColor(getColor('primary'))
+        .addFields(
+            { name: '🔐 Private by default', value: 'Only you and authorized support staff can view your ticket.', inline: false },
+            { name: '📋 Your history', value: 'Select **My Tickets** to review requests you have created.', inline: false },
+        )
+        .setFooter({ text: 'Beacon Support • Please do not share passwords or sensitive account details' });
 }
 
-function buildPanelButtonRow(config) {
+export function buildPanelButtonRow(config = {}) {
     return new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-            .setCustomId('create_ticket')
-            .setLabel(config.ticketButtonLabel || 'Create Ticket')
-            .setStyle(ButtonStyle.Primary)
-            .setEmoji('📩'),
+        new ButtonBuilder().setCustomId('create_ticket:support').setLabel('Get Support')
+            .setStyle(ButtonStyle.Primary).setEmoji('🎫'),
+        new ButtonBuilder().setCustomId('create_ticket:report').setLabel('Report Issue')
+            .setStyle(ButtonStyle.Secondary).setEmoji('🛡️'),
+        new ButtonBuilder().setCustomId('create_ticket:bug').setLabel('Report Bug')
+            .setStyle(ButtonStyle.Secondary).setEmoji('🐛'),
+        new ButtonBuilder().setCustomId('create_ticket:other').setLabel('Other')
+            .setStyle(ButtonStyle.Secondary).setEmoji('💬'),
+        new ButtonBuilder().setCustomId('ticket_my').setLabel('My Tickets')
+            .setStyle(ButtonStyle.Success).setEmoji('📂'),
     );
 }
 

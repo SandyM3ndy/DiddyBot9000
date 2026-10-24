@@ -1,4 +1,5 @@
 import createTicketHandler, {
+  myTicketsButtonHandler,
   closeTicketHandler,
   claimTicketHandler,
   priorityTicketHandler,
@@ -12,6 +13,7 @@ import createTicketHandler, {
 
 export default [
   createTicketHandler,
+  myTicketsButtonHandler,
   closeTicketHandler,
   claimTicketHandler,
   priorityTicketHandler,
