@@ -1,26 +1,5 @@
 [
   {
-    "host": "sg.lavalink.heavencloud.in",
-    "port": 443,
-    "password": "heavencloud",
-    "secure": true,
-    "name": "HeavenCloud-Singapore"
-  },
-  {
-    "host": "us.lavalink.heavencloud.in",
-    "port": 443,
-    "password": "heavencloud",
-    "secure": true,
-    "name": "HeavenCloud-USA"
-  },
-  {
-    "host": "eu.lavalink.heavencloud.in",
-    "port": 443,
-    "password": "heavencloud",
-    "secure": true,
-    "name": "HeavenCloud-Europe"
-  },
-  {
     "host": "lavalinkv4.serenetia.com",
     "port": 443,
     "password": "https://seretia.link/discord",
@@ -33,12 +12,5 @@
     "password": "https://discord.gg/mjS5J2K3ep",
     "secure": true,
     "name": "MilloHost"
-  },
-  {
-    "host": "lavalink-v4.triniumhost.com",
-    "port": 443,
-    "password": "free",
-    "secure": true,
-    "name": "TriniumHost"
   }
 ]
