@@ -1,4 +1,6 @@
-import { SlashCommandBuilder, MessageFlags, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
+import { SlashCommandBuilder, MessageFlags, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder } from 'discord.js';
+import { patchGuildConfig } from '../../services/config/guildConfig.js';
+import { renderProgressionRankPng } from '../../utils/progressionRankCard.js';
 import { createEmbed } from '../../utils/embeds.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 import { getGuildConfig } from '../../services/config/guildConfig.js';
@@ -7,6 +9,10 @@ import {
   getGlobalProgressionLeaderboard,
   getLevelProgress,
   getQuestCatalog,
+  rerollDailyQuest,
+  contributorRanking,
+  getFoundingBadge,
+  mutateServerProgression,
 } from '../../services/serverProgressionService.js';
 
 const PAGE_SIZE = 10;
@@ -15,6 +21,8 @@ const VIEWS = [
   { id: 'quests', label: 'Quests', emoji: '🎯' },
   { id: 'leaderboard', label: 'World Rankings', emoji: '🏆' },
   { id: 'milestones', label: 'Rewards', emoji: '🎁' },
+  { id: 'weekly', label: 'Weekly', emoji: '📅' },
+  { id: 'contributors', label: 'Contributors', emoji: '👥' },
 ];
 const MILESTONES = [
   [2, '📣 Level-up announcements'],
@@ -51,7 +59,7 @@ function disabledEmbed() {
   });
 }
 
-function overviewEmbed(guild, data, entries) {
+function overviewEmbed(guild, data, entries, founder = null) {
   const progress = getLevelProgress(data);
   const rank = getPosition(entries, guild.id);
   const finished = data.dailyQuests.filter(quest => quest.completed).length;
@@ -71,6 +79,7 @@ function overviewEmbed(guild, data, entries) {
       { name: '💬 Eligible Messages', value: data.totalMessages.toLocaleString(), inline: true },
       { name: '🤖 Eligible Commands', value: data.totalCommands.toLocaleString(), inline: true },
       { name: '📌 Your Next Goal', value: data.dailyQuests.find(quest => !quest.completed)?.title || 'All daily quests finished — nice work!', inline: false },
+      { name: '🏅 Community Status', value: founder ? `🌟 Founding Community #${founder.number} of 25` : 'Growing Community', inline: false },
     ],
     footer: 'Every server starts somewhere. Progress is saved between days.',
   });
@@ -103,7 +112,7 @@ function questsEmbed(guild, data) {
   });
 }
 
-function leaderboardEmbed(guild, entries, page) {
+function leaderboardEmbed(guild, entries, page, founders = []) {
   const pages = Math.max(1, Math.ceil(entries.length / PAGE_SIZE));
   const safePage = Math.max(0, Math.min(page, pages - 1));
   const rank = getPosition(entries, guild.id);
@@ -111,7 +120,8 @@ function leaderboardEmbed(guild, entries, page) {
     .map((entry, i) => {
       const position = safePage * PAGE_SIZE + i + 1;
       const medal = ['🥇', '🥈', '🥉'][position - 1] || '🏅';
-      const name = cleanName(entry.guildName);
+      const founder=founders.find(item=>item.guildId===entry.guildId);
+      const name = (founder ? '🌟 ' : '') + cleanName(entry.guildName);
       const emphasis = entry.guildId === guild.id ? ' ◀ YOUR SERVER' : '';
       return medal + ' **#' + position + ' ' + name + '**' + emphasis +
         '\n      Level ' + entry.level + '  •  **' + entry.xp.toLocaleString() + ' XP**';
@@ -148,8 +158,30 @@ function milestonesEmbed(guild, data) {
   });
 }
 
+function weeklyEmbed(guild,data) {
+  const w=data.weekly;
+  const fields=(w?.quests||[]).map(q=>{
+    const pct=Math.floor(100*Math.min(q.progress,q.target)/q.target);
+    return {name:(q.completed?'✅ ':'▫️ ')+q.title,
+      value:q.description+'\n'+meter(pct,8)+' ('+q.progress+'/'+q.target+')  ·  **+'+q.reward+' XP**'};
+  });
+  return createEmbed({title:'📅 '+cleanName(guild.name)+' • Weekly Challenges',
+    description:'**Week beginning '+(w?.week||'—')+' (UTC)**\n'+
+      'Weekly progress and rewards are saved. New challenges roll over every Monday (UTC).',
+    color:'primary',fields:fields.length?fields:[{name:'Getting Started',value:'Weekly quests will be assigned once progression starts.'}],
+    footer:'Weekly rewards are awarded automatically and only once.'});
+}
+function contributorsEmbed(guild,data){
+ const weekly=contributorRanking(data,'weekly',10);
+ const lifetime=contributorRanking(data,'lifetime',5);
+ return createEmbed({title:'👥 '+cleanName(guild.name)+' • Contributors',
+  description:'Members who helped with eligible activity. No message content is stored.\n\n'+
+    '**This week**\n'+(weekly.length?weekly.map((c,i)=>'#'+(i+1)+' <@'+c.userId+'> — **'+c.actions+'** actions ('+c.messages+' messages, '+c.commands+' commands)').join('\n'):'No contributions yet.')+'\n\n'+
+    '**All-time top 5**\n'+(lifetime.length?lifetime.map((c,i)=>'#'+(i+1)+' <@'+c.userId+'> — '+c.actions+' actions').join('\n'):'None recorded.'),
+  color:'primary',footer:'Contribution totals persist across daily and weekly resets.'});
+}
 function buildButtons(interactionId, view, page, entriesCount, expired = false) {
-  const nav = new ActionRowBuilder().addComponents(VIEWS.map(item =>
+  const nav = new ActionRowBuilder().addComponents(VIEWS.slice(0,4).map(item =>
     new ButtonBuilder()
       .setCustomId('progress_panel:' + interactionId + ':' + item.id)
       .setLabel(item.label)
@@ -157,15 +189,27 @@ function buildButtons(interactionId, view, page, entriesCount, expired = false) 
       .setStyle(item.id === view ? ButtonStyle.Primary : ButtonStyle.Secondary)
       .setDisabled(expired)
   ));
+  const more = new ActionRowBuilder().addComponents(VIEWS.slice(4).map(item =>
+    new ButtonBuilder().setCustomId('progress_panel:' + interactionId + ':' + item.id)
+      .setLabel(item.label).setEmoji(item.emoji)
+      .setStyle(item.id===view?ButtonStyle.Primary:ButtonStyle.Secondary)
+      .setDisabled(expired)
+  ));
+  more.addComponents(
+    new ButtonBuilder().setCustomId('progress_panel:' + interactionId + ':reroll')
+      .setLabel('Reroll Quest').setEmoji('🎲').setStyle(ButtonStyle.Secondary).setDisabled(expired),
+    new ButtonBuilder().setCustomId('progress_panel:' + interactionId + ':card')
+      .setLabel('Share Rank Card').setEmoji('🖼️').setStyle(ButtonStyle.Secondary).setDisabled(expired),
+  );
   const refresh = new ButtonBuilder()
     .setCustomId('progress_panel:' + interactionId + ':refresh')
     .setLabel('Refresh')
     .setEmoji('🔄')
     .setStyle(ButtonStyle.Secondary)
     .setDisabled(expired);
-  const rows = [nav, new ActionRowBuilder().addComponents(refresh)];
+  const rows = [nav,more,new ActionRowBuilder().addComponents(refresh)];
   if (view === 'leaderboard' && entriesCount > PAGE_SIZE) {
-    rows[1].addComponents(
+    rows[2].addComponents(
       new ButtonBuilder().setCustomId('progress_panel:' + interactionId + ':prev')
         .setLabel('Previous').setStyle(ButtonStyle.Secondary).setDisabled(expired || page === 0),
       new ButtonBuilder().setCustomId('progress_panel:' + interactionId + ':next')
@@ -182,16 +226,26 @@ async function buildPanel(interaction, view, page, expired = false) {
     getServerProgression(interaction.client, interaction.guildId),
     getGlobalProgressionLeaderboard(interaction.client),
   ]);
+  const [founder,founderState]=await Promise.all([
+    getFoundingBadge(interaction.client,interaction.guildId),
+    interaction.client.db.get('beacon:founders:v1',{entries:[]}),
+  ]);
   const currentPage = Math.min(page, Math.max(0, Math.ceil(entries.length / PAGE_SIZE) - 1));
   const enabled = config?.serverProgression?.enabled === true;
   const embed = view === 'leaderboard'
-    ? leaderboardEmbed(interaction.guild, entries, currentPage)
+    ? leaderboardEmbed(interaction.guild, entries, currentPage,founderState?.entries||[])
     : !enabled ? disabledEmbed()
       : view === 'quests' ? questsEmbed(interaction.guild, data)
         : view === 'milestones' ? milestonesEmbed(interaction.guild, data)
-          : overviewEmbed(interaction.guild, data, entries);
-  return { embeds: [embed], components: buildButtons(interaction.id, view, currentPage, entries.length, expired),
-    page: currentPage };
+          : view === 'weekly' ? weeklyEmbed(interaction.guild,data)
+            : view === 'contributors' ? contributorsEmbed(interaction.guild,data)
+              : overviewEmbed(interaction.guild, data, entries,founder);
+  const components=buildButtons(interaction.id,view,currentPage,entries.length,expired);
+  if(!enabled&&!expired)components.push(new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('progress_panel:'+interaction.id+':activate').setLabel('Enable Progression')
+      .setEmoji('🚀').setStyle(ButtonStyle.Success)
+  ));
+  return { embeds: [embed], components, page: currentPage };
 }
 
 export default {
@@ -202,7 +256,9 @@ export default {
     .addSubcommand(sub => sub.setName('quests').setDescription('Explore daily quests and rewards'))
     .addSubcommand(sub => sub.setName('leaderboard').setDescription('Browse global server rankings'))
     .addSubcommand(sub => sub.setName('rank').setDescription('View your server XP and world position'))
-    .addSubcommand(sub => sub.setName('milestones').setDescription('Browse level rewards and milestones')),
+    .addSubcommand(sub => sub.setName('milestones').setDescription('Browse level rewards and milestones'))
+    .addSubcommand(sub => sub.setName('weekly').setDescription('View the weekly community challenges'))
+    .addSubcommand(sub => sub.setName('contributors').setDescription('View the member contribution board')),
   category: 'Community',
 
   async execute(interaction) {
