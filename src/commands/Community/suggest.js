@@ -12,7 +12,7 @@ export default {
   category: 'Community',
 
   async execute(interaction) {
-    if (!(await InteractionHelper.safeDefer(interaction, { flags: MessageFlags.Ephemeral }))) return;
+    if (!(await InteractionHelper.safeDefer(interaction))) return;
     const idea = interaction.options.getString('idea', true).trim();
     if (!idea) {
       return InteractionHelper.safeEditReply(interaction, { content: 'Your suggestion cannot be empty.' });
@@ -39,19 +39,29 @@ export default {
       ],
     }).setTimestamp();
 
-    let message;
     try {
-      message = await channel.send({ embeds: [embed], allowedMentions: { parse: [] } });
+      // The slash response is the public suggestion, not a private receipt
+      // followed by a duplicate channel message.
+      const posted = await InteractionHelper.safeEditReply(interaction, {
+        embeds: [embed], allowedMentions: { parse: [] },
+      });
+      if (!posted) return;
+      const message = await interaction.fetchReply();
+      const votes = await Promise.allSettled([message.react('👍'), message.react('👎')]);
+      if (votes.some(v => v.status === 'rejected')) {
+        await interaction.followUp({
+          content: '⚠️ Suggestion posted, but voting reactions are unavailable. Check Add Reactions and Read Message History permissions.',
+          flags: MessageFlags.Ephemeral,
+        }).catch(() => {});
+      }
     } catch (error) {
-      logger.warn('Could not post suggestion', { guildId: interaction.guildId, error: error?.message });
-      return InteractionHelper.safeEditReply(interaction, { content: 'I could not post your suggestion here. Check the channel permissions.' });
+      logger.warn('Could not complete suggestion', { guildId: interaction.guildId, error: error?.message });
+      if (interaction.deferred || interaction.replied) {
+        await interaction.followUp({
+          content: '⚠️ Could not complete the suggestion. Check channel permissions.',
+          flags: MessageFlags.Ephemeral,
+        }).catch(() => {});
+      }
     }
-    const votes = await Promise.allSettled([message.react('👍'), message.react('👎')]);
-    const partial = votes.some(v => v.status === 'rejected');
-
-    return InteractionHelper.safeEditReply(interaction, {
-      content: `✅ Suggestion posted! ${message.url}`
-        + (partial ? '\n⚠️ I could not add all voting reactions. Enable **Add Reactions** and **Read Message History** for Beacon.' : ''),
-    });
   },
 };
