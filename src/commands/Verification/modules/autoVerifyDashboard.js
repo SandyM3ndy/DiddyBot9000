@@ -1,4 +1,4 @@
-import { botConfig, getColor } from '../../../config/bot.js';
+import { botConfig, getColor, formatBeaconFooter } from '../../../config/bot.js';
 import {
     ActionRowBuilder,
     StringSelectMenuBuilder,
@@ -44,7 +44,7 @@ function buildDashboardEmbed(cfg, guild, conflictSummary = '') {
     }
 
     const embed = new EmbedBuilder()
-        .setTitle('🤖 Auto-Verification Dashboard')
+        .setTitle('🤖 Beacon • Auto-Verification Dashboard')
         .setDescription(`Manage auto-verification settings for **${guild.name}**.\nSelect an option below to modify a setting.`)
         .setColor(getColor('info'))
         .addFields(
@@ -61,7 +61,7 @@ function buildDashboardEmbed(cfg, guild, conflictSummary = '') {
     }
 
     return embed
-        .setFooter({ text: 'Dashboard closes after 10 minutes of inactivity' })
+        .setFooter({ text: formatBeaconFooter('Dashboard closes after 10 minutes of inactivity') })
         .setTimestamp();
 }
 
@@ -160,10 +160,10 @@ export default {
                 return await InteractionHelper.safeReply(interaction, {
                     embeds: [
                         new EmbedBuilder()
-                            .setTitle('🤖 Auto-Verification Dashboard')
+                            .setTitle('🤖 Beacon • Auto-Verification Dashboard')
                             .setDescription(`Auto-verification is not yet configured.${blockingText}\n\nUse \`/autoverify setup\` to configure it.`)
                             .setColor(getColor('warning'))
-                            .setFooter({ text: 'Dashboard closes after 10 minutes of inactivity' })
+                            .setFooter({ text: formatBeaconFooter('Dashboard closes after 10 minutes of inactivity') })
                             .setTimestamp()
                     ],
                     flags: MessageFlags.Ephemeral
