@@ -1,27 +1,83 @@
-import { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
-import { logger } from "../../utils/logger.js";
+import { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } from 'discord.js';
+import { logger } from '../../utils/logger.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
-import { createEmbed } from "../../utils/embeds.js";
-import { createSelectMenu } from "../../utils/components.js";
-const CATEGORY_SELECT_ID = "help-category-select";
-const ALL_COMMANDS_ID = "help-all-commands";
-const HELP_MENU_TIMEOUT_MS = 5 * 60 * 1000;
-const CATEGORY_ICONS = { 'Bot Owner': '👑', Core: "ℹ️", Moderation: "🛡️", Economy: "💰", Music: "🎵", Fun: "🎮", Leveling: "📊", Utility: "🔧", Ticket: "🎫", Welcome: "👋", Giveaway: "🎉", Counter: "🔢", Tools: "🛠️", Search: "🔍", "Reaction Roles": "🎭", Community: "👥", Birthday: "🎂", "Join To Create": "🔌", Verification: "✅" };
-function formatCategoryName(rawCategory) { return rawCategory.replace(/_/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').replace(/\b\w/g, (char) => char.toUpperCase()); }
+import { createEmbed } from '../../utils/embeds.js';
+import { createSelectMenu } from '../../utils/components.js';
+import { formatCategoryName, getCategoryIcon } from '../../config/commands/commandCategories.js';
 
-export async function createInitialHelpMenu(client) {
-  const categoryDirs = [...new Set(
-    [...(client?.commands?.values() || [])]
-      .filter((command) => command?.data?.name && command.data.name !== 'help')
-      .map((command) => command.category)
-      .filter(Boolean)
-  )].sort();
-  const options = [{ label: "📋 All Commands", description: "Browse every available command in a single list", value: ALL_COMMANDS_ID }, ...categoryDirs.map((category) => { const categoryName = formatCategoryName(category); return { label: `${CATEGORY_ICONS[categoryName] || "🔍"} ${categoryName}`, description: `View commands in the ${categoryName} category`, value: category }; })];
-  const botName = client?.user?.username || "Beacon";
-  const embed = createEmbed({ title: `📖 ${botName} Help`, description: `Your community's all-in-one Discord assistant. Browse commands by category, see what each command does, and check who can use it.`, color: 'primary', thumbnail: client.user?.displayAvatarURL?.({ size: 1024 }), fields: [{ name: '🚀 Getting Started', value: ['**1. Configure** — Run `/dashboard` to set up the server.', '**2. Manage access** — Open `/dashboard` and select **Command Access** to manage permissions.', '**3. Explore** — Pick a category below to see what Beacon can do.'].join('\n'), inline: false }, { name: 'ℹ️ How It Works', value: ['• Dashboard commands manage each feature visually', '• Settings are saved per server', '• Slash commands are available immediately after installation'].join('\n'), inline: false }, { name: '\u200B', value: '-# Need help, want to report an issue, or have an idea? Use the support server below.', inline: false }] });
-  embed.setFooter({ text: "Beacon • Your community's all-in-one Discord assistant." }).setTimestamp();
-  const supportButton = new ButtonBuilder().setLabel("Support Server").setURL("https://discord.gg/76N2EM6v6k").setStyle(ButtonStyle.Link);
-  return { embeds: [embed], components: [new ActionRowBuilder().addComponents(supportButton), createSelectMenu(CATEGORY_SELECT_ID, "Select to view the commands", options)] };
+const SUPPORT_URL = 'https://discord.gg/76N2EM6v6k';
+
+export function getHelpOverview(client) {
+  const commands = [...(client?.commands?.values() || [])].filter(command => command?.data?.name);
+  const categories = new Map();
+  for (const command of commands) {
+    if (command.data.name === 'help') continue;
+    const key = command.category || 'Core';
+    categories.set(key, (categories.get(key) || 0) + 1);
+  }
+  return { commands: commands.length, categories };
 }
 
-export default { slashOnly: true, data: new SlashCommandBuilder().setName("help").setDescription("Displays the Beacon help menu with all available commands"), async execute(interaction, guildConfig, client) { await InteractionHelper.safeDefer(interaction); const { embeds, components } = await createInitialHelpMenu(client); await InteractionHelper.safeEditReply(interaction, { embeds, components }); setTimeout(async () => { try { if (!InteractionHelper.isInteractionValid(interaction)) return; await InteractionHelper.safeEditReply(interaction, { embeds: [createEmbed({ title: "Help menu closed", description: "Help menu has been closed, use /help again.", color: "secondary" })], components: [] }); } catch (error) { logger.debug('Help menu close edit failed:', error?.message); } }, HELP_MENU_TIMEOUT_MS); } };
+export async function createInitialHelpMenu(client) {
+  const { commands, categories } = getHelpOverview(client);
+  const options = [
+    { label: 'All Commands', description: 'Explore everything Beacon can do', value: 'help-all-commands', emoji: '📚' },
+    ...[...categories].sort(([a], [b]) => a.localeCompare(b)).map(([category, count]) => ({
+      label: formatCategoryName(category).slice(0, 100),
+      description: String(count) + ' commands • ' + (category === 'BotOwner' ? 'Beacon developer only' : 'Browse tools and features'),
+      value: category,
+      emoji: getCategoryIcon(category),
+    })),
+  ].slice(0, 25);
+
+  const embed = createEmbed({
+    title: '✦ Beacon | Command Center',
+    description: [
+      '**One bot. A better Discord community.**',
+      'Moderation, security, support tickets and powerful server tools.',
+      '',
+      'Choose a category below to browse commands and their access requirements.',
+    ].join('\n'),
+    color: 'primary',
+    thumbnail: client?.user?.displayAvatarURL?.({ size: 256 }) || null,
+    fields: [
+      { name: '📚 Commands', value: String(commands), inline: true },
+      { name: '🗂️ Categories', value: String(categories.size), inline: true },
+      { name: '🛡️ Security', value: 'Moderation & Anti-Nuke', inline: true },
+      { name: '🚀 Get started', value: '**/dashboard** — Configure your community\n**/diagnose** — Check setup and bot permissions', inline: false },
+      { name: '🧰 Administration', value: '**/roleaudit** — Review powerful server roles\n**/ticketstats** — Track your support workload', inline: false },
+      { name: '👑 Developer tools', value: 'The **Bot Owner** category contains commands reserved for Beacon’s creator. Server owners and moderators can manage their own communities normally.', inline: false },
+    ],
+    footer: 'Beacon • Explore the categories below',
+  });
+  const supportButton = new ButtonBuilder()
+    .setLabel('Official Support Server')
+    .setEmoji('💬')
+    .setURL(SUPPORT_URL)
+    .setStyle(ButtonStyle.Link);
+  const components = [new ActionRowBuilder().addComponents(supportButton)];
+  if (options.length) {
+    components.push(createSelectMenu('help-category-select', '📚 Select a command category...', options));
+  }
+  return { embeds: [embed], components };
+}
+
+export default {
+  slashOnly: true,
+  data: new SlashCommandBuilder()
+    .setName('help')
+    .setDescription('Open the Beacon command center and feature categories'),
+  category: 'Core',
+  async execute(interaction, config, client) {
+    if (!(await InteractionHelper.safeDefer(interaction, { flags: MessageFlags.Ephemeral }))) return;
+    try {
+      await InteractionHelper.safeEditReply(interaction, await createInitialHelpMenu(client || interaction.client));
+    } catch (error) {
+      logger.error('Help command failed:', error);
+      await InteractionHelper.safeEditReply(interaction, {
+        content: '⚠️ Could not open the Beacon command center. Try /help again.',
+        embeds: [], components: [],
+      });
+    }
+  },
+};
