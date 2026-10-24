@@ -101,6 +101,8 @@ export const getUserTicketCount = wrapServiceBoundary(async function getUserTick
 
 export async function createTicket(guild, member, categoryId, reason = 'No reason provided', priority = 'none', ticketType = 'support') {
   return withTicketCreationLock(guild.id, member.id, async () => {
+  let createdChannel = null;
+  let savedRecord = false;
   try {
     const config = await getGuildConfig(guild.client, guild.id);
     const ticketConfig = config.tickets || {};
@@ -162,6 +164,12 @@ export async function createTicket(guild, member, categoryId, reason = 'No reaso
           deny: [PermissionFlagsBits.ViewChannel],
         },
         {
+          id: guild.client.user.id,
+          allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages,
+            PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.EmbedLinks,
+            PermissionFlagsBits.AttachFiles, PermissionFlagsBits.ManageChannels],
+        },
+        {
           id: member.id,
           allow: [
             PermissionFlagsBits.ViewChannel,
@@ -182,8 +190,11 @@ export async function createTicket(guild, member, categoryId, reason = 'No reaso
       ],
     });
     
+    createdChannel = channel;
+
     const ticketData = {
       id: channel.id,
+      ticketNumber,
       userId: member.id,
       guildId: guild.id,
       createdAt: new Date().toISOString(),
@@ -196,6 +207,7 @@ export async function createTicket(guild, member, categoryId, reason = 'No reaso
     };
     
     await saveTicketData(guild.id, channel.id, ticketData);
+    savedRecord = true;
     
     const priorityInfo = PRIORITY_MAP[priority] || PRIORITY_MAP.none;
     
@@ -260,6 +272,14 @@ export async function createTicket(guild, member, categoryId, reason = 'No reaso
     return { channel, ticketData };
     
   } catch (error) {
+    if (createdChannel) {
+      try { await createdChannel.delete('Rollback incomplete ticket creation'); }
+      catch (cleanupError) { logger.error('Orphan ticket channel cleanup failed', { channelId: createdChannel.id, error: cleanupError?.message }); }
+      if (savedRecord) {
+        try { await deleteTicketData(guild.id, createdChannel.id); }
+        catch (cleanupError) { logger.error('Orphan ticket record cleanup failed', { channelId: createdChannel.id, error: cleanupError?.message }); }
+      }
+    }
     rethrowTicketError(error, 'createTicket', 'Failed to create ticket. Please try again in a moment.', { guildId: guild?.id, userId: member?.id });
   }
   });
@@ -267,11 +287,15 @@ export async function createTicket(guild, member, categoryId, reason = 'No reaso
 export async function closeTicket(channel, closer, reason = 'No reason provided') {
   try {
     const ticketData = requireTicket(await getTicketData(channel.guild.id, channel.id), channel);
-    
+    if (ticketData.status !== 'open') {
+      ticketUserError('Ticket already closed', 'This ticket has already been closed.',
+        ErrorTypes.VALIDATION, { channelId: channel.id });
+    }
     const config = await getGuildConfig(channel.client, channel.guild.id);
     const dmOnClose = config.dmOnClose !== false;
     const closedCategoryId = config.ticketClosedCategoryId || null;
     let movedToClosedCategory = false;
+    let dmSent = false;
     
     ticketData.status = 'closed';
     ticketData.closedBy = closer.id;
@@ -307,7 +331,8 @@ export async function closeTicket(channel, closer, reason = 'No reason provided'
             footer: { text: `Ticket ID: ${ticketData.id}` }
           });
 
-          await ticketCreator.send({ embeds: [dmEmbed] });
+          await ticketCreator.send({ embeds: [dmEmbed], allowedMentions: { parse: [] } });
+          dmSent = true;
 
           try {
             const feedbackEmbed = createEmbed({
@@ -371,6 +396,7 @@ export async function closeTicket(channel, closer, reason = 'No reason provided'
         logger.warn(`Could not update user permissions for closed ticket: ${permError.message}`);
     }
     
+    try {
     const messages = await channel.messages.fetch();
     const ticketMessage = messages.find(m => 
       m.embeds.length > 0 && 
@@ -401,7 +427,7 @@ components: []
     
     const closeEmbed = createEmbed({
       title: 'Ticket Closed',
-      description: `This ticket has been closed by ${closer}.\n**Reason:** ${reason}${dmOnClose ? '\n\n📩 A DM has been sent to the ticket creator.' : ''}`,
+      description: `This ticket has been closed by ${closer}.\n**Reason:** ${reason}${dmSent ? '\n\n📩 The ticket creator was notified.' : ''}`,
       color: '#e74c3c',
       footer: { text: `Ticket ID: ${ticketData.id}` }
     });
@@ -421,6 +447,10 @@ components: []
     
     await channel.send({ embeds: [closeEmbed], components: [controlRow] });
     
+    } catch (presentationError) {
+      logger.warn('Ticket closed, but channel summary controls could not be updated', { channelId: channel.id, error: presentationError?.message });
+    }
+
     await logTicketEvent({
       client: channel.client,
       guildId: channel.guild.id,
@@ -432,7 +462,7 @@ components: []
         executorId: closer.id,
         reason: reason,
         metadata: {
-          dmSent: dmOnClose,
+          dmSent,
           closedAt: ticketData.closedAt,
           movedToClosedCategory
         }
@@ -450,6 +480,10 @@ export async function claimTicket(channel, claimer) {
   try {
     const ticketData = requireTicket(await getTicketData(channel.guild.id, channel.id), channel);
     
+    if (ticketData.status !== 'open') {
+      ticketUserError('Closed ticket cannot be claimed', 'Reopen this ticket before claiming it.', ErrorTypes.VALIDATION);
+    }
+
     if (ticketData.claimedBy) {
       ticketUserError(
         'Ticket already claimed',
@@ -464,6 +498,7 @@ export async function claimTicket(channel, claimer) {
     
     await saveTicketData(channel.guild.id, channel.id, ticketData);
     
+    try {
     const messages = await channel.messages.fetch();
     const ticketMessage = messages.find(m => 
       m.embeds.length > 0 && 
@@ -511,6 +546,10 @@ export async function claimTicket(channel, claimer) {
       await channel.send({ embeds: [claimEmbed], components: [unclaimRow] });
     }
     
+    } catch (presentationError) {
+      logger.warn('Ticket was claimed but the controls could not be refreshed', { channelId: channel.id, error: presentationError?.message });
+    }
+
     await logTicketEvent({
       client: channel.client,
       guildId: channel.guild.id,
@@ -590,6 +629,7 @@ export async function reopenTicket(channel, reopener) {
       logger.warn(`Could not restore access for user ${ticketData.userId}:`, error.message);
     }
     
+    try {
     const messages = await channel.messages.fetch();
     const ticketMessage = messages.find(m => 
       m.embeds.length > 0 && 
@@ -631,6 +671,10 @@ export async function reopenTicket(channel, reopener) {
       await channel.send({ embeds: [reopenEmbed] });
     }
     
+    } catch (presentationError) {
+      logger.warn('Ticket reopened, but channel summary controls could not be updated', { channelId: channel.id, error: presentationError?.message });
+    }
+
     return { ticketData, movedToOpenCategory, openCategoryMoveFailed };
     
   } catch (error) {
