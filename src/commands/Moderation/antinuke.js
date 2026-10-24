@@ -17,22 +17,32 @@ import {
 } from '../../services/antinukeService.js';
 import { isAntiNukeAIConfigured, getAntiNukeAIModel } from '../../services/aiSecurityService.js';
 
-function buildStatusEmbed(config) {
+export function buildStatusEmbed(config) {
+  const enabled = Boolean(config.enabled);
+  const limit = getThreshold(config.level);
   return new EmbedBuilder()
-    .setColor(getColor(config.enabled ? 'success' : 'warning'))
-    .setTitle('🛡️ Beacon Anti-Nuke Status')
-    .addFields(
-      { name: 'Protection', value: config.enabled ? '🟢 Enabled' : '🔴 Disabled', inline: true },
-      { name: 'Level', value: String(config.level), inline: true },
-      { name: 'Trigger threshold', value: `${getThreshold(config.level)} actions / 10 seconds`, inline: true },
-      { name: 'Blocked actions', value: String(config.blockedActions || 0), inline: true },
-      { name: 'Threats detected', value: String(config.threats || 0), inline: true },
-      { name: 'AI Security', value: isAntiNukeAIConfigured()
-        ? `Configured (${getAntiNukeAIModel()})` : 'Local adaptive analysis', inline: true },
-      { name: 'Last incident', value: config.lastIncident
-        ? `<t:${Math.floor(config.lastIncident / 1000)}:R>` : 'None', inline: true },
+    .setColor(getColor(enabled ? 'success' : 'warning'))
+    .setTitle('🛡️ Beacon • Security Control Center')
+    .setDescription(
+      (enabled ? '**🟢 Anti-Nuke protection is online.**' : '**🟠 Anti-Nuke is disabled.**') +
+      '\nReview protection sensitivity and detected threats below.\n\n' +
+      '**Quick controls**\n' +
+      '• /antinuke enable or /antinuke disable\n' +
+      '• /antinuke level to adjust sensitivity\n' +
+      '• /roleaudit to review dangerous role permissions'
     )
-    .setFooter({ text: 'Beacon • Security' })
+    .addFields(
+      { name: '🔒 Protection', value: enabled ? 'Active' : 'Off', inline: true },
+      { name: '🎚️ Sensitivity', value: String(config.level || 'medium').toUpperCase(), inline: true },
+      { name: '⚡ Detection Limit', value: String(limit) + ' actions / 10 seconds', inline: true },
+      { name: '🚨 Threats Detected', value: String(config.threats || 0), inline: true },
+      { name: '🛑 Blocked Actions', value: String(config.blockedActions || 0), inline: true },
+      { name: '🧠 Detection Engine', value: isAntiNukeAIConfigured()
+        ? 'AI assisted • ' + getAntiNukeAIModel() : 'Local adaptive analysis', inline: true },
+      { name: '📅 Last Incident', value: config.lastIncident
+        ? '<t:' + Math.floor(config.lastIncident / 1000) + ':R>' : 'No incidents recorded', inline: false },
+    )
+    .setFooter({ text: 'Beacon • Security Center • Private to server managers' })
     .setTimestamp();
 }
 
