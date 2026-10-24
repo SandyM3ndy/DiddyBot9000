@@ -1,5 +1,6 @@
 import { SlashCommandBuilder, MessageFlags, PermissionFlagsBits } from 'discord.js';
 import { createEmbed } from '../../utils/embeds.js';
+import { formatBeaconFooter } from '../../config/bot.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 import { logger } from '../../utils/logger.js';
 
@@ -54,7 +55,7 @@ export default {
       title: '📊 Community Poll',
       description: `**${question}**\n\n` + choices.map((v,i) => `${VOTES[i]} ${v}`).join('\n'),
       color: 'primary',
-    }).setFooter({ text: 'React below to vote • Votes are visible to other members' }).setTimestamp();
+    }).setFooter({ text: formatBeaconFooter('React below to vote • Votes are visible to other members') }).setTimestamp();
     try {
       // The interaction reply is the public poll. No duplicate private receipt.
       const posted = await InteractionHelper.safeEditReply(interaction, {
