@@ -422,7 +422,8 @@ function addContribution(data,userId,metric){
 }
 export function contributorRanking(data,period='weekly',limit=10){
  const board=data.contributors?.[period]||{};
- return Object.entries(board).map(([userId,stats])=>({
+ const hidden=new Set(data.contributionOptOut||[]);
+ return Object.entries(board).filter(([userId])=>!hidden.has(userId)).map(([userId,stats])=>({
   userId,messages:stats.messages||0,commands:stats.commands||0,
   actions:(stats.messages||0)+(stats.commands||0)
  })).sort((a,b)=>b.actions-a.actions||a.userId.localeCompare(b.userId)).slice(0,limit);
