@@ -318,6 +318,12 @@ function pickDailyQuests(guildId, day, level = 1, memberCount = 1) {
   const starter = pool.find(quest =>
     quest.difficulty === 'Starter' && ['messages', 'commands'].includes(quest.metric));
   if (starter) selected.push(starter);
+  // Two easy quests every day, even for a large but currently quiet community.
+  const secondStarter = pool.find(quest =>
+    quest.difficulty === 'Starter' &&
+    !selected.includes(quest) &&
+    !selected.some(chosen => chosen.metric === quest.metric));
+  if (secondStarter && selected.length < count) selected.push(secondStarter);
 
   // Give each server a varied set of achievable objectives before repeating metrics.
   for (const quest of pool) {
