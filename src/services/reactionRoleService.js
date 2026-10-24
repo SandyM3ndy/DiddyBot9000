@@ -355,8 +355,16 @@ export async function getAllReactionRoleMessages(client, guildId) {
                     }
                 }
             } catch (dataError) {
-                logger.warn(`Error getting data for reaction role key ${key}:`, dataError);
-                
+                // Never describe existing panels as "No panels" when their
+                // database records could not be read. Report a recoverable
+                // storage error without modifying or deleting any panel data.
+                logger.error(`Error getting data for reaction role key ${key}:`, dataError);
+                throw createError(
+                    'Reaction-role panel storage read failed',
+                    ErrorTypes.DATABASE,
+                    'Reaction-role settings could not be loaded. Existing panels were not changed. Please retry when the database is available.',
+                    { guildId, key, originalError: dataError.message },
+                );
             }
         }
 
