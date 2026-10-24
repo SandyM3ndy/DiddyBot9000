@@ -1,30 +1,74 @@
-import { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
+import {
+  SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle,
+  PermissionFlagsBits,
+} from 'discord.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 import { createEmbed } from '../../utils/embeds.js';
+
+// Do not request Administrator for ordinary installations. This default
+// provides the permissions needed for ticket, moderation and role modules;
+// each guild owner can review/remove permissions in Discord before inviting.
+export const BEACON_INSTALL_PERMISSIONS = [
+  PermissionFlagsBits.ViewChannel,
+  PermissionFlagsBits.SendMessages,
+  PermissionFlagsBits.SendMessagesInThreads,
+  PermissionFlagsBits.EmbedLinks,
+  PermissionFlagsBits.AttachFiles,
+  PermissionFlagsBits.ReadMessageHistory,
+  PermissionFlagsBits.AddReactions,
+  PermissionFlagsBits.ManageRoles,
+  PermissionFlagsBits.ManageChannels,
+  PermissionFlagsBits.ManageMessages,
+  PermissionFlagsBits.ManageWebhooks,
+  PermissionFlagsBits.KickMembers,
+  PermissionFlagsBits.BanMembers,
+  PermissionFlagsBits.ModerateMembers,
+  PermissionFlagsBits.Connect,
+  PermissionFlagsBits.Speak,
+].reduce((mask, permission) => mask | permission, 0n);
+
+export function getBeaconInviteUrl(clientId) {
+  if (!/^\d{17,20}$/.test(String(clientId))) {
+    throw new Error('A valid Discord application ID is required for the invite.');
+  }
+  const params = new URLSearchParams({
+    client_id: String(clientId),
+    permissions: BEACON_INSTALL_PERMISSIONS.toString(),
+    scope: 'bot applications.commands',
+  });
+  return 'https://discord.com/oauth2/authorize?' + params.toString();
+}
 
 export default {
   category: 'Core',
   slashOnly: true,
   data: new SlashCommandBuilder()
     .setName('invite')
-    .setDescription('Get a link to invite Beacon to another server'),
+    .setDescription('Get a secure link to add Beacon to another Discord server'),
 
   async execute(interaction) {
-    const clientId = interaction.client.user.id;
-    const permissions = '8';
-    const inviteUrl = `https://discord.com/oauth2/authorize?client_id=${clientId}&permissions=${permissions}&scope=bot%20applications.commands`;
-
+    const inviteUrl = getBeaconInviteUrl(interaction.client.user.id);
     const embed = createEmbed({
-      title: '🤖 Invite Beacon',
-      description: "Want Beacon in another server? Use the button below to invite Beacon.\n\n**Beacon**\n*Your community's all-in-one Discord assistant.*",
+      title: '🚀 Bring Beacon to Your Community',
+      description: [
+        '**Level up your Discord server.**',
+        'Compete on the global leaderboard, complete daily and weekly quests,',
+        'unlock achievements and share your server rank.',
+        '',
+        'Beacon also includes moderation, reaction roles, tickets, logging and more.',
+        '',
+        '🔒 **Transparent installation:** Beacon does not request Administrator permission.',
+        'Discord will show the specific permissions requested before you approve.',
+        'You can adjust Beacon’s permissions in your server later.',
+      ].join('\n'),
       color: 'primary',
       thumbnail: interaction.client.user.displayAvatarURL({ size: 512 }),
     });
 
     const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setLabel('Invite Beacon').setURL(inviteUrl).setStyle(ButtonStyle.Link),
+      new ButtonBuilder().setLabel('Invite Beacon').setEmoji('🚀')
+        .setURL(inviteUrl).setStyle(ButtonStyle.Link),
     );
-
     await InteractionHelper.safeReply(interaction, { embeds: [embed], components: [row] });
   },
 };
