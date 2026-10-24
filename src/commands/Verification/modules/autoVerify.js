@@ -78,7 +78,7 @@ export default {
     }
 };
 
-async function handleSetup(interaction, guild, client) {
+export async function handleSetup(interaction, guild, client) {
     const criteria = interaction.options.getString("criteria");
     const accountAgeDays = interaction.options.getInteger("account_age_days") || defaultAccountAgeDays;
     const targetRole = interaction.options.getRole("role");

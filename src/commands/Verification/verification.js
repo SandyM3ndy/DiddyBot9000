@@ -8,6 +8,8 @@ import { logger } from '../../utils/logger.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 import { getWelcomeConfig } from '../../utils/database.js';
 import verificationDashboard from './modules/verification_dashboard.js';
+import { handleSetup as configureAutoVerify } from './modules/autoVerify.js';
+import autoVerifyDashboard from './modules/autoVerifyDashboard.js';
 
 export default {
     data: new SlashCommandBuilder()
@@ -61,7 +63,17 @@ export default {
             subcommand
                 .setName("dashboard")
                 .setDescription("Open the verification system configuration dashboard")
-        ),
+        )
+        .addSubcommand(sub => sub.setName('auto-setup')
+            .setDescription('Set up automatic account verification')
+            .addRoleOption(o => o.setName('role').setDescription('Role to assign to approved members').setRequired(true))
+            .addStringOption(o => o.setName('criteria').setDescription('Minimum verification requirements').setRequired(true).addChoices(
+                { name: 'Account age', value: 'account_age' },
+                { name: 'No requirements', value: 'none' },
+            ))
+            .addIntegerOption(o => o.setName('account_age_days').setDescription('Minimum age in days').setMinValue(1).setMaxValue(365)))
+        .addSubcommand(sub => sub.setName('auto-dashboard')
+            .setDescription('Manage automatic verification settings')),
 
     async execute(interaction, config, client) {
         const wrappedExecute = withErrorHandling(async () => {
@@ -84,6 +96,10 @@ export default {
                     return await handleRemove(interaction, guild, client);
                 case "dashboard":
                     return await verificationDashboard.execute(interaction, config, client);
+                case 'auto-setup':
+                    return await configureAutoVerify(interaction, guild, client);
+                case 'auto-dashboard':
+                    return await autoVerifyDashboard.execute(interaction, config, client);
                 default:
                     throw createError(
                         `Unknown subcommand: ${subcommand}`,
