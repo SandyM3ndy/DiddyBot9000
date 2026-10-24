@@ -85,3 +85,21 @@ test('contributor opt-out hides public ranking but retains saved lifetime totals
  assert.equal(loaded.contributionOptOut.includes(userId),true);
  assert.deepEqual(contributorRanking(loaded,'lifetime'),[]);
 });
+
+test('daily quest rollover archives results instead of deleting them',async()=>{
+ const store=new Map(),guildId='111111111111111111',client=mockClient(store);
+ await mutateServerProgression(client,guildId,data=>{
+   data.lastQuestDay='2026-01-01';
+   data.dailyQuests=[{id:'spark',title:'✨ First Sparks',progress:3,target:3,
+      completed:true,reward:35}];
+   return {changed:true};
+ });
+ const loaded=await getServerProgression(mockClient(store),guildId);
+ assert.equal(loaded.dailyQuestHistory.length,1);
+ assert.equal(loaded.dailyQuestHistory[0].day,'2026-01-01');
+ assert.equal(loaded.dailyQuestHistory[0].quests[0].completed,true);
+ await mutateServerProgression(mockClient(store),guildId,()=>({changed:true}));
+ const again=await getServerProgression(mockClient(store),guildId);
+ assert.equal(again.dailyQuestHistory.length,1);
+ assert.notEqual(again.lastQuestDay,'2026-01-01');
+});
