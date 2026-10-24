@@ -148,11 +148,11 @@ function buildDashboardEmbed(config, guild, panelStatus = null, ticketStats = nu
         : '`No ratings yet`';
 
     return new EmbedBuilder()
-        .setTitle('🎫 Ticket System Dashboard')
-        .setDescription(`Manage ticket system settings for **${guild.name}**.\nSelect an option below to modify a setting.`)
+        .setTitle('🎫 Beacon • Ticket Support Center')
+        .setDescription(`**${guild.name}**\nManage support requests, staff access, categories and transcripts from one control center.`)
         .setColor(getColor('info'))
         .addFields(
-            { name: 'Panel Status', value: panelStatusValue, inline: false },
+            { name: '📢 Panel Status', value: panelStatusValue, inline: false },
             { name: 'Panel Channel', value: panelChannel, inline: true },
             { name: 'Staff Role', value: staffRole, inline: true },
             { name: '\u200B', value: '\u200B', inline: true },
@@ -162,7 +162,7 @@ function buildDashboardEmbed(config, guild, panelStatus = null, ticketStats = nu
             { name: 'Panel Message', value: panelMsg, inline: false },
             { name: 'Button Label', value: btnLabel, inline: true },
             { name: 'Max Tickets/User', value: String(config.maxTicketsPerUser || 3), inline: true },
-            { name: 'DM on Close', value: config.dmOnClose !== false ? 'Enabled' : 'Disabled', inline: true },
+            { name: '📩 DM on Close', value: config.dmOnClose !== false ? '🟢 Enabled' : '⚪ Disabled', inline: true },
             { name: 'Ticket Logs Channel', value: ticketLogsChannel, inline: true },
             { name: 'Transcript Channel', value: transcriptChannel, inline: true },
             { name: '\u200B', value: '\u200B', inline: true },
@@ -177,7 +177,7 @@ function buildDashboardEmbed(config, guild, panelStatus = null, ticketStats = nu
 function buildSelectMenu(guildId) {
     return new StringSelectMenuBuilder()
         .setCustomId(`ticket_config_${guildId}`)
-        .setPlaceholder('Select a setting to configure...')
+        .setPlaceholder('🎫 Select a ticket setting to manage...')
         .addOptions(
             new StringSelectMenuOptionBuilder()
                 .setLabel('Set Panel Channel')

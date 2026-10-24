@@ -10,6 +10,19 @@ function generateShareId() {
     return crypto.randomBytes(16).toString('hex');
 }
 
+export function formatPersonalTasks(tasks, limit = 20) {
+    const entries = Array.isArray(tasks) ? tasks : [];
+    if (!entries.length) return 'No tasks yet. Use /todo add to create your first one.';
+    const shown = entries.slice(0, limit);
+    const lines = shown.map(task => {
+        const date = new Date(task.createdAt);
+        const dateText = Number.isNaN(date.getTime()) ? '' : ' • ' + date.toLocaleDateString('en-AU');
+        return (task.completed ? '✅ ' : '⬜ ') + '**#' + task.id + '** ' + String(task.text || '').slice(0, 130) + dateText;
+    });
+    if (entries.length > shown.length) lines.push('…and ' + (entries.length - shown.length) + ' more tasks.');
+    return lines.join('\n').slice(0, 3800);
+}
+
 export default {
     data: new SlashCommandBuilder()
         .setName("todo")
@@ -440,16 +453,11 @@ export default {
                     });
                 }
 
-                const taskList = userData.tasks
-                    .map(task => 
-                        `${task.completed ? '✅' : '📝'} #${task.id} ${task.text}` +
-                        `\`[${new Date(task.createdAt).toLocaleDateString()}\``
-                    )
-                    .join('\n');
+                const taskList = formatPersonalTasks(userData.tasks);
 
                 return await InteractionHelper.safeEditReply(interaction, {
                     embeds: [
-                        successEmbed('Your To-Do List', taskList)
+                        successEmbed('📝 Your Tasks • ' + userData.tasks.filter(t => !t.completed).length + ' remaining', taskList)
                     ],
                 });
             }

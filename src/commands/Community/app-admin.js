@@ -499,20 +499,9 @@ async function handleList(interaction) {
         filters,
     );
 
-    if (!user) {
-        applications = await Promise.all(
-            applications.map(async (app) => {
-                try {
-                    await interaction.guild.members.fetch(app.userId);
-                    return app; 
-                } catch {
-                    
-                    await deleteApplication(interaction.client, interaction.guild.id, app.id, app.userId);
-                    return null; 
-                }
-            })
-        ).then(results => results.filter(Boolean)); 
-    }
+    // Staff list views must NEVER delete submitted applications.
+    // A missing member may simply mean a cache/API outage or that the applicant left.
+    // Preserve the application record for an explicit moderator decision.
 
     if (user) {
         applications = applications.filter((app) => app.userId === user.id);
@@ -545,7 +534,7 @@ async function handleList(interaction) {
             return await replyUserError(interaction, {
                 type: ErrorTypes.CONFIGURATION,
                 message: 'No applications found and no application roles configured.\n' +
-                    'Use `/app-admin roles add` to configure application roles first.'
+                    'Use `/app-admin setup` to create the first application.'
             });
         }
     }
@@ -554,7 +543,12 @@ async function handleList(interaction) {
         .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
         .slice(0, limit);
 
-    const embed = createEmbed({ title: "Submitted Applications", description: `Showing ${applications.length} applications.`, });
+    const embed = createEmbed({
+      title: '📋 Beacon • Application Review Queue',
+      description: '**' + applications.length + ' application(s)** matching your filters. Use /app-admin review to make a decision.',
+      color: 'primary',
+      footer: 'Beacon • Staff Applications • Private reviewer view',
+    });
 
     applications.forEach((app) => {
         const statusView = getApplicationStatusPresentation(app?.status);
