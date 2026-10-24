@@ -439,7 +439,7 @@ function defaultProgression() {
     dailyQuests: [],
     updatedAt: new Date().toISOString(),
     leaderboardExcluded: false,
-    weekly: null,weeklyHistory:[],dailyHistory:[],contributors:null,dailyRerollDay:null,joinDay:null,joinIds:[],contributionOptOut:[],
+    weekly: null,weeklyHistory:[],dailyHistory:[],dailyQuestHistory:[],contributors:null,dailyRerollDay:null,joinDay:null,joinIds:[],contributionOptOut:[],
   };
 }
 
@@ -472,6 +472,19 @@ function ensureDailyQuests(data, guildId, now = new Date(), memberCount = 1) {
     return data;
   }
 
+  // Preserve the full previous day's quest outcomes, not only aggregate XP.
+  if (data.lastQuestDay && Array.isArray(data.dailyQuests) && data.dailyQuests.length) {
+    data.dailyQuestHistory = Array.isArray(data.dailyQuestHistory) ? data.dailyQuestHistory : [];
+    if (!data.dailyQuestHistory.some(entry => entry.day === data.lastQuestDay)) {
+      data.dailyQuestHistory.push({
+        day: data.lastQuestDay,
+        quests: data.dailyQuests.map(q => ({
+          id:q.id,title:q.title,progress:q.progress,target:q.target,
+          completed:q.completed===true,reward:q.reward,
+        })),
+      });
+    }
+  }
   data.lastQuestDay = day;
   data.dailyQuests = pickDailyQuests(guildId, day, data.level, memberCount).map(quest => ({
     ...quest,
