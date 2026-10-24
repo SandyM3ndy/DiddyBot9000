@@ -30,7 +30,7 @@ export function buildCommandRegistry(client) {
   const categories = new Map();
 
   for (const command of client.commands.values()) {
-    if (!command?.data?.name) {
+    if (!command?.data?.name || command.legacyOnly) {
       continue;
     }
 

@@ -1,6 +1,7 @@
 import { handleDashboardComponent } from '../../commands/Core/modules/commands_dashboard.js';
 
 export default [
+  'cmdaccess_page',
   'cmdaccess_toggle_category',
   'cmdaccess_enable_all',
   'cmdaccess_disable_all',
