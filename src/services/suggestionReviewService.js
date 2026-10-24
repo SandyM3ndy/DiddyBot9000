@@ -60,3 +60,16 @@ export async function changeSuggestionStatus(client,guildId,id,status,moderatorI
     return updated;
   },client);
 }
+
+export async function attachSuggestionMessage(client,guildId,id,messageId){
+  return withGuildLock('suggestion:'+guildId+':'+id,async()=>{
+    const key=suggestionKey(guildId,id);
+    const record=await client.db.get(key,null);
+    if(!record||record.guildId!==guildId)return null;
+    if(record.messageId===messageId)return record;
+    const next={...record,messageId};
+    const stored=await client.db.set(key,next);
+    if(stored===false)throw new Error('Suggestion message association was not saved');
+    return next;
+  },client);
+}
