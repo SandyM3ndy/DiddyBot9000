@@ -24,7 +24,7 @@ export default {
         embeds: [
           createEmbed({
             title: "Need Help?",
-            description: "Your community\'s all-in-one Discord assistant.\\n\\nNeed a hand with Beacon? Join our support server to report an issue, suggest an idea, or get help with server configuration. We\'ll do our best to help."
+            description: "Your community's all-in-one Discord assistant.\n\nNeed a hand with Beacon? Join our support server to report an issue, suggest an idea, or get help with server configuration. We'll do our best to help.",
           }),
         ],
         components: [actionRow],
