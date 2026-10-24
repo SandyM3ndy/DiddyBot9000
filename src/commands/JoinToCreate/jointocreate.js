@@ -1,4 +1,4 @@
-import { getColor } from '../../config/bot.js';
+import { getColor, formatBeaconFooter } from '../../config/bot.js';
 import { SlashCommandBuilder, PermissionFlagsBits, MessageFlags, ChannelType, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, EmbedBuilder, LabelBuilder } from 'discord.js';
 import { successEmbed, warningEmbed } from '../../utils/embeds.js';
 import { logger } from '../../utils/logger.js';
@@ -238,7 +238,7 @@ export async function openJoinToCreateDashboard(interaction, client, triggerChan
         const channelConfig = currentConfig.channelConfig || {};
 
         const configEmbed = new EmbedBuilder()
-            .setTitle('Join to Create Configuration')
+            .setTitle('🔊 Beacon • Join to Create Configuration')
             .setDescription(`Configuration for ${triggerChannel}`)
             .setColor(getColor('info'))
             .addFields(
@@ -258,7 +258,7 @@ export async function openJoinToCreateDashboard(interaction, client, triggerChan
                     inline: true
                 }
             )
-            .setFooter({ text: 'Use the buttons below to modify settings • Only one trigger channel is supported per guild' })
+            .setFooter({ text: formatBeaconFooter('Use the buttons below to modify settings • Only one trigger channel is supported per guild') })
             .setTimestamp();
 
         const nameButton = new ButtonBuilder()
@@ -353,7 +353,7 @@ export async function openJoinToCreateDashboard(interaction, client, triggerChan
 
             message.edit({
                 components: [disabledRow],
-                embeds: [configEmbed.setFooter({ text: 'Configuration session expired. Run the command again to make changes.' })]
+                embeds: [configEmbed.setFooter({ text: formatBeaconFooter('Configuration session expired. Run the command again to make changes.') })]
             }).catch(() => {});
         });
 
