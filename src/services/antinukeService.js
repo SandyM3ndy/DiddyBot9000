@@ -3,6 +3,7 @@ import { logger } from '../utils/logger.js';
 import { logModerationAction } from '../utils/moderation.js';
 import { getGuildConfig, setGuildConfig } from './config/guildConfig.js';
 import { analyzeAntiNukeBehavior, clearAntiNukeAIData } from './aiSecurityService.js';
+import { recordSecurityIncident } from '../utils/security/incidentTimeline.js';
 
 const configurations = new Map();
 const recentActions = new Map();
@@ -277,6 +278,12 @@ export async function handleDestructiveAction(guild, executor, action, details =
       punishmentReason,
       action
     );
+    // Log what actually happened, not what the detection engine intended.
+    void recordSecurityIncident(guild.id, {
+      action, actorId: executor.id, detail: details || punishmentReason,
+      severity: 'critical', outcome: punished ? 'kicked' : 'failed',
+      count: result.count, threshold: result.threshold,
+    }).catch(() => {});
 
     return {
       detected: true,
@@ -288,6 +295,13 @@ export async function handleDestructiveAction(guild, executor, action, details =
     };
   }
 
+  // Keep detections in the timeline for investigations without claiming
+  // that a user was punished when the threshold was not reached.
+  void recordSecurityIncident(guild.id, {
+    action, actorId: executor.id, detail: details,
+    severity: ai?.severity === 'high' ? 'high' : 'medium',
+    outcome: 'detected', count: result.count, threshold: result.threshold,
+  }).catch(() => {});
   return { detected: true, triggered: false, ai, aiTriggered: false, ...result };
 }
 
@@ -298,6 +312,10 @@ export async function revertRolePermissions(role, oldPermissions) {
       'Anti-Nuke: reverted dangerous permission escalation'
     );
     recordBlockedAction(role.guild.id);
+    void recordSecurityIncident(role.guild.id, {
+      action: 'Role permission escalation', detail: role.name,
+      severity: 'high', outcome: 'reverted',
+    }).catch(() => {});
     logger.warn(
       `Anti-Nuke reverted dangerous permissions on role ${role.name} (${role.id}) in ${role.guild.name}`
     );

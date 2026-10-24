@@ -16,6 +16,7 @@ import {
   savePersistedAntiNukeConfig,
 } from '../../services/antinukeService.js';
 import { isAntiNukeAIConfigured, getAntiNukeAIModel } from '../../services/aiSecurityService.js';
+import { getSecurityIncidents } from '../../utils/security/incidentTimeline.js';
 
 export function buildStatusEmbed(config) {
   const enabled = Boolean(config.enabled);
@@ -57,6 +58,8 @@ export default {
     .addSubcommand(o => o.setName('enable').setDescription('Enable Anti-Nuke protection'))
     .addSubcommand(o => o.setName('disable').setDescription('Disable Anti-Nuke protection'))
     .addSubcommand(o => o.setName('status').setDescription('View Anti-Nuke status and security statistics'))
+    .addSubcommand(o => o.setName('incidents').setDescription('Private security incident timeline (Manage Server)')
+      .addIntegerOption(opt => opt.setName('limit').setDescription('Recent incidents (1–20)').setMinValue(1).setMaxValue(20)))
     .addSubcommand(o => o.setName('level')
       .setDescription('Set Anti-Nuke sensitivity and action thresholds')
       .addStringOption(opt => opt.setName('level')
@@ -95,6 +98,26 @@ export default {
       await loadPersistedAntiNukeConfig(interaction.client, guildId);
       const subcommand = interaction.options.getSubcommand();
 
+      if (subcommand === 'incidents') {
+        const incidents = await getSecurityIncidents(guildId, interaction.options.getInteger('limit') || 10);
+        const rows = incidents.map(entry => {
+          const when = Math.floor(new Date(entry.occurredAt).getTime() / 1000);
+          const actor = entry.actorId ? '<@' + entry.actorId + '>' : 'Unknown actor';
+          const icon = entry.outcome === 'kicked' ? '🛑' : entry.outcome === 'reverted' ? '↩️'
+            : entry.outcome === 'failed' ? '⚠️' : '🔎';
+          return icon + ' **' + entry.action + '** · ' + entry.outcome.toUpperCase() +
+            '\n' + actor + ' • <t:' + when + ':R>' +
+            (entry.count ? ' • ' + entry.count + '/' + entry.threshold + ' actions' : '') +
+            (entry.detail ? '\n' + entry.detail.slice(0,180) : '');
+        });
+        const embed = new EmbedBuilder().setColor(getColor('primary'))
+          .setTitle('🛡️ Beacon • Security Incident Timeline')
+          .setDescription(rows.length ? rows.join('\n\n').slice(0,3900)
+            : 'No recorded incidents. New detections will appear here after Anti-Nuke evaluates them.')
+          .setFooter({ text: 'Private to server managers • Detection is not proof of wrongdoing' })
+          .setTimestamp();
+        return InteractionHelper.safeEditReply(interaction, { embeds: [embed], allowedMentions: { parse: [] } });
+      }
       if (subcommand === 'status') {
         return InteractionHelper.safeEditReply(interaction, {
           embeds: [buildStatusEmbed(getAntiNukeConfig(guildId))],
