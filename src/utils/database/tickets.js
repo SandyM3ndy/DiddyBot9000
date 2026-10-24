@@ -133,6 +133,11 @@ export async function listTicketsForUser(guildId, userId) {
         .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
 }
 
+export async function getUnarchivedTicketCount(guildId) {
+    const tickets = await listGuildTickets(guildId);
+    return tickets.filter(ticket => ticket.status === 'open' || ticket.status === 'closed').length;
+}
+
 export async function listOpenSupportQueue(guildId) {
     const tickets = await listGuildTickets(guildId);
     return tickets.filter(ticket => ticket.status === 'open')

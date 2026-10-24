@@ -21,7 +21,7 @@ import { successEmbed, infoEmbed } from '../../../utils/embeds.js';
 import { logger } from '../../../utils/logger.js';
 import { TitanBotError, ErrorTypes, replyUserError } from '../../../utils/errorHandler.js';
 import { getGuildConfig, setGuildConfig } from '../../../services/config/guildConfig.js';
-import { getGuildTicketStats } from '../../../utils/database/tickets.js';
+import { getGuildTicketStats, getUnarchivedTicketCount } from '../../../utils/database/tickets.js';
 import { getUserTicketCount } from '../../../services/ticket.js';
 import {
     getTicketPanelStatus,
@@ -62,7 +62,7 @@ function buildButtonRow(guildConfig, guildId, disabled = false, panelStatus = nu
             .setDisabled(disabled),
         new ButtonBuilder()
             .setCustomId(`ticket_cfg_delete_${guildId}`)
-            .setLabel('Delete System')
+            .setLabel('Reset Setup')
             .setStyle(ButtonStyle.Danger)
             .setEmoji('🗑️')
             .setDisabled(disabled),
@@ -959,7 +959,7 @@ async function handleRepostPanel(btnInteraction, rootInteraction, guildConfig, g
 async function handleDeleteSystem(btnInteraction, rootInteraction, guildConfig, guildId, client) {
     const deleteModal = new ModalBuilder()
         .setCustomId('ticket_delete_confirm_modal')
-        .setTitle('Delete Ticket System')
+        .setTitle('Reset Ticket Setup')
         .addComponents(
             new ActionRowBuilder().addComponents(
                 new TextInputBuilder()
@@ -997,6 +997,25 @@ async function handleDeleteSystem(btnInteraction, rootInteraction, guildConfig, 
 
     await submitted.deferUpdate();
 
+    // Never orphan still-existing ticket channels by deleting all saved records.
+    // If the database is unavailable, refuse to reset rather than assume zero.
+    let unresolved;
+    try {
+        unresolved = await getUnarchivedTicketCount(guildId);
+    } catch (error) {
+        logger.warn('Ticket setup reset blocked by unavailable database', { guildId, error: error?.message });
+        await submitted.followUp({ content: '⚠️ Ticket storage is unavailable. Setup has not been reset.', flags: MessageFlags.Ephemeral });
+        return;
+    }
+    if (unresolved > 0) {
+        await submitted.followUp({
+            content: '🔒 **Reset blocked:** ' + unresolved +
+                ' open or closed-but-unarchived ticket(s) still exist. Archive and remove those ticket channels before resetting the ticket system. No records were changed.',
+            flags: MessageFlags.Ephemeral,
+        });
+        return;
+    }
+
     const keysToDelete = [
         'ticketPanelChannelId',
         'ticketPanelMessageId',
@@ -1032,17 +1051,8 @@ async function handleDeleteSystem(btnInteraction, rootInteraction, guildConfig, 
         }
     }
 
-    try {
-        const { pgConfig } = await import('../../../config/database/postgres.js');
-        if (client.db?.db?.pool && typeof client.db.db.isAvailable === 'function' && client.db.db.isAvailable()) {
-            await client.db.db.pool.query(
-                `DELETE FROM ${pgConfig.tables.tickets} WHERE guild_id = $1`,
-                [guildId]
-            );
-        }
-    } catch (ticketDeleteError) {
-        logger.warn('Could not clear ticket records from database:', ticketDeleteError.message);
-    }
+    // Historical archives, feedback and analytics are preserved.
+    // Never DELETE the ticket storage table during a configuration reset.
 
     for (const key of keysToDelete) {
         delete guildConfig[key];
@@ -1052,8 +1062,8 @@ async function handleDeleteSystem(btnInteraction, rootInteraction, guildConfig, 
     await submitted.followUp({
         embeds: [
             successEmbed(
-                '✅ Ticket System Deleted',
-                'All ticket system configuration has been cleared. Open `/configwizard` → **Ticket System** to set it up again.',
+                '✅ Ticket Setup Reset',
+                'Support panel settings were reset safely. Archived ticket history and feedback have been preserved. Use **/dashboard** to configure support again.',
             ),
         ],
         flags: MessageFlags.Ephemeral,
@@ -1062,8 +1072,8 @@ async function handleDeleteSystem(btnInteraction, rootInteraction, guildConfig, 
     await InteractionHelper.safeEditReply(rootInteraction, {
         embeds: [
             new EmbedBuilder()
-                .setTitle('Ticket System Deleted')
-                .setDescription('The ticket system configuration has been cleared.')
+                .setTitle('Ticket Setup Reset')
+                .setDescription('The support panel configuration has been reset. Archived history is intact.')
                 .setColor(getColor('error'))
                 .setTimestamp(),
         ],
