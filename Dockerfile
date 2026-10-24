@@ -10,11 +10,12 @@ RUN apk add --no-cache postgresql-client \
 
 COPY . .
 
-# Do a lightweight source integrity check during the image build.
-# Full npm run preflight (syntax, unit tests and command audit) is already a
-# mandatory GitHub Actions gate; rerunning the entire suite here makes Railway
-# spend extra build resources, which can trigger environment-specific failures.
-RUN node --check src/app.js && node scripts/check.js
+# Validate both syntax and live ESM imports for every event/component.
+# An absent named export can pass node --check yet silently disable a handler
+# at startup. Keep the full unit suite in GitHub CI to avoid Railway build
+# timeouts while still stopping faulty deployments before startup.
+RUN NODE_ENV=test node scripts/check.js \
+    && NODE_ENV=test node --test tests/runtimeHandlerImportIntegrity.test.js
 
 # Run as the unprivileged Node user, while granting it ownership of runtime-write directories.
 RUN mkdir -p /usr/src/app/logs /usr/src/app/backups \
