@@ -93,3 +93,32 @@ test('new persistent handlers and subcommands are wired into Beacon',async()=>{
  for(const [path,regex] of Object.entries(files))
   assert.match(await readFile(path,'utf8'),regex,path);
 });
+
+test('dashboard setting undo restores the original value and survives a simulated restart',async()=>{
+ const store=new Map();
+ const client={db:fakeDb(store),guilds:{cache:new Map([
+  [guildId,{id:guildId,channels:{cache:new Map()},roles:{cache:new Map()},members:{me:{roles:{highest:{position:10}}}}}]
+ ])}};
+ const changed=await updateDashboardSettingWithUndo(client,guildId,'prefix','$',owner);
+ assert.equal(changed.changed,true);
+ const ready=await getDashboardUndo({...client,db:fakeDb(store)},guildId);
+ assert.equal(ready.key,'prefix');
+ assert.equal(ready.after,'$');
+ const undone=await undoLastDashboardSetting({...client,db:fakeDb(store)},guildId,owner,{isOwner:true});
+ assert.equal(undone.ok,true);
+ assert.equal(await getDashboardUndo(client,guildId),null);
+});
+
+test('dashboard undo does not overwrite a subsequent independent configuration change',async()=>{
+ const store=new Map();
+ const guild={id:guildId,channels:{cache:new Map()},roles:{cache:new Map()},
+  members:{me:{roles:{highest:{position:10}}}}};
+ const client={db:fakeDb(store),guilds:{cache:new Map([[guildId,guild]])}};
+ await updateDashboardSettingWithUndo(client,guildId,'prefix','$',owner);
+ const raw=store.get('guild:'+guildId+':config');
+ store.set('guild:'+guildId+':config',{...raw,prefix:'!'});
+ const result=await undoLastDashboardSetting(client,guildId,owner,{isOwner:true});
+ assert.equal(result.ok,false);
+ assert.match(result.reason,/changed since/);
+ assert.equal(store.get('guild:'+guildId+':config').prefix,'!');
+});
