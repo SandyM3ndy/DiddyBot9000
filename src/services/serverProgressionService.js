@@ -819,26 +819,27 @@ export async function getGlobalProgressionLeaderboard(client) {
   const keys = await client.db.list('guild:');
   const entries = [];
 
-  for (const key of keys) {
-    if (!key.endsWith(KEY_SUFFIX)) continue;
-    const guildId = key.slice(KEY_PREFIX.length, -KEY_SUFFIX.length);
-    if (!guildId) continue;
-
-    const guild = client.guilds.cache.get(guildId);
-    if (!guild) continue;
-
-    const raw = await client.db.get(key, null);
-    const data = normalizeProgression(raw);
-    if (data.leaderboardExcluded === true) continue;
-    entries.push({
-      guildId,
-      guildName: guild.name,
-      xp: data.xp,
-      level: levelFromXp(data.xp),
-    });
+  // Bounded parallel reads keep leaderboard pages responsive when the bot
+  // grows, without opening an unbounded number of database requests.
+  const eligibleKeys = keys.filter(key => key.startsWith(KEY_PREFIX) && key.endsWith(KEY_SUFFIX));
+  const batchSize = 8;
+  for (let index = 0; index < eligibleKeys.length; index += batchSize) {
+    const batch = eligibleKeys.slice(index, index + batchSize);
+    const rows = await Promise.all(batch.map(async key => {
+      const guildId = key.slice(KEY_PREFIX.length, -KEY_SUFFIX.length);
+      const guild = client.guilds.cache.get(guildId);
+      if (!guild) return null;
+      const raw = await client.db.get(key, null);
+      if (!raw) return null;
+      const data = normalizeProgression(raw);
+      if (data.leaderboardExcluded) return null;
+      return { guildId, guildName: guild.name, xp: data.xp, level: levelFromXp(data.xp) };
+    }));
+    entries.push(...rows.filter(Boolean));
   }
 
-  return entries.sort((a, b) => b.xp - a.xp);
+  // Stable tiebreaks prevent servers with equal XP swapping ranks on refresh.
+  return entries.sort((a, b) => b.xp - a.xp || a.guildId.localeCompare(b.guildId));
 }
 
 export function getLevelProgress(data) {
