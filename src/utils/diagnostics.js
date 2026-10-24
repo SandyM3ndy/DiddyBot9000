@@ -129,3 +129,61 @@ export function calculateServerHealth(findings = []) {
     .slice(0, 3).map(f => f.subject + ': ' + f.detail);
   return { score, grade, critical, warning, unverified, actions, checked: findings.length };
 }
+
+
+/**
+ * Turn configuration findings into precise next steps. Optional features that
+ * are not enabled do not become "failures" merely because they are not set up.
+ */
+export function buildDiagnosticActionPlan(findings = [], limit = 4) {
+  const problems = findings.filter(item => item?.severity === 'critical' || item?.severity === 'warning');
+  const unique = new Set();
+  const actions = [];
+  for (const issue of problems) {
+    const subject = String(issue.subject || '');
+    const detail = String(issue.detail || '');
+    let fix;
+    if (subject === 'Database') {
+      fix = 'Check persistent PostgreSQL connectivity on the Beacon host; do not restart into memory-only mode.';
+    } else if (/Transcript privacy/i.test(subject)) {
+      fix = 'Make the transcript archive private to staff; deny @everyone View Channel access.';
+    } else if (/Transcript uploads/i.test(subject)) {
+      fix = 'Give Beacon Attach Files permission in the private transcript archive.';
+    } else if (/Ticket/i.test(subject)) {
+      fix = 'Open /ticket dashboard and review support channel, categories, staff roles and transcript settings.';
+    } else if (/Verification/i.test(subject)) {
+      fix = 'Open /verification dashboard; check verification channel, role hierarchy and Beacon permissions.';
+    } else if (/Welcome|Goodbye/i.test(subject)) {
+      fix = 'Open /dashboard → Welcome & Goodbye and select valid channels and roles.';
+    } else if (/Audit|Logging/i.test(subject)) {
+      fix = 'Open /dashboard → Logging and choose a channel Beacon can write to.';
+    } else if (/role/i.test(subject) || /Manage Roles/i.test(detail)) {
+      fix = 'Open /dashboard → Moderator Role; check Manage Roles and move Beacon above assignable roles.';
+    } else if (/View Channel|Send Messages|Embed Links|View Channels/i.test(subject)) {
+      fix = 'Check Beacon role permissions and channel overrides in Server Settings.';
+    } else {
+      fix = subject + ': ' + detail;
+    }
+    if (unique.has(fix)) continue;
+    unique.add(fix);
+    actions.push(fix);
+    if (actions.length >= Math.max(1, limit)) break;
+  }
+  return actions;
+}
+
+export function summarizeConfiguredFeatures(config = {}) {
+  const features = [
+    ['🛡️ AutoMod', config.autoModEnabled === true],
+    ['🏆 Progression', config.serverProgression?.enabled === true],
+    ['🎫 Tickets', Boolean(config.ticketPanelChannelId)],
+    ['✅ Verification', config.verification?.enabled === true],
+    ['📋 Logging', config.logging?.enabled === true],
+    ['👋 Welcome', config.welcome?.enabled === true || config.enabled === true],
+  ];
+  return {
+    enabled: features.filter(([, enabled]) => enabled).map(([label]) => label),
+    total: features.length,
+    // Inactive modules are optional; never penalise them in a health score.
+  };
+}
