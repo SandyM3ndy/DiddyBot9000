@@ -13,6 +13,7 @@ import {
 import { startDashboardSession } from '../../utils/dashboardSession.js';
 import { buildReactionRoleLanding, REACTION_ROLE_SETUP_BUTTON } from '../../utils/reactionRoles/reactionRoleSetup.js';
 import { getReactionRoleKey } from '../../utils/database/keys.js';
+import { buildReactionRoleStudio } from '../../utils/reactionRoles/reactionRoleStudio.js';
 
 const DASHBOARD_EPHEMERAL = MessageFlags.Ephemeral;
 const SELECT_OPTION_LABEL_LIMIT = 100;
@@ -85,6 +86,10 @@ export default {
                         .setRequired(false)
                         .setAutocomplete(true)
                 )
+        )
+        .addSubcommand(subcommand =>
+            subcommand.setName('studio')
+                .setDescription('Preview saved reaction role panels and check role security before editing')
         ),
 
     async execute(interaction) {
@@ -95,6 +100,10 @@ export default {
         } else if (subcommand === 'dashboard') {
             const selectedPanelId = interaction.options.getString('panel');
             await openReactionRoleDashboard(interaction, selectedPanelId);
+        } else if (subcommand === 'studio') {
+            if(!(await InteractionHelper.safeDefer(interaction,{flags:MessageFlags.Ephemeral})))return;
+            const panels=await getAllReactionRoleMessages(interaction.client,interaction.guildId);
+            await InteractionHelper.safeEditReply(interaction,buildReactionRoleStudio(interaction.guild,panels));
         }
     },
 
