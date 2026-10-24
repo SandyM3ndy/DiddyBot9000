@@ -21,6 +21,7 @@ import { buildUserErrorEmbed } from './embeds.js';
 import { MessageFlags } from 'discord.js';
 import { getErrorMetadata, getDefaultErrorCodeByType, resolveErrorCode, ErrorCodes } from './errorRegistry.js';
 import { InteractionHelper } from './interactionHelper.js';
+import { errorRescueComponents } from './errorRescue.js';
 
 // Re-export so consumers only ever need to import from errorHandler.js
 export { ErrorCodes, getErrorMetadata, resolveErrorCode, getDefaultErrorCodeByType } from './errorRegistry.js';
@@ -408,7 +409,7 @@ async function sendErrorResponse(interaction, embed, context = {}) {
             return false;
         }
 
-        const errorMessage = { embeds: [embed] };
+        const errorMessage = { embeds: [embed], components: errorRescueComponents(context.rescueType || 'unknown',context.rescueReference || '') };
 
         if (interaction._isPrefixCommand) {
             if (coordinator?.hasResponded()) {
@@ -495,7 +496,7 @@ export async function replyUserError(interaction, {
     logInteractionError(syntheticError, errorType, logData);
 
     const embed = buildUserErrorEmbed(errorType, userMessage);
-    return sendErrorResponse(interaction, embed, { ...context, traceId, ephemeral, subtype });
+    return sendErrorResponse(interaction, embed, { ...context, traceId, ephemeral, subtype, rescueType:errorType });
 }
 
 const USER_ERROR_TYPES = new Set([
@@ -526,7 +527,7 @@ export async function handleInteractionError(interaction, error, context = {}) {
         : `${userMessage}\n\n-# Ref: \`${buildErrorReference(resolvedErrorCode, traceId)}\``;
 
     const embed = buildUserErrorEmbed(errorType, description);
-    await sendErrorResponse(interaction, embed, { ...context, traceId });
+    await sendErrorResponse(interaction, embed, { ...context, traceId, rescueType:errorType, rescueReference:buildErrorReference(resolvedErrorCode,traceId) });
 }
 
 /**
