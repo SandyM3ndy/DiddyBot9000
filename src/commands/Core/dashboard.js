@@ -95,47 +95,62 @@ function getThemeColorLines() {
     ].join('\n');
 }
 
-function buildDashboardEmbed(config, guild) {
-    const setupComplete = Boolean(config.setupWizardCompleted);
+export function getDashboardSetupSummary(config = {}) {
+    const checks = [
+        { name: 'Moderation role', ready: Boolean(config.modRole), action: 'Moderator Role' },
+        { name: 'Welcome channel', ready: Boolean(config.welcomeChannelId || config.welcome?.channelId || config.channelId), action: 'Welcome & Goodbye' },
+        { name: 'Ticket panel', ready: Boolean(config.ticketPanelChannelId), action: 'Ticket System' },
+        { name: 'Ticket staff', ready: Boolean(config.ticketStaffRoleId), action: 'Ticket System' },
+        { name: 'Private archive channel', ready: Boolean(config.ticketTranscriptChannelId), action: 'Ticket System' },
+        { name: 'Audit log channel', ready: Boolean(config.logging?.channels?.audit), action: 'Logging' },
+    ];
+    const configured = checks.filter(check => check.ready).length;
+    return { configured, total: checks.length, missing: checks.filter(check => !check.ready) };
+}
+
+export function buildDashboardEmbed(config, guild) {
+    const summary = getDashboardSetupSummary(config);
     const enabled = '🟢 Enabled';
     const disabled = '⚪ Disabled';
-    const code = (value) => String.fromCharCode(96) + value + String.fromCharCode(96);
+    const setupComplete = Boolean(config.setupWizardCompleted);
+    const next = summary.missing.slice(0, 3).map(item => '• **' + item.name + '** → ' + item.action).join('\n');
+    const readiness = summary.configured === summary.total
+        ? '✅ All core setup fields have values. Run **/diagnose** to verify actual permissions.'
+        : '🧭 **' + summary.configured + '/' + summary.total + ' core settings configured**\n' +
+          (next || 'Open the menu below to finish setup.');
 
     return createEmbed({
-        title: '⚙️ Beacon • Server Dashboard',
+        title: '⚙️ Beacon • Server Control Center',
         description: [
             '**' + guild.name + '**',
-            'Your control center for moderation, support, security and community settings.',
+            'Manage your server from one private control center.',
+            '',
+            readiness,
             '',
             setupComplete
-                ? '✅ **Initial setup completed** • Choose a category to manage.'
-                : '🧭 **New here?** Select **Launch Setup Wizard** to get started.',
+                ? 'Your initial setup wizard was completed. You can edit individual settings below.'
+                : 'New to Beacon? Use **Start Setup** for guided configuration.',
         ].join('\n'),
-        color: 'primary',
+        color: summary.configured === summary.total ? 'success' : 'primary',
         thumbnail: guild.iconURL?.({ size: 256 }) || null,
         fields: [
-            { name: '⌨️ Prefix', value: code(config.prefix || getCommandPrefix()), inline: true },
+            { name: '⌨️ Command Prefix', value: '\`' + (config.prefix || getCommandPrefix()) + '\`', inline: true },
             { name: '🛡️ Moderator Role', value: formatRoleMention(guild, config.modRole), inline: true },
-            { name: '📝 Audit Logs', value: config.logging?.enabled
+            { name: '📋 Audit Logs', value: config.logging?.enabled
                 ? formatChannelMention(guild, config.logging?.channels?.audit)
                 : disabled, inline: true },
-            { name: '🛡️ AutoMod', value: config.autoModEnabled ? enabled : disabled, inline: true },
-            { name: '📈 Server Progression', value: config.serverProgression?.enabled ? enabled : disabled, inline: true },
-            { name: '📢 Bot Announcements', value: config.updates?.channelId
+            { name: '🔒 AutoMod', value: config.autoModEnabled ? enabled : disabled, inline: true },
+            { name: '📈 Progression', value: config.serverProgression?.enabled ? enabled : disabled, inline: true },
+            { name: '📢 Updates', value: config.updates?.channelId
                 ? formatChannelMention(guild, config.updates.channelId)
                 : disabled, inline: true },
-            {
-                name: '🧰 Settings & Features',
-                value: 'Open the dropdown below for **tickets, logging, welcome messages, reaction roles, AutoMod, verification and more**.',
-                inline: false,
-            },
-            {
-                name: '🩺 Server Health',
-                value: 'Use **/diagnose** for missing permissions and configuration problems.\nUse **/roleaudit** to review privileged roles.',
-                inline: false,
-            },
+            { name: '🎫 Support', value: config.ticketPanelChannelId
+                ? 'Panel: ' + formatChannelMention(guild, config.ticketPanelChannelId)
+                : '⚪ Panel not configured', inline: true },
+            { name: '🧭 Navigation', value: 'Choose a feature from the menu. Use **Refresh** to reload saved settings and **Guide** for shortcuts.', inline: false },
+            { name: '🔍 Diagnostics', value: '**/diagnose** checks configuration and permissions. **/roleaudit** reviews risky server roles.', inline: false },
         ],
-        footer: 'Beacon • Server Dashboard • Private to server managers',
+        footer: 'Beacon • Private server management • Automatically closes after 10 minutes',
     });
 }
 
@@ -213,9 +228,13 @@ function buildButtonRow(config, guildId) {
     return new ActionRowBuilder().addComponents(
         new ButtonBuilder()
             .setCustomId(`${WIZARD_BUTTON_ID}:${guildId}`)
-            .setLabel('Launch Setup Wizard')
+            .setLabel(config.setupWizardCompleted ? 'Review Setup' : 'Start Setup')
             .setEmoji('📝')
             .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('dashboard_refresh:' + guildId)
+            .setLabel('Refresh').setEmoji('🔄').setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId('dashboard_guide:' + guildId)
+            .setLabel('Guide').setEmoji('❔').setStyle(ButtonStyle.Secondary),
     );
 }
 
@@ -791,11 +810,40 @@ export default {
                 time: 600_000,
             });
 
+            componentCollector.on('end', async (_collected, reason) => {
+                if (reason !== 'time') return;
+                await InteractionHelper.safeEditReply(interaction, {
+                    embeds: [infoEmbed('⌛ Dashboard Session Ended',
+                        'This control panel expired after 10 minutes. Run **/dashboard** to open a fresh session. No saved settings were changed.')],
+                    components: [],
+                }).catch(() => {});
+            });
+
             componentCollector.on('collect', async (componentInteraction) => {
                 try {
                     if (componentInteraction.isButton()) {
                         await componentInteraction.deferUpdate();
 
+                        if (componentInteraction.customId === 'dashboard_refresh:' + interaction.guildId) {
+                            const currentConfig = await getGuildConfig(interaction.client, interaction.guildId);
+                            await refreshDashboard(interaction, currentConfig, interaction.guild);
+                            return;
+                        }
+                        if (componentInteraction.customId === 'dashboard_guide:' + interaction.guildId) {
+                            await componentInteraction.followUp({
+                                embeds: [infoEmbed('🧭 Beacon Dashboard Guide', [
+                                    '**Setup:** Start or review the guided configuration wizard.',
+                                    '**Support:** Use Ticket System to set up panels, staff and transcripts.',
+                                    '**Safety:** Configure AutoMod, review role permissions with /roleaudit and run /diagnose.',
+                                    '**Community:** Use Welcome & Goodbye, Reaction Roles and Join to Create.',
+                                    '**Commands:** Command Access controls which commands members can run.',
+                                    '',
+                                    'Your dashboard is private. Settings change only when you confirm a form or control.',
+                                ].join('\\n'))],
+                                flags: MessageFlags.Ephemeral,
+                            });
+                            return;
+                        }
                         if (componentInteraction.customId.startsWith(`${WIZARD_BUTTON_ID}:`)) {
                             const latestConfig = await getGuildConfig(interaction.client, interaction.guildId);
                             await runSetupWizard(componentInteraction, latestConfig, interaction.guild, interaction.client, interaction);
