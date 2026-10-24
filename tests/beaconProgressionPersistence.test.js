@@ -103,3 +103,58 @@ test('daily quest rollover archives results instead of deleting them',async()=>{
  assert.equal(again.dailyQuestHistory.length,1);
  assert.notEqual(again.lastQuestDay,'2026-01-01');
 });
+
+test('reading the progression panel saves initial daily/weekly quests immediately',async()=>{
+ const guildId='111111111111111111',store=new Map(),client=mockClient(store);
+ const preview=await getServerProgression(client,guildId);
+ const persisted=store.get('guild:'+guildId+':progression');
+ assert.ok(persisted,'first view must persist daily and weekly quests');
+ assert.equal(persisted.lastQuestDay,preview.lastQuestDay);
+ assert.equal(persisted.weekly.week,utcWeekKey());
+ assert.deepEqual(persisted.dailyQuests,preview.dailyQuests);
+ assert.equal((await getServerProgression(mockClient(store),guildId)).dailyQuests.length,preview.dailyQuests.length);
+});
+test('a view after UTC rollover archives daily/weekly quest history in storage',async()=>{
+ const guildId='111111111111111111',store=new Map(),client=mockClient(store);
+ await mutateServerProgression(client,guildId,data=>{
+  data.lastQuestDay='2026-01-01';
+  data.dailyQuests=[{id:'spark',title:'First Sparks',progress:1,target:3,completed:false,reward:35}];
+  data.weekly.week='2026-01-05';
+  data.weekly.quests[0].progress=4;
+  return {changed:true};
+ });
+ const preview=await getServerProgression(mockClient(store),guildId);
+ const saved=store.get('guild:'+guildId+':progression');
+ assert.equal(saved.lastQuestDay,preview.lastQuestDay);
+ assert.ok(saved.dailyQuestHistory.some(q=>q.day==='2026-01-01' && q.quests[0].progress===1));
+ assert.ok(saved.weeklyHistory.some(w=>w.week==='2026-01-05'));
+});
+test('a storage write that returns false is not reported as success',async()=>{
+ const client=mockClient();
+ client.db.set=async()=>false;
+ await assert.rejects(()=>mutateServerProgression(client,'111111111111111111',()=>({changed:true})),/storage rejected the write/);
+ await assert.rejects(()=>registerFoundingServers(client),/storage rejected the write/);
+});
+test('PostgreSQL advisory locks reserve connection headroom in a small pool',async()=>{
+ const client=mockClient(new Map(),['111111111111111111','222222222222222222','333333333333333333']);
+ let active=0,peak=0;
+ client.db.db={
+  isAvailable:()=>true,
+  pool:{
+   options:{max:2},
+   connect:async()=>{
+    active++;peak=Math.max(peak,active);
+    return {query:async()=>({rows:[]}),release:()=>{active--;}};
+   },
+  },
+ };
+ await Promise.all(['111111111111111111','222222222222222222','333333333333333333']
+   .map(id=>getServerProgression(client,id)));
+ assert.equal(peak,1,'only one long-lived lock connection in a pool of two');
+ assert.equal(active,0);
+});
+test('a single-connection PostgreSQL pool fails fast rather than hanging forever',async()=>{
+ const client=mockClient();
+ client.db.db={isAvailable:()=>true,pool:{options:{max:1},connect:async()=>{throw Error('should not connect');}}};
+ await assert.rejects(()=>getServerProgression(client,'111111111111111111'),/at least two PostgreSQL connections/);
+});
