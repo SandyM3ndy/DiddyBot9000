@@ -77,9 +77,16 @@ export default async (client) => {
   // A missing button previously caused interactionCreate to ignore the click
   // without acknowledging it, producing "Beacon did not respond" in Discord.
   // Fail startup loudly instead of silently running with broken ticket controls.
-  const requiredButtons = ['ticket_info', 'ticket_transcript', 'ticket_claim', 'ticket_close', 'rr_dashboard_create'];
+  const requiredButtons = [
+    'ticket_info','ticket_transcript','ticket_claim','ticket_close','rr_dashboard_create',
+    'ticket_queue_view','rr_studio_edit','error_rescue',
+    'dashboard_undo_confirm','dashboard_undo_cancel',
+  ];
   const missing = requiredButtons.filter(name => !client.buttons?.has(name));
   if (missing.length) {
-    throw new Error('Required ticket buttons failed to register: ' + missing.join(', '));
+    throw new Error('Required Beacon interface buttons failed to register: ' + missing.join(', '));
   }
+  const requiredMenus=['dashboard_fave_pin','rr_studio_select'];
+  const missingMenus=requiredMenus.filter(name=>!client.selectMenus?.has(name));
+  if(missingMenus.length)throw new Error('Required Beacon interface menus failed to register: '+missingMenus.join(', '));
 };
