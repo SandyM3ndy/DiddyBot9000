@@ -1,7 +1,7 @@
 // embeds.js
 
 import { EmbedBuilder } from 'discord.js';
-import { getColor, botConfig } from '../config/bot.js';
+import { getColor, botConfig, BEACON_FOOTER, formatBeaconFooter } from '../config/bot.js';
 
 
 export function sanitizeMessageText(value) {
@@ -180,19 +180,18 @@ export function createEmbed({
   if (footer) {
     try {
       if (typeof footer === 'string' && footer.length > 0) {
-        embed.setFooter({ text: footer.substring(0, 2048) });
+        embed.setFooter({ text: formatBeaconFooter(footer) });
       } else if (footer && typeof footer.text === 'string') {
-        embed.setFooter(footer);
+        embed.setFooter({ ...footer, text: formatBeaconFooter(footer.text) });
       }
     } catch (error) {
-      
+      // A bad optional footer should never make a command fail.
     }
-  } else if (botConfig.embeds?.footer?.text) {
-    const defaultFooter = {
-      text: botConfig.embeds.footer.text,
-      ...(botConfig.embeds.footer.icon ? { iconURL: botConfig.embeds.footer.icon } : {}),
-    };
-    embed.setFooter(defaultFooter);
+  } else {
+    embed.setFooter({
+      text: BEACON_FOOTER,
+      ...(botConfig.embeds?.footer?.icon ? { iconURL: botConfig.embeds.footer.icon } : {}),
+    });
   }
 
   if (thumbnail) {
