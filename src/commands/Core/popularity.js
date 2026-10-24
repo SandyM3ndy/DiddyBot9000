@@ -7,7 +7,7 @@ import { isPrimaryBotOwner } from '../../config/bot.js';
 export default {
   data: new SlashCommandBuilder()
     .setName('popularity')
-    .setDescription('Bot Owner Only • View Beacon's server coverage')
+    .setDescription('Bot Owner Only • View Beacon server coverage')
     ,category: 'core',
 
   async execute(interaction) {
