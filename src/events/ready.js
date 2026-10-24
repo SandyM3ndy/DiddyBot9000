@@ -1,4 +1,5 @@
 import { Events } from "discord.js";
+import { registerFoundingServers } from '../services/serverProgressionService.js';
 import { logger, startupLog } from "../utils/logger.js";
 import config from "../config/application.js";
 import { reconcileReactionRoleMessages } from "../services/reactionRoleService.js";
@@ -22,6 +23,10 @@ export default {
       startupLog(`Serving ${client.guilds.cache.size} guild(s)`);
       startupLog(`Loaded ${client.commands.size} commands`);
 
+      try {
+        const founders=await registerFoundingServers(client);
+        startupLog(`Founding communities registered: ${founders.length}/25`);
+      } catch(error) { logger.error('Founding registry persistence failed',error); }
       await loadLockdownStates(client);
       await loadAllPersistedAntiNukeConfigs(client);
       startTicketSlaMonitor(client);
