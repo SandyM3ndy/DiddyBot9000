@@ -50,6 +50,7 @@ function getCommandAccess(commandData) {
     const name = String(commandData?.name || '').toLowerCase();
 
     if (isOwnerOnlyCommand(name)) return 'Bot Owner Only';
+    if (name === 'ticketstats') return 'Manage Server, Manage Channels or Ticket Staff';
     if (name === 'claim' || name === 'priority') return 'Manage Server or Ticket Staff';
     if (name === 'close') return 'Manage Server, Ticket Staff, or ticket creator';
 

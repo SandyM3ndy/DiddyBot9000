@@ -126,7 +126,7 @@ async function listGuildTickets(guildId) {
     return tickets;
 }
 
-export async function getGuildTicketStats(guildId) {
+export async function getGuildTicketStats(guildId, { strict = false } = {}) {
     try {
         const tickets = await listGuildTickets(guildId);
         let openCount = 0;
@@ -166,6 +166,7 @@ export async function getGuildTicketStats(guildId) {
         };
     } catch (error) {
         logger.error(`Error computing ticket stats for guild ${guildId}:`, error);
+        if (strict) throw error;
         return {
             openCount: 0,
             closedCount: 0,
