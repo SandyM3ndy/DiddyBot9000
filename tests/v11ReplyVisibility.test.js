@@ -64,7 +64,8 @@ test('sensitive moderation, cases, dashboards and personal to-dos stay private',
 test('public system status never publishes bot owner failure diagnostics', async () => {
   const src=await read('src/commands/Core/status.js');
   assert.match(src,/if \(owner && !dbReady && pg\?\.getLastFailure\)/);
-  assert.match(src,/owner \? \{ flags: MessageFlags\.Ephemeral \} : \{\}/);
+  assert.match(src,/privateOwnerDiagnostics = owner && !dbReady/);
+  assert.match(src,/privateOwnerDiagnostics \? \{ flags: MessageFlags\.Ephemeral \} : \{\}/);
 });
 
 test('public help remains a readable menu and private help stays opt-in',async()=>{
