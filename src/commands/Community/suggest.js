@@ -2,6 +2,7 @@ import { SlashCommandBuilder, MessageFlags, PermissionFlagsBits } from 'discord.
 import { createEmbed } from '../../utils/embeds.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 import { logger } from '../../utils/logger.js';
+import { renderSuggestionPost, createSuggestionRecord } from '../../services/suggestionReviewService.js';
 
 export default {
   data: new SlashCommandBuilder()
@@ -29,21 +30,19 @@ export default {
       });
     }
 
-    const embed = createEmbed({
-      title: '💡 Community Suggestion',
-      description: idea,
-      color: 'primary',
-      fields: [
-        { name: 'Submitted by', value: `<@${interaction.user.id}>`, inline: true },
-        { name: 'Status', value: '🟡 Under review', inline: true },
-      ],
-    }).setTimestamp();
-
+    const state = {
+      id:interaction.id,guildId:interaction.guildId,channelId:interaction.channelId,
+      authorId:interaction.user.id,idea,status:'under_review',reviewedBy:null,
+      createdAt:new Date().toISOString(),messageId:null,
+    };
     try {
+      // Do not promise a reviewable suggestion unless its state was first
+      // committed to persistent storage. No TTL and no collector dependency.
+      await createSuggestionRecord(interaction.client,state);
       // The slash response is the public suggestion, not a private receipt
       // followed by a duplicate channel message.
       const posted = await InteractionHelper.safeEditReply(interaction, {
-        embeds: [embed], allowedMentions: { parse: [] },
+        ...renderSuggestionPost(state),
       });
       if (!posted) return;
       const message = await interaction.fetchReply();
@@ -56,6 +55,7 @@ export default {
       }
     } catch (error) {
       logger.warn('Could not complete suggestion', { guildId: interaction.guildId, error: error?.message });
+      // A refused database write must never look like a successfully saved suggestion.
       if (interaction.deferred || interaction.replied) {
         await interaction.followUp({
           content: '⚠️ Could not complete the suggestion. Check channel permissions.',
