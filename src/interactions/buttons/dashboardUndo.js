@@ -14,7 +14,11 @@ export default [
      flags:MessageFlags.Ephemeral,
     });
    }
-   if(!(await InteractionHelper.safeDefer(interaction,{flags:MessageFlags.Ephemeral})))return;
+   // This confirmation only exists on a private ephemeral prompt.
+   // Acknowledge and replace that prompt so the action cannot be clicked twice.
+   if(!interaction.deferred&&!interaction.replied){
+    try{await interaction.deferUpdate();}catch{return;}
+   }
    try{
     const result=await undoLastDashboardSetting(client,interaction.guildId,interaction.user.id,{
      isOwner:interaction.guild.ownerId===interaction.user.id,
