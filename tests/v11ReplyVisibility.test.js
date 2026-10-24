@@ -96,6 +96,10 @@ test('polls and suggestions use a single public command response instead of a pr
     assert.match(code, /safeDefer\(interaction\)/);
     assert.doesNotMatch(code, /channel\.send\(\{ embeds: \[embed\]/);
     assert.match(code, /interaction\.fetchReply\(\)/);
-    assert.match(code, /safeEditReply\(interaction, \{\s*embeds: \[embed\]/);
+    if (path.endsWith('/suggest.js')) {
+      assert.match(code, /safeEditReply\(interaction, \{\s*\.\.\.renderSuggestionPost\(state\)/);
+    } else {
+      assert.match(code, /safeEditReply\(interaction, \{\s*embeds: \[embed\]/);
+    }
   }
 });
