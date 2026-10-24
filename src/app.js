@@ -399,11 +399,9 @@ class BeaconClient extends Client {
   }
 
   async registerCommands() {
-    try {
-      await registerSlashCommands(this, { clientId: this.config.bot.clientId });
-    } catch (error) {
-      logger.error('Error registering commands:', error);
-    }
+    // Never report startup as successful if Discord rejected command registration.
+    // This used to swallow errors and leave new slash commands invisible to users.
+    await registerSlashCommands(this, { clientId: this.config.bot.clientId });
   }
 
   async shutdown(reason = 'UNKNOWN', exitCode = 0) {

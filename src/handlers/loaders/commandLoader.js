@@ -10,6 +10,17 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const MAX_COMMANDS = 100;
 const COMMAND_COUNT_WARN_THRESHOLD = 90;
+export const REQUIRED_V11_COMMANDS = Object.freeze(['diagnose', 'roleaudit', 'ticketstats']);
+
+export function getMissingRequiredCommands(names) {
+    const available = new Set(names);
+    return REQUIRED_V11_COMMANDS.filter(name => !available.has(name));
+}
+
+export function assertRequiredCommandsPresent(names, stage = 'loaded') {
+    const missing = getMissingRequiredCommands(names);
+    if (missing.length) throw new Error('Beacon v1.1 ' + stage + ' commands missing: ' + missing.map(x => '/' + x).join(', '));
+}
 
 // These are configuration commands that have been replaced by /dashboard.
 // /dashboard itself must remain registered.
@@ -94,6 +105,7 @@ export async function loadCommands(client) {
     const totalSubcommands = commandsWithSubcommands.reduce((total, cmd) => total + getSubcommandInfo(cmd.data.toJSON()).length, 0);
     const uniqueCommands = new Set();
     for (const [name, command] of client.commands.entries()) if (command.data?.name) uniqueCommands.add(command.data.name);
+    assertRequiredCommandsPresent(uniqueCommands, 'loaded');
     logger.info(`Loaded ${uniqueCommands.size} commands`);
     return client.commands;
 }
@@ -155,8 +167,7 @@ function validateCommands(commands) {
 function prepareCommandsForRegistration(commands) {
     if (commands.length >= COMMAND_COUNT_WARN_THRESHOLD) logger.warn(`Command count (${commands.length}) is near Discord's ${MAX_COMMANDS} global command limit`);
     if (commands.length <= MAX_COMMANDS) return commands;
-    logger.warn(`Command count (${commands.length}) exceeds Discord limit (${MAX_COMMANDS}), truncating...`);
-    return commands.slice(0, MAX_COMMANDS);
+    throw new Error(`Too many slash commands (${commands.length}). Refusing to silently hide commands above Discord's ${MAX_COMMANDS}-command limit.`);
 }
 
 export async function registerGuildCommands(client, guildId, options = {}) {
@@ -191,8 +202,17 @@ async function registerGlobalCommands(client, clientId, commands, totalSubcomman
     logger.info(`Preparing to register ${totalSubcommands + commands.length} commands globally`);
     validateCommands(commands);
     const commandsToRegister = prepareCommandsForRegistration(commands);
-    await client.rest.put(`/applications/${clientId}/commands`, { body: commandsToRegister });
-    logger.info(`Successfully registered ${commandsToRegister.length} global commands`);
+    assertRequiredCommandsPresent(commandsToRegister.map(command => command.name), 'outgoing');
+    const registered = await client.rest.put(`/applications/${clientId}/commands`, { body: commandsToRegister });
+
+    // Discord's bulk overwrite response is the authoritative registration result.
+    // Reject partial/missing registrations instead of announcing false success.
+    if (!Array.isArray(registered)) {
+        throw new Error('Discord did not return a command list to confirm global registration.');
+    }
+    assertRequiredCommandsPresent(registered.map(command => command.name), 'Discord-registered');
+    logger.info(`Registered ${registered.length} global commands; confirmed /diagnose, /roleaudit and /ticketstats`);
+    client._beaconHelpCommandCache = null;
     await clearGuildScopedCommands(client, clientId);
 }
 
