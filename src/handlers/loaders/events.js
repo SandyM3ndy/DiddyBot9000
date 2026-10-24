@@ -1,22 +1,27 @@
 import { readdir } from 'fs/promises';
 import { join } from 'path';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 import { dirname } from 'path';
 import { logger } from '../../utils/logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+// Correctly handles Windows paths and file names with spaces, # or %.
+export function toEventImportUrl(filePath) {
+    return pathToFileURL(filePath).href;
+}
+
 export default async function loadEvents(client) {
     const eventsPath = join(__dirname, '../../events');
-    const eventFiles = await readdir(eventsPath).then(files => files.filter(file => file.endsWith('.js')));
+    const eventFiles = await readdir(eventsPath).then(files => files.filter(file => file.endsWith('.js')).sort());
 
     logger.info(`Found ${eventFiles.length} event files to load`);
 
     for (const file of eventFiles) {
         const filePath = join(eventsPath, file);
         try {
-            const { default: event } = await import(`file://${filePath}`);
+            const { default: event } = await import(toEventImportUrl(filePath));
 
             if (!event?.name || typeof event.execute !== 'function') {
                 logger.warn(`Event ${file} is missing required "name" or "execute" properties.`);
