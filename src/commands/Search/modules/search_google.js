@@ -1,4 +1,5 @@
 import { createEmbed } from '../../../utils/embeds.js';
+import { formatBeaconFooter } from '../../../config/bot.js';
 import { logger } from '../../../utils/logger.js';
 import { InteractionHelper } from '../../../utils/interactionHelper.js';
 
@@ -12,7 +13,7 @@ export default {
             description: `[Search for "${query}"](${searchUrl})`,
             color: 'info'
         })
-        .setFooter({ text: 'Google Search Results' });
+        .setFooter({ text: formatBeaconFooter('Google Search Results') });
 
         await InteractionHelper.safeReply(interaction, { embeds: [embed] });
 
