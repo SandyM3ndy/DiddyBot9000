@@ -6,13 +6,15 @@ ENV NODE_ENV=production
 
 COPY package*.json ./
 RUN apk add --no-cache postgresql-client \
-    && npm ci --omit=dev
+    && npm ci --omit=dev --no-audit --no-fund
 
 COPY . .
 
-# Fail the image build if any command or utility contains invalid JavaScript.
-# Run tests without production-only secret requirements; NODE_ENV remains production at runtime.
-RUN NODE_ENV=test npm run preflight
+# Do a lightweight source integrity check during the image build.
+# Full npm run preflight (syntax, unit tests and command audit) is already a
+# mandatory GitHub Actions gate; rerunning the entire suite here makes Railway
+# spend extra build resources, which can trigger environment-specific failures.
+RUN node --check src/app.js && node scripts/check.js
 
 # Run as the unprivileged Node user, while granting it ownership of runtime-write directories.
 RUN mkdir -p /usr/src/app/logs /usr/src/app/backups \
