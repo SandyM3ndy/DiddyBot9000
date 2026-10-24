@@ -1,6 +1,7 @@
 import {
   ModalBuilder, LabelBuilder, TextInputBuilder, TextInputStyle, ChannelSelectMenuBuilder,
   RoleSelectMenuBuilder, ChannelType, PermissionFlagsBits, ActionRowBuilder,
+  ButtonBuilder, ButtonStyle,
   StringSelectMenuBuilder, EmbedBuilder, MessageFlags,
 } from 'discord.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
@@ -70,8 +71,11 @@ export function buildReactionRoleLanding(panels = [], guild) {
     ));
   }
   if (length < 5) {
-    const { ButtonBuilder, ButtonStyle } = { ButtonBuilder: null, ButtonStyle: null };
-    // Imported below to keep this renderer usable in command and component contexts.
+    components.push(new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(REACTION_ROLE_SETUP_BUTTON)
+        .setLabel(length ? 'Create Another Panel' : 'Create First Panel')
+        .setEmoji('➕').setStyle(ButtonStyle.Primary),
+    ));
   }
   return { embeds: [embed], components };
 }

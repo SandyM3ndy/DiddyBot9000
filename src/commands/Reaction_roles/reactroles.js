@@ -11,6 +11,7 @@ import {
     formatPanelStatusField,
 } from '../../utils/panelStatus.js';
 import { startDashboardSession } from '../../utils/dashboardSession.js';
+import { buildReactionRoleLanding, REACTION_ROLE_SETUP_BUTTON } from './reactionRoleSetup.js';
 import { getReactionRoleKey } from '../../utils/database/keys.js';
 
 const DASHBOARD_EPHEMERAL = MessageFlags.Ephemeral;
@@ -461,6 +462,8 @@ function buildReactionRoleDashboardPayload(panelData, discordMsg, guildId, guild
     }
 
     buttons.push(
+        new ButtonBuilder().setCustomId(REACTION_ROLE_SETUP_BUTTON)
+            .setLabel('New Panel').setStyle(ButtonStyle.Secondary).setEmoji('➕'),
         new ButtonBuilder()
             .setCustomId(`rr_edit_text_${guildId}`)
             .setLabel('Edit Panel Text')
@@ -570,27 +573,21 @@ export async function openReactionRoleDashboard(interaction, selectedPanelId = n
     const guildId = interaction.guild.id;
     const guild = interaction.guild;
 
-    const panels = await getAllReactionRoleMessages(client, guildId);
-    if (!panels?.length) {
-        throw createError(
-            'No panels',
-            ErrorTypes.CONFIGURATION,
-            'No reaction role panels found. Use `/reactroles setup` first.',
-        );
+    const panels = await getAllReactionRoleMessages(client, guildId) || [];
+    // A new server has no panels yet; the dashboard must offer a setup path
+    // because the standalone /reactroles command is deliberately hidden.
+    // Multiple-panel servers also need a usable panel selector.
+    if ((!selectedPanelId && panels.length !== 1) ||
+        (selectedPanelId && !panels.some(panel => panel.messageId === selectedPanelId))) {
+        return InteractionHelper.safeEditReply(interaction, {
+            ...buildReactionRoleLanding(panels, guild),
+            flags: DASHBOARD_EPHEMERAL,
+        });
     }
 
-    let panelData = selectedPanelId ? panels.find(p => p.messageId === selectedPanelId) : null;
-    if (!panelData) {
-        if (panels.length === 1) {
-            panelData = panels[0];
-        } else {
-            throw createError(
-                'Panel required',
-                ErrorTypes.VALIDATION,
-                'Multiple panels exist. Choose one using the **panel** option.',
-            );
-        }
-    }
+    const panelData = selectedPanelId
+        ? panels.find(panel => panel.messageId === selectedPanelId)
+        : panels[0];
 
     let panelStatus = await getReactionRolePanelStatus(client, guild, panelData);
     if (panelStatus.recoveredId) {
@@ -609,7 +606,8 @@ export async function openReactionRoleDashboard(interaction, selectedPanelId = n
         buttonMatcher: (customId) =>
             customId === `rr_edit_text_${guildId}` ||
             customId === `rr_delete_${guildId}` ||
-            customId === `rr_repost_${guildId}`,
+            customId === `rr_repost_${guildId}` ||
+            customId === REACTION_ROLE_SETUP_BUTTON,
         onSelect: async (selectInteraction) => {
             const selectedOption = selectInteraction.values[0];
             if (selectedOption === 'add_role') {
@@ -619,6 +617,13 @@ export async function openReactionRoleDashboard(interaction, selectedPanelId = n
             }
         },
         onButton: async (btnInteraction) => {
+            // Dashboard collector owns its controls. The setup button must be
+            // handled here too (rather than ignored by the global event handler).
+            if (btnInteraction.customId === REACTION_ROLE_SETUP_BUTTON) {
+                const { handleReactionRoleCreateButton } = await import('./reactionRoleSetup.js');
+                await handleReactionRoleCreateButton(btnInteraction);
+                return;
+            }
             if (btnInteraction.customId === `rr_repost_${guildId}`) {
                 await btnInteraction.deferUpdate();
                 const fallbackEmbed = discordMsg?.embeds?.[0];
