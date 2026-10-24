@@ -47,7 +47,9 @@ export default {
     if(!interaction.guildId || !channel?.messages?.fetch) {
       return InteractionHelper.safeEditReply(interaction,{content:'⚠️ Select a server text channel that Beacon can read.'});
     }
-    const viewer=interaction.member;
+    const viewer=interaction.guild?.members?.cache?.get(interaction.user.id)
+      || await interaction.guild?.members?.fetch?.(interaction.user.id).catch(()=>null)
+      || interaction.member;
     const me=interaction.guild?.members?.me || await interaction.guild?.members?.fetchMe?.().catch(()=>null);
     const required=[PermissionFlagsBits.ViewChannel,PermissionFlagsBits.ReadMessageHistory];
     if(!viewer || !channel.permissionsFor?.(viewer)?.has(required)) {
