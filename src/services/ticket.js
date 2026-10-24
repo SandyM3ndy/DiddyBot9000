@@ -96,13 +96,17 @@ export async function createTicket(guild, member, categoryId, reason = 'No reaso
       );
     }
     
-    let category = categoryId ? 
-      guild.channels.cache.get(categoryId) :
+    let category = categoryId ?
+      guild.channels.cache.get(categoryId) || await guild.channels.fetch(categoryId).catch(() => null) :
       guild.channels.cache.find(c => 
         c.type === ChannelType.GuildCategory && 
         c.name.toLowerCase().includes('tickets')
       );
     
+    if (categoryId && category?.type !== ChannelType.GuildCategory) {
+      ticketUserError('Invalid ticket category', 'The server ticket category is missing. Ask a manager to repair the ticket dashboard.', ErrorTypes.CONFIGURATION);
+    }
+
     if (!category && !categoryId) {
       category = await guild.channels.create({
         name: 'Tickets',
@@ -208,7 +212,8 @@ export async function createTicket(guild, member, categoryId, reason = 'No reaso
     const ticketMessage = await channel.send({ 
       content: messageContent,
       embeds: [embed],
-      components: [row] 
+      components: [row],
+      allowedMentions: { users: [member.id], roles: config.ticketStaffRoleId ? [config.ticketStaffRoleId] : [] },
     });
 
     await ticketMessage.pin().catch(() => {});

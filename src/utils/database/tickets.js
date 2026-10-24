@@ -47,10 +47,10 @@ export async function getOpenTicketCountForUser(guildId, userId) {
             return count;
         }
 
-        return 0;
+        throw new Error('Ticket storage does not support counting open requests.');
     } catch (error) {
         logger.error(`Error counting open tickets for user ${userId} in guild ${guildId}:`, error);
-        return 0;
+        throw new Error('Could not verify your existing tickets; please try again when support storage is available.', { cause: error });
     }
 }
 

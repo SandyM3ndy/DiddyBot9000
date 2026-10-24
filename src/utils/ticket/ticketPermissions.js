@@ -9,6 +9,7 @@ export async function getTicketPermissionContext({ client, interaction }) {
       config: {}, ticketData: null, hasManageChannels: false,
       hasTicketStaffRole: false, isTicketCreator: false,
       canManageTicket: false, canCloseTicket: false,
+      canReopenTicket: false, canDeleteTicket: false,
     };
   }
 
@@ -27,12 +28,17 @@ export async function getTicketPermissionContext({ client, interaction }) {
     || (Array.isArray(memberRoles) && memberRoles.includes(staffRoleId))
   ));
   const isTicketCreator = Boolean(ticketData?.userId && String(ticketData.userId) === String(interaction.user.id));
-  const isOpen = ticketData && ticketData.status !== 'closed';
+  const isOpen = Boolean(ticketData && ticketData.status === 'open');
+  const isClosed = Boolean(ticketData && ticketData.status === 'closed');
+  const isGuildOwner = Boolean(interaction.guild?.ownerId === interaction.user?.id);
+  const isStaff = Boolean(hasManageChannels || hasTicketStaffRole || isGuildOwner);
 
   return {
     config: config || {}, ticketData,
     hasManageChannels, hasTicketStaffRole, isTicketCreator,
-    canManageTicket: Boolean(isOpen && (hasManageChannels || hasTicketStaffRole)),
-    canCloseTicket: Boolean(isOpen && (hasManageChannels || hasTicketStaffRole || isTicketCreator)),
+    canManageTicket: Boolean(isOpen && isStaff),
+    canCloseTicket: Boolean(isOpen && (isStaff || isTicketCreator)),
+    canReopenTicket: Boolean(isClosed && isStaff),
+    canDeleteTicket: Boolean(isClosed && (hasManageChannels || isGuildOwner)),
   };
 }

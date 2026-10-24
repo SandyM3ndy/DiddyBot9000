@@ -31,7 +31,7 @@ async function ensureGuildContext(interaction) {
 }
 
 async function assertTicketPermission(interaction, client, actionLabel, options = {}, timeoutMs = 2500) {
-  const { allowTicketCreator = false } = options;
+  const { allowTicketCreator = false, operation = 'manage' } = options;
 
   let context;
   try {
@@ -63,7 +63,9 @@ async function assertTicketPermission(interaction, client, actionLabel, options 
     );
   }
 
-  const allowed = allowTicketCreator ? context.canCloseTicket : context.canManageTicket;
+  const allowed = operation === 'reopen' ? context.canReopenTicket
+    : operation === 'delete' ? context.canDeleteTicket
+    : allowTicketCreator ? context.canCloseTicket : context.canManageTicket;
   if (!allowed) {
     const permissionMessage = allowTicketCreator
       ? 'You must have **Manage Channels**, the configured **Ticket Staff Role**, or be the **ticket creator**.'
@@ -79,7 +81,7 @@ async function assertTicketPermission(interaction, client, actionLabel, options 
 }
 
 async function ensureTicketPermission(interaction, client, actionLabel, options = {}) {
-  const { allowTicketCreator = false } = options;
+  const { allowTicketCreator = false, operation = 'manage' } = options;
 
   const context = await getTicketPermissionContext({ client, interaction });
 
@@ -88,7 +90,9 @@ async function ensureTicketPermission(interaction, client, actionLabel, options 
     return null;
   }
 
-  const allowed = allowTicketCreator ? context.canCloseTicket : context.canManageTicket;
+  const allowed = operation === 'reopen' ? context.canReopenTicket
+    : operation === 'delete' ? context.canDeleteTicket
+    : allowTicketCreator ? context.canCloseTicket : context.canManageTicket;
   if (!allowed) {
     const permissionMessage = allowTicketCreator
       ? 'You must have **Manage Channels**, the configured **Ticket Staff Role**, or be the **ticket creator**.'
@@ -432,7 +436,7 @@ const reopenTicketHandler = {
     try {
       if (!(await ensureGuildContext(interaction))) return;
 
-      await assertTicketPermission(interaction, client, 'reopen tickets', {}, 2000);
+      await assertTicketPermission(interaction, client, 'reopen tickets', { operation: 'reopen' }, 2000);
 
       const deferSuccess = await InteractionHelper.safeDefer(interaction, { flags: MessageFlags.Ephemeral });
       if (!deferSuccess) return;
@@ -461,7 +465,7 @@ const deleteTicketHandler = {
     try {
       if (!(await ensureGuildContext(interaction))) return;
 
-      await assertTicketPermission(interaction, client, 'delete tickets', {}, 2000);
+      await assertTicketPermission(interaction, client, 'delete tickets', { operation: 'delete' }, 2000);
 
       const deferSuccess = await InteractionHelper.safeDefer(interaction, { flags: MessageFlags.Ephemeral });
       if (!deferSuccess) return;
