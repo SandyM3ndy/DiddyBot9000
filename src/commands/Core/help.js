@@ -62,15 +62,50 @@ export async function createInitialHelpMenu(client) {
   return { embeds: [embed], components };
 }
 
+export function searchBeaconCommands(client, query) {
+  const needle = String(query || '').trim().toLowerCase();
+  if (!needle) return [];
+  return [...(client?.commands?.values() || [])]
+    .filter(command => command?.data?.name && !command.legacyOnly)
+    .map(command => ({
+      name: command.data.name,
+      category: formatCategoryName(command.category || 'Core'),
+      description: command.data.description || 'No description provided',
+    }))
+    .filter(command => [command.name, command.category, command.description].some(s => s.toLowerCase().includes(needle)))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
 export default {
   slashOnly: true,
   data: new SlashCommandBuilder()
     .setName('help')
-    .setDescription('Open the Beacon command center and feature categories'),
+    .setDescription('Open the Beacon command center and feature categories')
+    .addStringOption(o => o.setName('search').setDescription('Find commands by name or purpose').setMaxLength(70)),
   category: 'Core',
   async execute(interaction, config, client) {
     if (!(await InteractionHelper.safeDefer(interaction, { flags: MessageFlags.Ephemeral }))) return;
     try {
+      const query = interaction.options?.getString?.('search')?.trim();
+      if (query) {
+        const matched = searchBeaconCommands(client || interaction.client, query);
+        const items = matched.slice(0, 15);
+        const embed = createEmbed({
+          title: '🔎 Beacon • Command Search',
+          description: matched.length
+            ? '**' + matched.length + ' match(es)** for "' + query + '"\n' +
+              (matched.length > items.length ? 'Showing the first 15. Try a more specific search.' : 'Select a command from the list below.')
+            : 'No command matched "' + query + '". Try a category such as tickets, music or moderation.',
+          color: 'primary',
+          fields: items.map(x => ({
+            name: '/' + x.name + ' • ' + x.category,
+            value: x.description,
+            inline: false,
+          })),
+          footer: 'Beacon • Command Center • Private search',
+        });
+        return await InteractionHelper.safeEditReply(interaction, { embeds: [embed], components: [] });
+      }
       await InteractionHelper.safeEditReply(interaction, await createInitialHelpMenu(client || interaction.client));
     } catch (error) {
       logger.error('Help command failed:', error);
