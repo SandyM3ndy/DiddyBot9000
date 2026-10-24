@@ -23,12 +23,16 @@ async function reserveAdvisorySlot(pool) {
   }
   const capacity = Math.max(1, Math.min(4, Math.floor(max / 2)));
   if (state.active >= capacity) {
+    // A holder hands its slot directly to the next waiter. Keeping active
+    // reserved prevents new arrivals overtaking queued work between ticks.
     await new Promise(resolve => state.queue.push(resolve));
+  } else {
+    state.active += 1;
   }
-  state.active += 1;
   return () => {
-    state.active -= 1;
-    state.queue.shift()?.();
+    const next = state.queue.shift();
+    if (next) next();
+    else state.active -= 1;
   };
 }
 
