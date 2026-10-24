@@ -1,4 +1,4 @@
-import { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, AttachmentBuilder, MessageFlags } from 'discord.js';
+import { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, AttachmentBuilder, MessageFlags, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { createEmbed, successEmbed } from '../utils/embeds.js';
 import { createTicket, closeTicket, claimTicket, updateTicketPriority } from '../services/ticket.js';
 import { getGuildConfig } from '../services/config/guildConfig.js';
@@ -464,24 +464,60 @@ const deleteTicketHandler = {
   async execute(interaction, client) {
     try {
       if (!(await ensureGuildContext(interaction))) return;
-
-      await assertTicketPermission(interaction, client, 'delete tickets', { operation: 'delete' }, 2000);
-
-      const deferSuccess = await InteractionHelper.safeDefer(interaction, { flags: MessageFlags.Ephemeral });
-      if (!deferSuccess) return;
-      
-      const { deleteTicket } = await import('../services/ticket.js');
-      await deleteTicket(interaction.channel, interaction.member);
-      await interaction.editReply({ embeds: [successEmbed('Ticket Deleted', 'This ticket will be deleted shortly.')] });
+      await assertTicketPermission(interaction, client, 'permanently delete tickets', { operation: 'delete' });
+      const confirm = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('ticket_delete_confirm:' + interaction.user.id)
+          .setLabel('Archive & Delete Permanently').setEmoji('🗑️').setStyle(ButtonStyle.Danger),
+        new ButtonBuilder().setCustomId('ticket_delete_cancel:' + interaction.user.id)
+          .setLabel('Cancel').setStyle(ButtonStyle.Secondary),
+      );
+      return InteractionHelper.safeReply(interaction, {
+        content: '⚠️ **Delete this ticket?**\n\nBeacon will create a private transcript, upload it to your configured archive channel, and **only then** delete this channel. This cannot be undone.',
+        components: [confirm],
+        flags: MessageFlags.Ephemeral,
+      });
     } catch (error) {
-      logger.error('Error deleting ticket:', error);
-      if (!interaction.replied && !interaction.deferred) {
-        await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: 'An error occurred while deleting the ticket.' });
-      } else if (interaction.deferred) {
-        await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: 'An error occurred while deleting the ticket.' });
-      }
+      logger.warn('Ticket deletion confirmation denied', { error: error?.message });
+      return replyUserError(interaction, { type: ErrorTypes.PERMISSION,
+        message: error.userMessage || 'You cannot delete this ticket. It must be closed and you need Manage Channels.' });
     }
-  }
+  },
+};
+
+const deleteTicketConfirmHandler = {
+  name: 'ticket_delete_confirm',
+  async execute(interaction, client, args) {
+    try {
+      if (!(await ensureGuildContext(interaction))) return;
+      const requestedBy = args?.[0] || interaction.customId?.split(':')[1];
+      if (requestedBy !== interaction.user.id) {
+        return InteractionHelper.safeReply(interaction, { content: 'This confirmation belongs to another moderator.', flags: MessageFlags.Ephemeral });
+      }
+      await assertTicketPermission(interaction, client, 'delete the ticket', { operation: 'delete' });
+      if (!(await InteractionHelper.safeDefer(interaction, { flags: MessageFlags.Ephemeral }))) return;
+      const { deleteTicket } = await import('../services/ticket.js');
+      const deleted = await deleteTicket(interaction.channel, interaction.user);
+      return InteractionHelper.safeEditReply(interaction, { content:
+        '✅ Ticket archived (' + deleted.archivedMessageCount + ' messages) and deleted.',
+        embeds: [], components: [] });
+    } catch (error) {
+      logger.warn('Ticket archive/deletion cancelled', { error: error?.message, channelId: interaction.channelId });
+      const payload = { content: '⚠️ ' + (error.userMessage || 'Could not archive or delete this ticket. Check that Beacon can upload transcripts.'), components: [] };
+      return interaction.deferred || interaction.replied
+        ? InteractionHelper.safeEditReply(interaction, payload)
+        : InteractionHelper.safeReply(interaction, { ...payload, flags: MessageFlags.Ephemeral });
+    }
+  },
+};
+
+const deleteTicketCancelHandler = {
+  name: 'ticket_delete_cancel',
+  async execute(interaction, _client, args) {
+    if ((args?.[0] || interaction.customId?.split(':')[1]) !== interaction.user.id) {
+      return InteractionHelper.safeReply(interaction, { content: 'This confirmation belongs to another moderator.', flags: MessageFlags.Ephemeral });
+    }
+    return interaction.update({ content: '✅ Ticket deletion cancelled. No data was removed.', embeds: [], components: [] });
+  },
 };
 
 export default createTicketHandler;
@@ -494,5 +530,7 @@ export {
   pinTicketHandler,
   unclaimTicketHandler,
   reopenTicketHandler,
-  deleteTicketHandler 
+  deleteTicketHandler,
+  deleteTicketConfirmHandler,
+  deleteTicketCancelHandler,
 };
