@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { createEmbed } from '../../../utils/embeds.js';
+import { formatBeaconFooter } from '../../../config/bot.js';
 import { logger } from '../../../utils/logger.js';
 import { handleInteractionError, replyUserError, ErrorTypes } from '../../../utils/errorHandler.js';
 import { InteractionHelper } from '../../../utils/interactionHelper.js';
@@ -60,7 +61,7 @@ export default {
                 }
             });
 
-            embed.setFooter({ text: 'Powered by Free Dictionary API' });
+            embed.setFooter({ text: formatBeaconFooter('Powered by Free Dictionary API') });
 
             await InteractionHelper.safeEditReply(interaction, { embeds: [embed] });
 
