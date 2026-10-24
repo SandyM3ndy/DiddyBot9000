@@ -1,7 +1,7 @@
 import { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } from 'discord.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 import { createEmbed } from '../../utils/embeds.js';
-import { diagnoseGuild } from '../../utils/diagnostics.js';
+import { diagnoseGuild, calculateServerHealth } from '../../utils/diagnostics.js';
 
 const ICONS = { critical: '🔴', warning: '🟠', unverified: '⚪', ok: '🟢' };
 
@@ -32,15 +32,25 @@ export default {
     const unverified = count('unverified');
     const top = findings.slice(0, 14).map(item => ICONS[item.severity] + ' **' + item.subject + '** — ' + item.detail);
     const truncated = findings.length > top.length ? '\n…and ' + (findings.length - top.length) + ' more findings.' : '';
+    const health = calculateServerHealth(findings);
     const summary = critical + ' critical • ' + warning + ' warnings • ' + unverified + ' unverified';
     const desc = '**' + summary + '**\n\n' + top.join('\n') + truncated +
       '\n\n-# Read-only check; uncached resources are not assumed deleted. Nothing was changed.';
     return InteractionHelper.safeEditReply(interaction, {
       embeds: [createEmbed({
         title: '🩺 Beacon • Server Diagnostics',
-        description: desc.slice(0, 4000),
+        description: ('**Server Health: ' + health.score + '/100 — ' + health.grade + '**' +
+          '\\n*Advisory score based on checked settings, not a guarantee of security or uptime.*' +
+          '\\n\\n' + desc).slice(0, 4000),
+        fields: [
+          { name: '📊 Checks', value: health.checked + ' checked • ' + summary, inline: false },
+          { name: '🛠️ Recommended next actions', value: (health.actions.length
+              ? health.actions.map((a, i) => (i + 1) + '. ' + a).join('\\n')
+              : 'No confirmed issues in the checks performed. Uncached resources may need manual verification.').slice(0,1024),
+            inline: false },
+        ],
         color: critical ? 'error' : warning || unverified ? 'warning' : 'success',
-        footer: 'Beacon v1.1 • Use /dashboard to repair server settings',
+        footer: 'Beacon • Private, read-only health check • Use /dashboard to fix issues',
       })],
     });
   },
