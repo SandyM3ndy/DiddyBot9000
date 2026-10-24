@@ -1,5 +1,5 @@
 import { EmbedBuilder, MessageFlags, PermissionsBitField } from 'discord.js';
-import { getColor } from '../../../config/bot.js';
+import { getColor, formatBeaconFooter } from '../../../config/bot.js';
 import { getGuildConfig } from '../../../services/config/guildConfig.js';
 import { getLoggingStatus } from '../../../services/loggingService.js';
 import {
@@ -109,7 +109,7 @@ export async function buildLoggingCategoriesView(interaction, client) {
   }).join('\n');
 
   const embed = new EmbedBuilder()
-    .setTitle('📋 Event Categories')
+    .setTitle('📋 Beacon • Event Categories')
     .setDescription(
       auditEnabled
         ? 'Toggle which types of events are logged to your audit channel.'
@@ -117,7 +117,7 @@ export async function buildLoggingCategoriesView(interaction, client) {
     )
     .setColor(getColor('info'))
     .addFields({ name: 'Category Status', value: categoryLines, inline: false })
-    .setFooter({ text: 'Green = logging on · Red = logging off' })
+    .setFooter({ text: formatBeaconFooter('Green = logging on · Red = logging off') })
     .setTimestamp();
 
   const components = createLoggingCategoryViewComponents(loggingStatus.enabledEvents, auditEnabled);
@@ -137,14 +137,14 @@ export async function buildLoggingFilterView(interaction, client) {
     : '*No ignored channels*';
 
   const embed = new EmbedBuilder()
-    .setTitle('🔇 Log Ignore Filters')
+    .setTitle('🔇 Beacon • Log Ignore Filters')
     .setDescription('Users and channels on this list will be skipped when sending audit logs.')
     .setColor(getColor('info'))
     .addFields(
       { name: 'Ignored Users', value: userLines.slice(0, 1024), inline: false },
       { name: 'Ignored Channels', value: channelLines.slice(0, 1024), inline: false },
     )
-    .setFooter({ text: 'Use the buttons below to add or remove filters' })
+    .setFooter({ text: formatBeaconFooter('Use the buttons below to add or remove filters') })
     .setTimestamp();
 
   const components = createLoggingFilterComponents();
