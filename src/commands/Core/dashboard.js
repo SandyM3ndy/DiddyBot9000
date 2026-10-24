@@ -20,6 +20,9 @@ import { createEmbed, successEmbed, infoEmbed, warningEmbed, buildUserErrorEmbed
 import { replyUserError, ErrorTypes } from '../../utils/errorHandler.js';
 import { getGuildConfig, setConfigValue } from '../../services/config/guildConfig.js';
 import ConfigService from '../../services/config/configService.js';
+import { DASHBOARD_FAVOURITES, getDashboardFavourites, formatDashboardFavourites,
+    updateDashboardSettingWithUndo, getDashboardUndo, undoLastDashboardSetting,
+} from '../../services/dashboardExperienceService.js';
 import { logger } from '../../utils/logger.js';
 import { botConfig, getCommandPrefix } from '../../config/bot.js';
 import ticketDashboard from '../Ticket/modules/ticket_dashboard.js';
@@ -249,9 +252,32 @@ function buildButtonRow(config, guildId) {
             .setLabel('Refresh').setEmoji('🔄').setStyle(ButtonStyle.Primary),
         new ButtonBuilder().setCustomId('dashboard_guide:' + guildId)
             .setLabel('Guide').setEmoji('❔').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('dashboard_pin:' + guildId)
+            .setLabel('Favourites').setEmoji('⭐').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('dashboard_undo:' + guildId)
+            .setLabel('Undo').setEmoji('↩️').setStyle(ButtonStyle.Secondary),
     );
 }
 
+function buildFavouriteShortcuts(guildId, ids = []) {
+    const found = DASHBOARD_FAVOURITES.filter(feature => ids.includes(feature.id));
+    if (!found.length) return null;
+    return new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+            .setCustomId('dashboard_fave_jump:' + guildId)
+            .setPlaceholder('⭐ Jump to a favourite setting...')
+            .addOptions(found.map(item =>
+                new StringSelectMenuOptionBuilder().setLabel(item.label)
+                    .setValue(item.id).setDescription('Open this saved dashboard shortcut'))),
+    );
+}
+
+function buildDashboardRows(config,guildId,ids=[]){
+    const rows=[buildButtonRow(config,guildId),buildSettingsSelect(guildId)];
+    const favourites=buildFavouriteShortcuts(guildId,ids);
+    if(favourites)rows.push(favourites);
+    return rows;
+}
 function extractId(value) {
     if (!value || typeof value !== 'string') return null;
 
@@ -342,7 +368,9 @@ async function validateGuildRoleId(guild, roleId) {
 
 async function refreshDashboard(rootInteraction, config, guild) {
     const embed = buildDashboardEmbed(config, guild);
-    const components = [buildButtonRow(config, guild.id), buildSettingsSelect(guild.id)];
+    const ids=await getDashboardFavourites(rootInteraction.client,guild.id,rootInteraction.user.id);
+    if(ids.length)embed.addFields({name:'⭐ Your Favourites',value:formatDashboardFavourites(ids).join(' • '),inline:false});
+    const components = buildDashboardRows(config,guild.id,ids);
     await InteractionHelper.safeEditReply(rootInteraction, { embeds: [embed], components }).catch(() => {});
 }
 
@@ -763,7 +791,7 @@ async function handleSettingModalSubmit(selectInteraction, rootInteraction, sett
             : setting === 'updatesChannelId'
                 ? { channelId: value }
                 : value;
-        await ConfigService.updateSetting(client, guildId, configKey, configValue, submitted.user.id);
+        await updateDashboardSettingWithUndo(client, guildId, configKey, configValue, submitted.user.id);
 
         await submitted.reply({
             embeds: [successEmbed('Configuration Updated', buildSettingSuccessMessage(setting, value, submitted.guild))],
@@ -808,7 +836,11 @@ export default {
             const guildConfig = await getGuildConfig(interaction.client, interaction.guildId);
             const embed = buildDashboardEmbed(guildConfig, interaction.guild);
             const search = interaction.options?.getString?.('find') || '';
-            const components = [buildButtonRow(guildConfig, interaction.guildId), buildSettingsSelect(interaction.guildId, search)];
+            const savedFavourites=await getDashboardFavourites(interaction.client,interaction.guildId,interaction.user.id);
+            const components = buildDashboardRows(guildConfig,interaction.guildId,savedFavourites);
+            if(search)components[1]=buildSettingsSelect(interaction.guildId,search);
+            if(savedFavourites.length)embed.addFields({name:'⭐ Your Favourites',
+                value:formatDashboardFavourites(savedFavourites).join(' • '),inline:false});
             if (search) embed.addFields({ name: '🔎 Settings Search', value:
               'Showing dashboard settings matching **' + search.replace(/@/g, '@\\u200b').slice(0,75) +
               '**. Use **Refresh** for the complete menu.', inline: false });
@@ -861,6 +893,41 @@ export default {
                                 ].join('\\n'))],
                                 flags: MessageFlags.Ephemeral,
                             });
+                            return;
+                        }
+                        if (componentInteraction.customId === 'dashboard_pin:' + interaction.guildId) {
+                            const chosen=await getDashboardFavourites(interaction.client,interaction.guildId,componentInteraction.user.id);
+                            const choices=new StringSelectMenuBuilder()
+                                .setCustomId('dashboard_fave_pin:' + interaction.guildId)
+                                .setPlaceholder('⭐ Pin or unpin a feature (up to four)')
+                                .addOptions(DASHBOARD_FAVOURITES.map(item=>new StringSelectMenuOptionBuilder()
+                                    .setLabel((chosen.includes(item.id)?'✅ ':'')+item.label)
+                                    .setDescription(chosen.includes(item.id)?'Remove from favourites':'Pin this feature')
+                                    .setValue(item.id)));
+                            await componentInteraction.followUp({
+                                content:'⭐ **Dashboard Favourites** — Choose a feature to pin or unpin. Your choices persist after restarts. Press **Refresh** on the dashboard to see them.',
+                                components:[new ActionRowBuilder().addComponents(choices)],
+                                flags:MessageFlags.Ephemeral,
+                            });
+                            return;
+                        }
+                        if (componentInteraction.customId === 'dashboard_undo:' + interaction.guildId) {
+                            const undo=await getDashboardUndo(interaction.client,interaction.guildId);
+                            if(!undo){
+                                await componentInteraction.followUp({content:'↩️ No saved dashboard change is available to undo.',flags:MessageFlags.Ephemeral});
+                                return;
+                            }
+                            const result=await undoLastDashboardSetting(
+                                interaction.client,interaction.guildId,componentInteraction.user.id,
+                                {isOwner:interaction.guild.ownerId===componentInteraction.user.id});
+                            await componentInteraction.followUp({
+                                content:result.ok
+                                    ?'✅ Restored **'+result.key+'** from the previous saved dashboard value. Press Refresh.'
+                                    :'⚠️ '+result.reason,
+                                flags:MessageFlags.Ephemeral,
+                            });
+                            if(result.ok)await refreshDashboard(interaction,
+                                await getGuildConfig(interaction.client,interaction.guildId),interaction.guild);
                             return;
                         }
                         if (componentInteraction.customId.startsWith(`${WIZARD_BUTTON_ID}:`)) {
