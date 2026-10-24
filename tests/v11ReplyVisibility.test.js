@@ -87,3 +87,14 @@ test('verification and cleanup results are public by default with private overri
   const source = await read('src/commands/Moderation/purge.js');
   assert.match(source, /message\.id !== ownReply\?\.id/);
 });
+
+
+test('polls and suggestions use a single public command response instead of a private duplicate', async () => {
+  for (const path of ['src/commands/Community/poll.js', 'src/commands/Community/suggest.js']) {
+    const code = await read(path);
+    assert.match(code, /safeDefer\(interaction\)/);
+    assert.doesNotMatch(code, /channel\.send\(\{ embeds: \[embed\]/);
+    assert.match(code, /interaction\.fetchReply\(\)/);
+    assert.match(code, /safeEditReply\(interaction, \{\s*embeds: \[embed\]/);
+  }
+});

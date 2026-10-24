@@ -11,6 +11,7 @@ Discord replies should be public when they contain useful, shareable community i
 - /userinfo (use **private:true** to hide it)
 - /count status and /count leaderboard (configuration actions remain private)
 - /progression overview, quests, leaderboard, rank and milestones
+- /poll and /suggest (one visible message with voting reactions; no duplicate private confirmation)
 - /time now and /time unix
 - /play, /join, /queue, /nowplaying, and normal /music playback controls
 - Public-information and entertainment commands that already reply publicly (e.g. /flip, /roll, /serverinfo)
@@ -22,7 +23,7 @@ Discord replies should be public when they contain useful, shareable community i
 - /todo personal and shared-list operations
 - /music status is public: only service availability, voice-channel presence and queue totals are shown
 - /apply submit and /apply status (but /apply list is public)
-- /suggest and /poll send a **separate public post**; their command confirmation stays private to avoid a duplicate message
+- /suggest and /poll are public voting posts: the slash-command reply itself becomes the poll or suggestion. Only partial voting-reaction failures receive a private notice.
 - /embedbuilder editor and drafts stay private until publication
 
 A public reply is not the same as granting permission to run a command. Existing permission and owner checks must still apply.
@@ -30,4 +31,4 @@ A public reply is not the same as granting permission to run a command. Existing
 There is no fixed percentage target: visibility is chosen based on the data in each response. Any new commands should use public replies only if their **entire** success payload is safe to share; error and permission denial details should remain private where possible.
 
 ## Deployment check
-After deploying the latest main build, test /help, /userinfo, /verify, /purge, /music status, /count leaderboard and /queue for public replies. Check the **private:true** override for /verify and /purge; verify /dashboard, /ticket transcript, /cases and /todo list remain private.
+After deploying the latest main build, test /help, /userinfo, /verify, /purge, /music status, /poll, /suggest, /count leaderboard and /queue for public replies. Check the **private:true** override for /verify and /purge; verify /dashboard, /ticket transcript, /cases and /todo list remain private.
