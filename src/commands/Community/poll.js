@@ -31,7 +31,7 @@ export default {
   data: builder,
   category: 'Community',
   async execute(interaction) {
-    if (!(await InteractionHelper.safeDefer(interaction, { flags: MessageFlags.Ephemeral }))) return;
+    if (!(await InteractionHelper.safeDefer(interaction))) return;
     const question = interaction.options.getString('question', true).trim();
     const choices = readOptions(interaction.options);
     if (!question || choices.length < 2 || choices.length > 10 || choices.some(v => v.length > 100)) {
@@ -56,15 +56,26 @@ export default {
       color: 'primary',
     }).setFooter({ text: 'React below to vote • Votes are visible to other members' }).setTimestamp();
     try {
-      const message = await channel.send({ embeds: [embed], allowedMentions: { parse: [] } });
-      const reactionResults = await Promise.allSettled(choices.map((_,i) => message.react(VOTES[i])));
-      const failed = reactionResults.filter(r => r.status === 'rejected').length;
-      return InteractionHelper.safeEditReply(interaction, {
-        content: `✅ Poll posted: ${message.url}` + (failed ? `\n⚠️ ${failed} reaction(s) could not be added; check bot permissions.` : ''),
+      // The interaction reply is the public poll. No duplicate private receipt.
+      const posted = await InteractionHelper.safeEditReply(interaction, {
+        embeds: [embed], allowedMentions: { parse: [] },
       });
+      if (!posted) return;
+      const message = await interaction.fetchReply();
+      const results = await Promise.allSettled(choices.map((_, i) => message.react(VOTES[i])));
+      const failures = results.filter(r => r.status === 'rejected').length;
+      if (failures) await interaction.followUp({
+        content: '⚠️ Poll posted, but ' + failures + ' voting reactions could not be added. Check Add Reactions permission.',
+        flags: MessageFlags.Ephemeral,
+      }).catch(() => {});
     } catch (error) {
-      logger.warn('Failed to create poll', { guildId: interaction.guildId, error: error?.message });
-      return InteractionHelper.safeEditReply(interaction, { content: 'Could not post this poll. Check Beacon’s channel permissions and try again.' });
+      logger.warn('Failed to publish poll', { guildId: interaction.guildId, error: error?.message });
+      if (interaction.deferred || interaction.replied) {
+        await interaction.followUp({
+          content: '⚠️ Could not complete the poll. Check Beacon permissions and try again.',
+          flags: MessageFlags.Ephemeral,
+        }).catch(() => {});
+      }
     }
   },
 };
