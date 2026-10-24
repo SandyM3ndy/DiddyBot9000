@@ -8,7 +8,7 @@ const FILTERS=[
  {id:'open',label:'All Open',emoji:'📥'},
  {id:'unclaimed',label:'Unclaimed',emoji:'🙋'},
  {id:'urgent',label:'Urgent',emoji:'🚨'},
- {id:'awaiting',label:'Awaiting Reply',emoji:'⏳'},
+ {id:'awaiting',label:'Needs Reply',emoji:'⏳'},
  {id:'closed',label:'Closed',emoji:'📦'},
 ];
 const rank={urgent:0,high:1,medium:2,low:3,none:4};
@@ -24,8 +24,8 @@ export function filterTicketQueue(tickets,filter='open'){
   if(t.status!=='open')return false;
   if(filter==='unclaimed')return !t.claimedBy;
   if(filter==='urgent')return t.priority==='urgent'||t.priority==='high';
-  // No guessed "awaiting user" state: only explicit saved status.
-  if(filter==='awaiting')return t.awaitingUser===true||t.waitingFor==='user';
+  // First response is a persisted ticket fact; never infer that the user has replied.
+  if(filter==='awaiting')return !t.firstResponseAt||t.waitingFor==='staff';
   return true;
  });
  return filtered.sort((a,b)=>(rank[a.priority]??4)-(rank[b.priority]??4)
@@ -47,7 +47,7 @@ export function buildTicketCommandCenter(tickets,config={},filter='open',page=0)
   value:(ticket.status==='archived'?'Archived ticket':(ticket.id?'<#'+ticket.id+'>':'Channel unavailable'))
     +' • '+(ticket.claimedBy?'Assigned to <@'+ticket.claimedBy+'>':'**Unclaimed**')
     +'\nOpened '+timestamp(ticket.createdAt)
-    +(ticket.awaitingUser===true?' • Awaiting requester':''),
+    +(ticket.waitingFor==='staff'?' • Awaiting staff response':(!ticket.firstResponseAt&&ticket.status==='open'?' • No staff reply recorded':'')),
   inline:false,
  }));
  const label=FILTERS.find(x=>x.id===safeFilter)?.label;
