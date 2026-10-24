@@ -252,23 +252,25 @@ async function buildPanel(interaction, view, page, expired = false) {
 async function openQuestReroll(button){
  if(button.guild?.ownerId!==button.user.id)
   return button.reply({content:'🔒 Only the server owner can reroll quests.',flags:MessageFlags.Ephemeral});
+ // Always acknowledge before a possibly slow database read.
+ if(!(await InteractionHelper.safeDefer(button,{flags:MessageFlags.Ephemeral})))return;
  const data=await getServerProgression(button.client,button.guildId);
  const today=new Date().toISOString().slice(0,10);
  if(data.dailyRerollDay===today)
-  return button.reply({content:'🎲 Your free reroll has already been used today. It resets at 00:00 UTC.',flags:MessageFlags.Ephemeral});
+  return InteractionHelper.safeEditReply(button,{content:'🎲 Your free reroll has already been used today. It resets at 00:00 UTC.'});
  const available=data.dailyQuests.filter(q=>!q.completed);
  if(!available.length)
-  return button.reply({content:'✅ No unfinished quests to reroll.',flags:MessageFlags.Ephemeral});
+  return InteractionHelper.safeEditReply(button,{content:'✅ No unfinished quests to reroll.'});
  const base='progress_reroll:'+button.id+':';
  const rows=[];
  for(let i=0;i<available.length;i+=5)rows.push(new ActionRowBuilder().addComponents(
   available.slice(i,i+5).map(q=>new ButtonBuilder().setCustomId(base+'select:'+q.id)
    .setLabel(q.title.replace(/^[^\w]+/u,'').slice(0,75)).setStyle(ButtonStyle.Secondary))
  ));
- await button.reply({
+ await InteractionHelper.safeEditReply(button,{
   embeds:[createEmbed({title:'🎲 Choose a Daily Quest to Replace',
    description:'One free reroll per day, per server. This will **discard progress on the selected quest**, and the replacement starts at zero. Rewards already earned are safe.',
-   color:'info'})],components:rows,flags:MessageFlags.Ephemeral
+   color:'info'})],components:rows
  });
  const msg=await button.fetchReply().catch(()=>null);
  if(!msg?.createMessageComponentCollector)return;
@@ -409,7 +411,12 @@ export default {
         return;
       }
       const action = button.customId.slice(prefix.length);
-      if(action==='reroll')return openQuestReroll(button);
+      if(action==='reroll')return openQuestReroll(button).catch(async()=>{
+        const content='⚠️ Could not load the reroll. Your saved quests remain unchanged.';
+        if(button.deferred||button.replied)
+          await button.editReply({content,embeds:[],components:[]}).catch(()=>{});
+        else await button.reply({content,flags:MessageFlags.Ephemeral}).catch(()=>{});
+      });
       if(action==='card')return sendRankCard(button).catch(async()=> {
         if(button.deferred || button.replied)await button.editReply({content:'⚠️ Could not generate a rank card right now.'}).catch(()=>{});
         else await button.reply({content:'⚠️ Could not generate a rank card.',flags:MessageFlags.Ephemeral}).catch(()=>{});
@@ -428,9 +435,11 @@ export default {
         page = payload.page;
         await interaction.editReply({ embeds: payload.embeds, components: payload.components });
       } catch {
-        await interaction.editReply({ content: 'Could not refresh the board right now. Please try /progression again.',
-          components: [] }).catch(() => {});
-        collector.stop('error');
+        // A failed refresh should not destroy the panel or hide its controls.
+        await button.followUp({
+          content:'⚠️ Beacon could not refresh this view. Your saved progress is unchanged; try Refresh again.',
+          flags:MessageFlags.Ephemeral,
+        }).catch(()=>{});
       }
     });
     collector.on('end', async () => {
