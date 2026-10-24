@@ -39,7 +39,9 @@ export async function toggleDashboardFavourite(client,guildId,userId,featureId){
  if(!isFeature(featureId))throw new Error('Unknown dashboard feature');
  return locked('favourite:'+guildId+':'+userId,async()=>{
   const current=await getDashboardFavourites(client,guildId,userId);
-  const next=current.includes(featureId)?current.filter(x=>x!==featureId):[...current,featureId].slice(-4);
+  if(!current.includes(featureId) && current.length>=4)
+   throw new Error('You can pin four favourites. Unpin one before adding another.');
+  const next=current.includes(featureId)?current.filter(x=>x!==featureId):[...current,featureId];
   ensureWrite(await client.db.set(favoritesKey(guildId,userId),next));
   return next;
  });
