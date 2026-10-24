@@ -33,11 +33,11 @@ test('dashboard favourites are persisted per user and never erase existing selec
 
 test('staff inbox filters tickets and builds working pagination with no mutations',()=>{
  const tickets=[
-  {id:'1',status:'open',priority:'urgent',createdAt:'2026-01-01T00:00:00Z',claimedBy:null},
-  {id:'2',status:'open',priority:'high',createdAt:'2026-01-02T00:00:00Z',claimedBy:'77'},
+  {id:'1',status:'open',priority:'urgent',createdAt:'2026-01-01T00:00:00Z',claimedBy:null,firstResponseAt:'2026-01-01T00:05:00Z'},
+  {id:'2',status:'open',priority:'high',createdAt:'2026-01-02T00:00:00Z',claimedBy:'77',firstResponseAt:'2026-01-02T00:05:00Z'},
   {id:'3',status:'open',priority:'low',createdAt:'2026-01-03T00:00:00Z',waitingFor:'user'},
   {id:'4',status:'closed',priority:'medium',createdAt:'2026-01-04T00:00:00Z'},
-  {id:'5',status:'open',priority:'low',createdAt:'2026-01-05T00:00:00Z'},
+  {id:'5',status:'open',priority:'low',createdAt:'2026-01-05T00:00:00Z',firstResponseAt:'2026-01-05T00:05:00Z'},
  ];
  assert.equal(filterTicketQueue(tickets,'open').length,4);
  assert.equal(filterTicketQueue(tickets,'unclaimed').length,3);
