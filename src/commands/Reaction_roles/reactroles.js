@@ -11,7 +11,7 @@ import {
     formatPanelStatusField,
 } from '../../utils/panelStatus.js';
 import { startDashboardSession } from '../../utils/dashboardSession.js';
-import { buildReactionRoleLanding, REACTION_ROLE_SETUP_BUTTON } from './reactionRoleSetup.js';
+import { buildReactionRoleLanding, REACTION_ROLE_SETUP_BUTTON } from '../../utils/reactionRoles/reactionRoleSetup.js';
 import { getReactionRoleKey } from '../../utils/database/keys.js';
 
 const DASHBOARD_EPHEMERAL = MessageFlags.Ephemeral;
@@ -620,7 +620,7 @@ export async function openReactionRoleDashboard(interaction, selectedPanelId = n
             // Dashboard collector owns its controls. The setup button must be
             // handled here too (rather than ignored by the global event handler).
             if (btnInteraction.customId === REACTION_ROLE_SETUP_BUTTON) {
-                const { handleReactionRoleCreateButton } = await import('./reactionRoleSetup.js');
+                const { handleReactionRoleCreateButton } = await import('../../utils/reactionRoles/reactionRoleSetup.js');
                 await handleReactionRoleCreateButton(btnInteraction);
                 return;
             }

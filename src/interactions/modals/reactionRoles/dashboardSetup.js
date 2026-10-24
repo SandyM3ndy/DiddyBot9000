@@ -1,4 +1,4 @@
-import { REACTION_ROLE_SETUP_MODAL, createReactionRolePanelFromModal } from '../../../commands/Reaction_roles/reactionRoleSetup.js';
+import { REACTION_ROLE_SETUP_MODAL, createReactionRolePanelFromModal } from '../../../utils/reactionRoles/reactionRoleSetup.js';
 
 export default {
   name: REACTION_ROLE_SETUP_MODAL,

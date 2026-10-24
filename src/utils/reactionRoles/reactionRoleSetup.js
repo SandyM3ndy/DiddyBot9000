@@ -4,10 +4,10 @@ import {
   ButtonBuilder, ButtonStyle,
   StringSelectMenuBuilder, EmbedBuilder, MessageFlags,
 } from 'discord.js';
-import { InteractionHelper } from '../../utils/interactionHelper.js';
+import { InteractionHelper } from '../interactionHelper.js';
 import { createReactionRoleMessage, getAllReactionRoleMessages, hasDangerousPermissions } from '../../services/reactionRoleService.js';
 import { getColor } from '../../config/bot.js';
-import { logger } from '../../utils/logger.js';
+import { logger } from '../logger.js';
 
 export const REACTION_ROLE_SETUP_BUTTON = 'rr_dashboard_create';
 export const REACTION_ROLE_SETUP_MODAL = 'rr_dashboard_setup';

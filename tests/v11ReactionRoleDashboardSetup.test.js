@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { buildReactionRoleLanding, buildReactionRoleSetupModal } from '../src/commands/Reaction_roles/reactionRoleSetup.js';
+import { buildReactionRoleLanding, buildReactionRoleSetupModal } from '../src/utils/reactionRoles/reactionRoleSetup.js';
 
 test('a new server can create its first reaction role panel from dashboard', () => {
   const empty = buildReactionRoleLanding([], { channels: { cache: new Map() } });
