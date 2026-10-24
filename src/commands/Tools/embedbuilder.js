@@ -24,7 +24,21 @@ import { TitanBotError, replyUserError, ErrorTypes } from '../../utils/errorHand
 import { getColor } from '../../config/bot.js';
 
 const MAX_FIELDS = 25;
-const IDLE_TIMEOUT = 900_000; 
+const IDLE_TIMEOUT = 900_000;
+
+// Optional starting points — every template remains fully editable.
+export function applyEmbedTemplate(state, template = 'blank') {
+    const samples = {
+        announcement: { title: '📢 Community Announcement', description: 'Share an important update with your members.', color: getColor('primary') },
+        rules: { title: '📜 Server Rules', description: '1. Respect everyone.\n2. Keep channels on topic.\n3. Follow Discord Community Guidelines.', color: getColor('info') },
+        update: { title: '🚀 Server Update', description: '**What changed**\n• Improvement 1\n• Improvement 2\n\n**What is next?**\nMore to come.', color: getColor('success') },
+        welcome: { title: '👋 Welcome to Our Community', description: 'We are glad you are here! Explore the channels, meet the team, and have fun.', color: getColor('primary') },
+    };
+    const sample = samples[template];
+    if (sample) Object.assign(state, sample);
+    return state;
+}
+ 
 
 const COLOR_PRESETS = [
     { label: 'Primary (Blue)',        value: '#336699', emoji: '' },
@@ -121,10 +135,10 @@ function buildDashboardEmbed(state) {
     ];
 
     return new EmbedBuilder()
-        .setTitle('Embed Builder — Control Panel')
+        .setTitle('✦ Beacon • Embed Studio')
         .setDescription(lines.join('\n'))
         .setColor(getColor('info'))
-        .setFooter({ text: 'The preview above updates live · Closes after 5 min of inactivity' });
+        .setFooter({ text: 'The preview above updates live · Closes after 15 minutes of inactivity' });
 }
 
 function buildMainMenu(state) {
@@ -1042,7 +1056,14 @@ export default {
     slashOnly: true,
     data: new SlashCommandBuilder()
         .setName('embedbuilder')
-        .setDescription('Build and post a fully custom embed with live preview')
+        .setDescription('Design server announcements with live preview and ready-made templates')
+        .addStringOption(o => o.setName('template').setDescription('Start from an editable template').addChoices(
+            { name: 'Blank canvas', value: 'blank' },
+            { name: 'Community announcement', value: 'announcement' },
+            { name: 'Server rules', value: 'rules' },
+            { name: 'Feature update', value: 'update' },
+            { name: 'Welcome message', value: 'welcome' },
+        ))
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
 
     async execute(interaction) {
@@ -1066,6 +1087,7 @@ export default {
                 fields:      [],
             };
 
+            applyEmbedTemplate(state, interaction.options.getString('template') || 'blank');
             await refreshDashboard(interaction, state);
 
             const collector = interaction.channel.createMessageComponentCollector({

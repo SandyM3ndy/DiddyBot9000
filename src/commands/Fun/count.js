@@ -18,7 +18,6 @@ export default {
   data: new SlashCommandBuilder()
     .setName('count')
     .setDescription('Manage the server counting game')
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
     .setDMPermission(false)
     .addSubcommand((subcommand) =>
       subcommand
@@ -69,12 +68,13 @@ export default {
         return;
       }
 
-      if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
-        return await replyUserError(interaction, { type: ErrorTypes.PERMISSION, message: 'You need the **Manage Server** permission to use this command.' });
+      const subcommand = interaction.options.getSubcommand();
+      // Anyone can inspect status and leaderboard; only managers change settings.
+      if (!['status', 'leaderboard'].includes(subcommand) && !interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
+        return await replyUserError(interaction, { type: ErrorTypes.PERMISSION, message: 'Manage Server permission is required to change counting-game settings.' });
       }
 
       const guildId = interaction.guildId;
-      const subcommand = interaction.options.getSubcommand();
       const config = await getCountingGameConfig(interaction.client, guildId);
 
       if (subcommand === 'setup') {
