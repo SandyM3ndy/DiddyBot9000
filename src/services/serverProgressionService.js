@@ -574,7 +574,8 @@ async function load(client, guildId, { persistRollover = false } = {}) {
 async function save(client, guildId, data) {
   data.level = levelFromXp(data.xp);
   data.updatedAt = new Date().toISOString();
-  await client.db.set(`${KEY_PREFIX}${guildId}${KEY_SUFFIX}`, data);
+  const stored = await client.db.set(`${KEY_PREFIX}${guildId}${KEY_SUFFIX}`, data);
+  if (stored === false) throw new Error('Persistent progression storage rejected the write.');
   return data;
 }
 
@@ -897,7 +898,10 @@ export async function registerFoundingServers(client){
     entries.push({guildId:guild.id,number:entries.length+1,awardedAt:new Date().toISOString()});
     seen.add(guild.id);
   }
-  if(entries.length!==(raw?.entries?.length||0))await client.db.set(FOUNDERS_KEY,{version:1,entries});
+  if(entries.length!==(raw?.entries?.length||0)){
+    const stored=await client.db.set(FOUNDERS_KEY,{version:1,entries});
+    if(stored===false)throw new Error('Founding registry storage rejected the write.');
+  }
   return entries;
  },client);
 }
