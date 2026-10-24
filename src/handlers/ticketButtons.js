@@ -255,10 +255,12 @@ const closeTicketModalHandler = {
     try {
       if (!(await ensureGuildContext(interaction))) return;
 
-      await assertTicketPermission(interaction, client, 'close this ticket', { allowTicketCreator: true }, 2000);
-
+      // Modal submission can safely defer before an I/O-based permission check.
+      // Permission is still enforced before closing the ticket.
       const deferSuccess = await InteractionHelper.safeDefer(interaction, { flags: MessageFlags.Ephemeral });
       if (!deferSuccess) return;
+
+      await assertTicketPermission(interaction, client, 'close this ticket', { allowTicketCreator: true }, 2000);
 
       const providedReason = interaction.fields.getTextInputValue('reason')?.trim();
       const reason = providedReason || 'Closed via ticket button without a specific reason.';
@@ -485,6 +487,7 @@ const deleteTicketHandler = {
   async execute(interaction, client) {
     try {
       if (!(await ensureGuildContext(interaction))) return;
+      if (!(await InteractionHelper.safeDefer(interaction, { flags: MessageFlags.Ephemeral }))) return;
       await assertTicketPermission(interaction, client, 'permanently delete tickets', { operation: 'delete' });
       const confirm = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId('ticket_delete_confirm:' + interaction.user.id)
@@ -514,8 +517,8 @@ const deleteTicketConfirmHandler = {
       if (requestedBy !== interaction.user.id) {
         return InteractionHelper.safeReply(interaction, { content: 'This confirmation belongs to another moderator.', flags: MessageFlags.Ephemeral });
       }
-      await assertTicketPermission(interaction, client, 'delete the ticket', { operation: 'delete' });
       if (!(await InteractionHelper.safeDefer(interaction, { flags: MessageFlags.Ephemeral }))) return;
+      await assertTicketPermission(interaction, client, 'delete the ticket', { operation: 'delete' });
       const { deleteTicket } = await import('../services/ticket.js');
       await deleteTicket(interaction.channel, interaction.user, {
         onArchived: async ({ messageCount, archiveChannelId }) => {
