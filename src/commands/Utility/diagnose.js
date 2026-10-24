@@ -1,7 +1,7 @@
 import { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } from 'discord.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 import { createEmbed } from '../../utils/embeds.js';
-import { diagnoseGuild, calculateServerHealth } from '../../utils/diagnostics.js';
+import { diagnoseGuild, calculateServerHealth, buildDiagnosticActionPlan, summarizeConfiguredFeatures } from '../../utils/diagnostics.js';
 
 const ICONS = { critical: '🔴', warning: '🟠', unverified: '⚪', ok: '🟢' };
 
@@ -33,6 +33,8 @@ export default {
     const top = findings.slice(0, 14).map(item => ICONS[item.severity] + ' **' + item.subject + '** — ' + item.detail);
     const truncated = findings.length > top.length ? '\n…and ' + (findings.length - top.length) + ' more findings.' : '';
     const health = calculateServerHealth(findings);
+    const plan = buildDiagnosticActionPlan(findings);
+    const enabled = summarizeConfiguredFeatures(config || {});
     const summary = critical + ' critical • ' + warning + ' warnings • ' + unverified + ' unverified';
     const desc = '**' + summary + '**\n\n' + top.join('\n') + truncated +
       '\n\n-# Read-only check; uncached resources are not assumed deleted. Nothing was changed.';
@@ -44,9 +46,13 @@ export default {
           '\n\n' + desc).slice(0, 4000),
         fields: [
           { name: '📊 Checks', value: health.checked + ' checked • ' + summary, inline: false },
-          { name: '🛠️ Recommended next actions', value: (health.actions.length
-              ? health.actions.map((a, i) => (i + 1) + '. ' + a).join('\n')
-              : 'No confirmed issues in the checks performed. Uncached resources may need manual verification.').slice(0,1024),
+          { name: '🛠️ Fix It • Recommended next steps', value: (plan.length
+              ? plan.map((step, i) => (i + 1) + '. ' + step).join('\n')
+              : 'No confirmed problems. Use /dashboard to configure optional features when needed.').slice(0,1024),
+            inline: false },
+          { name: '🧩 Enabled Beacon Modules', value: enabled.enabled.length
+              ? enabled.enabled.join('  •  ') + '\n' + enabled.enabled.length + '/' + enabled.total + ' modules in use.'
+              : 'No optional features detected as enabled yet. That is not a health failure.',
             inline: false },
         ],
         color: critical ? 'error' : warning || unverified ? 'warning' : 'success',
