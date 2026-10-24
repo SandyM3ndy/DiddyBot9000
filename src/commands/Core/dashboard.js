@@ -154,8 +154,8 @@ export function buildDashboardEmbed(config, guild) {
     });
 }
 
-function buildSettingsSelect(guildId) {
-    return new ActionRowBuilder().addComponents(
+export function buildSettingsSelect(guildId, search = '') {
+    const row = new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder()
             .setCustomId(`${DASHBOARD_CUSTOM_ID}:${guildId}`)
             .setPlaceholder('⚙️ Choose a feature to configure...')
@@ -222,6 +222,20 @@ function buildSettingsSelect(guildId) {
                     .setEmoji('📋'),
             ),
     );
+    const query = String(search || '').toLowerCase().trim();
+    if (query) {
+        const dropdown = row.components[0];
+        const matches = dropdown.options.filter(option => {
+            const json = option.toJSON();
+            return [json.label, json.description, json.value].some(x => x?.toLowerCase().includes(query));
+        });
+        if (matches.length) dropdown.setOptions(matches);
+        else dropdown.setOptions(new StringSelectMenuOptionBuilder()
+          .setLabel('No settings found — show all')
+          .setValue('dashboardSearchReset').setDescription('Clear the search and reopen the full dashboard'));
+        dropdown.setPlaceholder('🔎 Filtered settings: ' + query.slice(0,60));
+    }
+    return row;
 }
 
 function buildButtonRow(config, guildId) {
@@ -771,7 +785,8 @@ export default {
     slashOnly: true,
     data: new SlashCommandBuilder()
         .setName('dashboard')
-        .setDescription('Open the Beacon server dashboard')
+        .setDescription('Open Beacon Dashboard 2.0 with guided settings and diagnostics')
+        .addStringOption(o => o.setName('find').setDescription('Search for a dashboard setting or feature').setMaxLength(80))
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
         .setDMPermission(false),
     category: 'Core',
@@ -792,7 +807,11 @@ export default {
 
             const guildConfig = await getGuildConfig(interaction.client, interaction.guildId);
             const embed = buildDashboardEmbed(guildConfig, interaction.guild);
-            const components = [buildButtonRow(guildConfig, interaction.guildId), buildSettingsSelect(interaction.guildId)];
+            const search = interaction.options?.getString?.('find') || '';
+            const components = [buildButtonRow(guildConfig, interaction.guildId), buildSettingsSelect(interaction.guildId, search)];
+            if (search) embed.addFields({ name: '🔎 Settings Search', value:
+              'Showing dashboard settings matching **' + search.replace(/@/g, '@\\u200b').slice(0,75) +
+              '**. Use **Refresh** for the complete menu.', inline: false });
 
             await InteractionHelper.safeEditReply(interaction, { embeds: [embed], components });
 
@@ -853,6 +872,12 @@ export default {
 
                     if (componentInteraction.isStringSelectMenu()) {
                         const selected = componentInteraction.values[0];
+                        if (selected === 'dashboardSearchReset') {
+                            await componentInteraction.deferUpdate();
+                            const refreshed = await getGuildConfig(interaction.client, interaction.guildId);
+                            await refreshDashboard(interaction, refreshed, interaction.guild);
+                            return;
+                        }
 
                         if (selected === 'serverProgressionEnabled' && interaction.guild.ownerId !== componentInteraction.user.id) {
                             await replyUserError(componentInteraction, {

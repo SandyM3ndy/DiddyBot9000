@@ -2,6 +2,7 @@ import { ComponentType, EmbedBuilder } from 'discord.js';
 import { getColor } from '../config/bot.js';
 import { TitanBotError, ErrorTypes, replyUserError } from './errorHandler.js';
 import { InteractionHelper } from './interactionHelper.js';
+import { withDashboardHome } from './dashboardHome.js';
 import { logger } from './logger.js';
 
 function matchesCustomId(customId, matcher) {
@@ -55,7 +56,7 @@ export async function startDashboardSession({
     onButton,
     onTimeout,
 }) {
-    const edited = await InteractionHelper.safeEditReply(interaction, { embeds, components, flags });
+    const edited = await InteractionHelper.safeEditReply(interaction, { embeds, components: withDashboardHome(components), flags });
     if (!edited) {
         logger.warn('Dashboard could not edit its original interaction response', { guildId: interaction.guildId });
         return { stop: () => {}, replyMessageId: null };

@@ -18,6 +18,7 @@ import {
     TextDisplayBuilder,
 } from 'discord.js';
 import { InteractionHelper } from '../../../utils/interactionHelper.js';
+import { withDashboardHome } from '../../../utils/dashboardHome.js';
 import { successEmbed } from '../../../utils/embeds.js';
 import { logger } from '../../../utils/logger.js';
 import { TitanBotError, ErrorTypes, replyUserError } from '../../../utils/errorHandler.js';
@@ -165,8 +166,12 @@ async function refreshDashboard(rootInteraction, cfg, guildId) {
         await InteractionHelper.safeEditReply(rootInteraction, {
             embeds: [buildDashboardEmbed(cfg, rootInteraction.guild)],
             components: [
-                ...buildButtonRow(cfg, guildId),
-                new ActionRowBuilder().addComponents(selectMenu),
+                ...withDashboardHome([
+                    ...withDashboardHome([
+                        ...buildButtonRow(cfg, guildId),
+                        new ActionRowBuilder().addComponents(selectMenu),
+                    ]),
+                ]),
             ],
         });
     } catch (error) {

@@ -8,6 +8,7 @@ import {
   MessageFlags,
 } from 'discord.js';
 import { createEmbed } from '../../../utils/embeds.js';
+import { withDashboardHome } from '../../../utils/dashboardHome.js';
 import {
   getCommandAccessSnapshot,
   disableCategory,
@@ -142,9 +143,9 @@ export async function buildDashboardView(client, guildId, guild, view = 'overvie
   const snapshot = getCommandAccessSnapshot(client, config);
   if (view === 'category' && categoryKey) {
     const category = snapshot.categories.find((entry) => entry.key === categoryKey);
-    if (category) return { embed: buildCategoryEmbed(category, guild), components: buildCategoryComponents(guildId, category, page), categoryKey };
+    if (category) return { embed: buildCategoryEmbed(category, guild), components: withDashboardHome(buildCategoryComponents(guildId, category, page)), categoryKey };
   }
-  return { embed: buildOverviewEmbed(snapshot, guild), components: buildOverviewComponents(guildId, snapshot) };
+  return { embed: buildOverviewEmbed(snapshot, guild), components: withDashboardHome(buildOverviewComponents(guildId, snapshot)) };
 }
 
 export async function handleDashboardComponent(interaction, client) {

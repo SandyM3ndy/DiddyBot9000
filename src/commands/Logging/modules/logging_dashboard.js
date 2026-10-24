@@ -11,6 +11,7 @@ import {
   EVENT_TYPES_BY_CATEGORY,
 } from '../../../utils/logging/loggingUi.js';
 import { InteractionHelper } from '../../../utils/interactionHelper.js';
+import { withDashboardHome } from '../../../utils/dashboardHome.js';
 import { logger } from '../../../utils/logger.js';
 
 import { replyUserError, ErrorTypes } from '../../../utils/errorHandler.js';
@@ -94,7 +95,7 @@ export async function buildLoggingDashboardView(interaction, client) {
     .setTimestamp();
 
   const components = createLoggingDashboardComponents(loggingStatus.enabledEvents, auditEnabled);
-  return { embed, components };
+  return { embed, components: withDashboardHome(components) };
 }
 
 export async function buildLoggingCategoriesView(interaction, client) {
@@ -120,7 +121,7 @@ export async function buildLoggingCategoriesView(interaction, client) {
     .setTimestamp();
 
   const components = createLoggingCategoryViewComponents(loggingStatus.enabledEvents, auditEnabled);
-  return { embed, components };
+  return { embed, components: withDashboardHome(components) };
 }
 
 export async function buildLoggingFilterView(interaction, client) {
@@ -147,7 +148,7 @@ export async function buildLoggingFilterView(interaction, client) {
     .setTimestamp();
 
   const components = createLoggingFilterComponents();
-  return { embed, components };
+  return { embed, components: withDashboardHome(components) };
 }
 
 export function isCategoriesView(interaction) {

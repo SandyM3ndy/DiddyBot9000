@@ -10,7 +10,7 @@ import warnings from '../src/commands/Moderation/warnings.js';
 test('streamlined command groups include every migrated operation', () => {
   for (const [command, expected] of [
     [giveaway, ['create', 'end', 'reroll', 'delete']],
-    [ticket, ['add', 'remove', 'rename', 'claim', 'close', 'priority', 'stats', 'panel', 'my', 'queue', 'info', 'transcript', 'reopen', 'unclaim']],
+    [ticket, ['add', 'remove', 'rename', 'claim', 'close', 'priority', 'stats', 'sla', 'panel', 'my', 'queue', 'info', 'transcript', 'reopen', 'unclaim']],
     [time, ['now', 'unix']],
     [progression, ['overview', 'quests', 'leaderboard', 'rank', 'milestones']],
     [warnings, ['list', 'add']],
