@@ -41,7 +41,7 @@ export default {
       const channel = message.channel;
       const isTicket = channel?.topic?.startsWith('beacon-ticket:') ||
         channel?.name?.startsWith('ticket-') ||
-        /^[^ ]+ ticket-\\d+/.test(channel?.name || '');
+        /^[^ ]+ ticket-\d+/.test(channel?.name || '');
       if (isTicket) {
         const ticket = await getTicketData(message.guild.id, channel.id).catch(() => null);
         if (ticket?.status === 'open') {
