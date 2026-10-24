@@ -61,3 +61,19 @@ test('reaction-role and main dashboards preserve state on recoverable errors', a
   assert.match(source,/Reaction-role panel storage read failed/);
   assert.match(source,/Existing panels were not changed/);
 });
+
+test('ticket close and delete confirmation acknowledge before database permission work',async()=>{
+ const source=await readFile('src/handlers/ticketButtons.js','utf8');
+ for(const [start,end,permission] of [
+   ['const closeTicketModalHandler = {','const claimTicketHandler = {','close this ticket'],
+   ['const deleteTicketHandler = {','const deleteTicketConfirmHandler = {','permanently delete tickets'],
+   ['const deleteTicketConfirmHandler = {','const deleteTicketCancelHandler = {','delete the ticket'],
+ ]){
+   const begin=source.indexOf(start),finish=source.indexOf(end,begin+start.length);
+   assert.ok(begin>=0 && finish>begin,start);
+   const body=source.slice(begin,finish);
+   const permissionIndex=body.indexOf("await assertTicketPermission(interaction, client, '"+permission+"'");
+   const deferIndex=body.indexOf('InteractionHelper.safeDefer(interaction');
+   assert.ok(deferIndex>=0 && permissionIndex>deferIndex,start+' must acknowledge before storage work');
+ }
+});
