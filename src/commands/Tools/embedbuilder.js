@@ -17,6 +17,7 @@ import {
     LabelBuilder,
     RadioGroupBuilder,
 } from 'discord.js';
+import { formatBeaconFooter } from '../../config/bot.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 import { successEmbed } from '../../utils/embeds.js';
 import { logger } from '../../utils/logger.js';
@@ -138,7 +139,7 @@ function buildDashboardEmbed(state) {
         .setTitle('✦ Beacon • Embed Studio')
         .setDescription(lines.join('\n'))
         .setColor(getColor('info'))
-        .setFooter({ text: 'The preview above updates live · Closes after 15 minutes of inactivity' });
+        .setFooter({ text: formatBeaconFooter('The preview above updates live · Closes after 15 minutes of inactivity') });
 }
 
 function buildMainMenu(state) {
