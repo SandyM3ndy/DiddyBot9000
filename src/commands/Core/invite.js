@@ -51,7 +51,7 @@ export default {
     const embed = createEmbed({
       title: '🚀 Bring Beacon to Your Community',
       description: [
-        '**Level up your Discord server.**',
+        '**Your community\'s all-in-one Discord assistant.**',
         'Compete on the global leaderboard, complete daily and weekly quests,',
         'unlock achievements and share your server rank.',
         '',
