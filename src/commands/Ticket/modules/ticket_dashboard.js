@@ -837,8 +837,8 @@ async function handleTranscriptChannel(selectInteraction, rootInteraction, guild
     await selectInteraction.followUp({
         embeds: [
             new EmbedBuilder()
-                .setTitle('📜 Select Transcript Channel')
-                .setDescription('Choose where auto-generated transcripts will be sent when tickets are deleted.')
+                .setTitle('📜 Private Transcript Archive')
+                .setDescription('Select a private staff-only text channel. Beacon will **reject any channel visible to @everyone** to keep support conversations private.')
                 .setColor(getColor('info'))
         ],
         components: [new ActionRowBuilder().addComponents(channelSelect)],
@@ -854,17 +854,53 @@ async function handleTranscriptChannel(selectInteraction, rootInteraction, guild
 
     collector.on('collect', async channelInteraction => {
         await channelInteraction.deferUpdate();
-        const channel = channelInteraction.channels.first();
-
-        guildConfig.ticketTranscriptChannelId = channel.id;
-        await setGuildConfig(client, guildId, guildConfig);
-
-        await channelInteraction.followUp({
-            embeds: [successEmbed('Transcript Channel Updated', `Transcripts will be sent to ${channel}`)],
-            flags: MessageFlags.Ephemeral
-        });
-
-        await refreshDashboard(rootInteraction, guildConfig, guildId, client);
+        try {
+            const channel = channelInteraction.channels.first();
+            if (!channel?.permissionsFor || !channel.guild?.roles?.everyone) {
+                await channelInteraction.followUp({
+                    content: '⚠️ Beacon could not verify this channel. Please choose a different private text channel.',
+                    flags: MessageFlags.Ephemeral,
+                });
+                return;
+            }
+            const everyoneView = channel.permissionsFor(channel.guild.roles.everyone)
+                ?.has(PermissionFlagsBits.ViewChannel);
+            if (everyoneView !== false) {
+                await channelInteraction.followUp({
+                    content: '🔒 This archive channel is public or cannot be confirmed private. Remove **View Channel** from @everyone before selecting it.',
+                    flags: MessageFlags.Ephemeral,
+                    allowedMentions: { parse: [] },
+                });
+                return;
+            }
+            const botMember = channel.guild.members.me ||
+                await channel.guild.members.fetchMe().catch(() => null);
+            const botPermissions = botMember && channel.permissionsFor(botMember);
+            if (!botPermissions?.has(PermissionFlagsBits.ViewChannel) ||
+                !botPermissions.has(PermissionFlagsBits.SendMessages) ||
+                !botPermissions.has(PermissionFlagsBits.AttachFiles)) {
+                await channelInteraction.followUp({
+                    content: '⚠️ Beacon needs View Channel, Send Messages, and Attach Files in this archive channel.',
+                    flags: MessageFlags.Ephemeral,
+                });
+                return;
+            }
+            guildConfig.ticketTranscriptChannelId = channel.id;
+            await setGuildConfig(client, guildId, guildConfig);
+            await channelInteraction.followUp({
+                embeds: [successEmbed('Private Archive Configured',
+                    'Ticket transcripts will be securely archived in ' + channel.toString() + '.')],
+                flags: MessageFlags.Ephemeral,
+                allowedMentions: { parse: [] },
+            });
+            await refreshDashboard(rootInteraction, guildConfig, guildId, client);
+        } catch (error) {
+            logger.error('Ticket transcript channel setup failed', { guildId, error: error?.message });
+            await channelInteraction.followUp({
+                content: '⚠️ Beacon could not save that archive channel. The setting was not confirmed.',
+                flags: MessageFlags.Ephemeral,
+            }).catch(() => {});
+        }
     });
 
     collector.on('end', (collected, reason) => {

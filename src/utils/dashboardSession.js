@@ -55,19 +55,27 @@ export async function startDashboardSession({
     onButton,
     onTimeout,
 }) {
-    await InteractionHelper.safeEditReply(interaction, { embeds, components, flags });
-
+    const edited = await InteractionHelper.safeEditReply(interaction, { embeds, components, flags });
+    if (!edited) {
+        logger.warn('Dashboard could not edit its original interaction response', { guildId: interaction.guildId });
+        return { stop: () => {}, replyMessageId: null };
+    }
     const replyMessage = await interaction.fetchReply().catch(() => null);
-    const replyMessageId = replyMessage?.id;
-
-    const belongsToDashboard = (componentInteraction) =>
+    if (!replyMessage?.id || typeof replyMessage.createMessageComponentCollector !== 'function') {
+        logger.warn('Dashboard reply missing; refusing to listen to other messages', {
+            guildId: interaction.guildId, userId: interaction.user?.id,
+        });
+        return { stop: () => {}, replyMessageId: null };
+    }
+    const replyMessageId = replyMessage.id;
+    const belongsToDashboard = componentInteraction =>
         componentInteraction.user.id === interaction.user.id &&
-        (!replyMessageId || componentInteraction.message.id === replyMessageId);
+        componentInteraction.message?.id === replyMessageId;
 
     const collectors = [];
 
     if (selectMenuId && onSelect) {
-        const selectCollector = interaction.channel.createMessageComponentCollector({
+        const selectCollector = replyMessage.createMessageComponentCollector({
             componentType: ComponentType.StringSelect,
             filter: (i) => belongsToDashboard(i) && i.customId === selectMenuId,
             time: timeoutMs,
@@ -78,7 +86,7 @@ export async function startDashboardSession({
     }
 
     if (buttonMatcher && onButton) {
-        const buttonCollector = interaction.channel.createMessageComponentCollector({
+        const buttonCollector = replyMessage.createMessageComponentCollector({
             componentType: ComponentType.Button,
             filter: (i) => belongsToDashboard(i) && matchesCustomId(i.customId, buttonMatcher),
             time: timeoutMs,
@@ -101,9 +109,9 @@ export async function startDashboardSession({
             }
 
             const timeoutEmbed = new EmbedBuilder()
-                .setTitle('Dashboard Timed Out')
+                .setTitle('⌛ Dashboard Session Expired')
                 .setDescription(
-                    'This dashboard has been closed due to inactivity. Please run the command again to continue.',
+                    'This private settings session has ended. Open **/dashboard** again for fresh controls; your saved settings are unchanged.',
                 )
                 .setColor(getColor('error'));
 
