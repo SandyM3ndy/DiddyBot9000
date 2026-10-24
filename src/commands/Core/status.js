@@ -6,74 +6,47 @@ import { isBotOwner } from '../../config/bot.js';
 export default {
   data: new SlashCommandBuilder()
     .setName('status')
-    .setDescription('Show Beacon system and database health')
+    .setDescription('Check Beacon gateway health, uptime and database connectivity')
     .setDMPermission(false),
   category: 'Core',
-
   async execute(interaction) {
     const client = interaction.client;
-    const isOwner = isBotOwner(interaction.user.id);
-    const dbStatus = client.db?.getStatus?.() || {
-      connectionType: 'none',
-      isDegraded: true,
-      degradedReason: 'Database not initialized'
-    };
-
+    const owner = isBotOwner(interaction.user.id);
+    const db = client.db?.getStatus?.() || { connectionType: 'none', isDegraded: true };
     const pg = client.db?.db;
-    const pgAvailable = Boolean(pg?.isAvailable?.());
-    const wsPing = client.ws?.ping;
-    const memory = process.memoryUsage();
-    const uptimeSeconds = Math.floor(process.uptime());
-
-    const formatUptime = (seconds) => {
-      const days = Math.floor(seconds / 86400);
-      const hours = Math.floor((seconds % 86400) / 3600);
-      const minutes = Math.floor((seconds % 3600) / 60);
-      const secs = seconds % 60;
-      return [
-        days ? `${days}d` : '',
-        hours ? `${hours}h` : '',
-        minutes ? `${minutes}m` : '',
-        `${secs}s`
-      ].filter(Boolean).join(' ');
-    };
-
-    const databaseHealthy = !dbStatus.isDegraded && pgAvailable;
-    const discordHealthy = client.isReady() && Number.isFinite(wsPing) && wsPing >= 0;
-    const overallHealthy = databaseHealthy && discordHealthy;
+    const dbReady = !db.isDegraded && db.connectionType === 'postgresql' && pg?.isAvailable?.();
+    const gatewayPing = Number.isFinite(client.ws?.ping) && client.ws.ping >= 0
+      ? Math.round(client.ws.ping) : null;
+    const discordReady = client.isReady() && gatewayPing !== null;
+    const healthy = Boolean(discordReady && dbReady);
+    const uptime = Math.floor(process.uptime());
+    const days = Math.floor(uptime / 86400);
+    const hours = Math.floor(uptime % 86400 / 3600);
+    const minutes = Math.floor(uptime % 3600 / 60);
+    const uptimeLabel = [days ? days + 'd' : '', hours ? hours + 'h' : '', minutes + 'm'].filter(Boolean).join(' ');
 
     const embed = createEmbed({
-      title: `${overallHealthy ? '🟢' : '🟠'} Beacon Status`,
-      description: overallHealthy
-        ? 'All critical services are operating normally.'
-        : 'One or more services need attention.',
-      color: overallHealthy ? 'success' : 'warning',
-    }).addFields(
-      { name: '💬 Discord', value: discordHealthy ? `Online • ${wsPing}ms` : 'Unavailable', inline: true },
-      { name: '🗄️ Database', value: databaseHealthy ? 'PostgreSQL • Connected' : (isOwner ? `Degraded • ${String(dbStatus.degradedReason || 'Unavailable').slice(0, 200)}` : 'Service degraded'), inline: true },
-      { name: '⏱️ Uptime', value: formatUptime(uptimeSeconds), inline: true },
-      { name: '🌐 Servers', value: `${client.guilds.cache.size.toLocaleString()}`, inline: true },
-      { name: '📦 Commands', value: `${client.commands?.size ?? 0}`, inline: true },
-      { name: '🧠 Memory', value: `${Math.round(memory.rss / 1024 / 1024)} MB RSS`, inline: true },
-    ).setFooter({
-      text: `Node.js ${process.version} • Last checked`
+      title: (healthy ? '🟢' : '🟠') + ' Beacon • System Status',
+      description: healthy
+        ? '**All core services operational.**\nBeacon is connected and responding normally.'
+        : '**Degraded service detected.**\nOne or more core services need attention.',
+      color: healthy ? 'success' : 'warning',
+      fields: [
+        { name: '📡 Discord Gateway', value: discordReady ? '🟢 Online • ' + gatewayPing + ' ms' : '🔴 Unavailable', inline: true },
+        { name: '🗄️ Database', value: dbReady ? '🟢 PostgreSQL • Connected' : '🟠 Unavailable or degraded', inline: true },
+        { name: '⏱️ Uptime', value: uptimeLabel, inline: true },
+        { name: '🌐 Servers', value: client.guilds.cache.size.toLocaleString(), inline: true },
+        { name: '📚 Commands', value: String(client.commands?.size ?? 0), inline: true },
+        { name: '🧠 Memory Usage', value: Math.round(process.memoryUsage().rss / 1024 / 1024) + ' MB', inline: true },
+      ],
+      footer: 'Beacon • Live health snapshot',
     });
-
-    // Database error details can contain infrastructure information: owner access only.
-    if (isOwner && pg?.getLastFailure) {
-      const failure = pg.getLastFailure();
-      if (failure?.message) {
-        embed.addFields({
-          name: '⚠️ Last Database Failure',
-          value: `\`${String(failure.message).slice(0, 1000)}\``,
-          inline: false,
-        });
+    if (owner && !dbReady && pg?.getLastFailure) {
+      const err = pg.getLastFailure();
+      if (err?.message) {
+        embed.addFields({ name: '🔒 Owner Diagnostics', value: String(err.message).slice(0, 900), inline: false });
       }
     }
-
-    return InteractionHelper.safeReply(interaction, {
-      flags: MessageFlags.Ephemeral,
-      embeds: [embed],
-    });
+    return InteractionHelper.safeReply(interaction, { flags: MessageFlags.Ephemeral, embeds: [embed] });
   },
 };
