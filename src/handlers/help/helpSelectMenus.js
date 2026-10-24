@@ -1,6 +1,6 @@
 import { createEmbed } from '../../utils/embeds.js';
 import { createButton, getPaginationRow } from '../../utils/components.js';
-import { Collection, ActionRowBuilder, MessageFlags } from 'discord.js';
+import { Collection, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } from 'discord.js';
 import { logger } from '../../utils/logger.js';
 import { handleInteractionError } from '../../utils/errorHandler.js';
 import { formatDefaultMemberPermissions } from '../../utils/helpPermissionLabels.js';
@@ -288,6 +288,60 @@ export async function createAllCommandsMenu(page = 1, client) {
     };
 }
 
+
+/**
+ * Guided entry point: give people workflows, not a giant alphabetical list.
+ * No saved configuration is changed by browsing this page.
+ */
+export function createHelpQuickStartMenu() {
+    const embed = createEmbed({
+        title: '🚀 Beacon • Start Here',
+        description: "**Your community's all-in-one Discord assistant.**\n"
+            + 'New to Beacon? Pick the path that matches what you want to do.',
+        color: 'primary',
+        fields: [
+            {
+                name: '👑 Server owner • Set up Beacon',
+                value: '**1. /dashboard** — Configure your server in one control center.\n'
+                    + '**2. /diagnose** — Check permissions, roles and missing channels.\n'
+                    + '**3. /progression overview** — Optionally enable XP, quests and world rankings.\n'
+                    + '**4. /ticket dashboard** — Set up your support panel and staff workflow.',
+                inline: false,
+            },
+            {
+                name: '🛡️ Moderator • Manage safely',
+                value: '**/cases** — Review moderation history and follow up incidents.\n'
+                    + '**/ticket** — Handle support requests and assignments.\n'
+                    + '**/roleaudit** — Inspect risky role permissions (if authorised).\n'
+                    + 'Sensitive actions still require the appropriate server permissions.',
+                inline: false,
+            },
+            {
+                name: '👥 Community member • Jump in',
+                value: '**/progression quests** — See your server’s daily goals.\n'
+                    + '**/progression weekly** — Join weekly community challenges.\n'
+                    + '**/rank** — See how the server is doing globally.\n'
+                    + '**/suggest** — Share ideas and collect feedback.',
+                inline: false,
+            },
+            {
+                name: '🧰 Need help?',
+                value: '**/help search:** Search commands by name or purpose.\n'
+                    + '**/diagnose:** Find setup issues (server managers).\n'
+                    + 'Use the support link below if something still fails.',
+                inline: false,
+            },
+        ],
+        footer: 'Beacon • Quick Start • No settings are changed by this guide',
+    });
+    const buttons = new ActionRowBuilder().addComponents(
+        createButton(BACK_BUTTON_ID, 'Back to Command Center', 'primary', '⬅️'),
+        new ButtonBuilder().setLabel('Beacon Support').setStyle(ButtonStyle.Link)
+            .setURL('https://discord.gg/76N2EM6v6k').setEmoji('💬'),
+    );
+    return { embeds: [embed], components: [buttons] };
+}
+
 export const helpCategorySelectMenu = {
     name: CATEGORY_SELECT_ID,
     async execute(interaction, client) {
@@ -298,7 +352,10 @@ export const helpCategorySelectMenu = {
 
             const selectedCategory = interaction.values[0];
 
-            if (selectedCategory === ALL_COMMANDS_ID) {
+            if (selectedCategory === 'help-quickstart') {
+                const { embeds, components } = createHelpQuickStartMenu();
+                await interaction.editReply({ embeds, components });
+            } else if (selectedCategory === ALL_COMMANDS_ID) {
                 const { embeds, components } = await createAllCommandsMenu(1, client);
                 await interaction.editReply({
                     embeds,
