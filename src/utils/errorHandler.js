@@ -425,7 +425,15 @@ async function sendErrorResponse(interaction, embed, context = {}) {
             // A visible reply already exists; don't overwrite it — follow up ephemerally.
             await interaction.followUp({ ...errorMessage, flags: MessageFlags.Ephemeral });
         } else if (interaction.deferred) {
-            await interaction.editReply(errorMessage);
+            // deferUpdate() acknowledges a component without creating a private
+            // response. Editing its reply here would overwrite the live dashboard
+            // or ticket panel for everyone instead of reporting an error privately.
+            // deferReply() sets ephemeral, so it must still edit the deferred response.
+            if (interaction.isMessageComponent?.() && interaction.ephemeral == null) {
+                await interaction.followUp({ ...errorMessage, flags: MessageFlags.Ephemeral });
+            } else {
+                await interaction.editReply(errorMessage);
+            }
         } else {
             if (useEphemeral) {
                 errorMessage.flags = MessageFlags.Ephemeral;
