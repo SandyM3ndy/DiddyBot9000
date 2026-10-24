@@ -1,5 +1,5 @@
 import { createEmbed } from '../../utils/embeds.js';
-import { createAllCommandsMenu, createCategoryCommandsMenu } from './helpSelectMenus.js';
+import { createAllCommandsMenu, createCategoryCommandsMenu, createHelpQuickStartMenu } from './helpSelectMenus.js';
 import { createInitialHelpMenu } from '../../commands/Core/help.js';
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } from 'discord.js';
 import { logger } from '../../utils/logger.js';
@@ -34,6 +34,14 @@ export const helpBackButton = {
 
             throw error;
         }
+    },
+};
+
+export const helpQuickStartButton = {
+    name: 'help-quickstart',
+    async execute(interaction) {
+        if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate();
+        return interaction.editReply(createHelpQuickStartMenu());
     },
 };
 
