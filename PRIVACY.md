@@ -1,6 +1,6 @@
 # Beacon Privacy Policy
 
-**Effective date:** September 30, 2026
+**Effective date:** October 25, 2026
 
 Beacon ("the Bot") is a Discord bot operated by SandyM3ndy. This policy explains the information Beacon may process when installed in a Discord server.
 
