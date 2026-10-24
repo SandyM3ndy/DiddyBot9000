@@ -3,7 +3,7 @@ import { createEmbed } from '../../utils/embeds.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 import { getGuildConfig } from '../../services/config/guildConfig.js';
 
-const OWNER_ID = '1022691434974957618';
+import { isPrimaryBotOwner } from '../../config/bot.js';
 const PROGRESSION_PREFIX = 'guild:';
 const PROGRESSION_SUFFIX = ':progression';
 
@@ -14,7 +14,7 @@ function levelFromXp(xp) {
 export default {
   data: new SlashCommandBuilder()
     .setName('removeexp')
-    .setDescription('Remove Server XP from a server')
+    .setDescription('Bot Owner Only • Remove Server XP from a server')
     .addStringOption(option =>
       option
         .setName('server_id')
@@ -30,7 +30,7 @@ export default {
   category: 'Owner',
 
   async execute(interaction) {
-    if (interaction.user.id !== OWNER_ID) {
+    if (!isPrimaryBotOwner(interaction.user.id)) {
       return InteractionHelper.safeReply(interaction, {
         content: '❌ You do not have permission to use this command.',
         flags: MessageFlags.Ephemeral,

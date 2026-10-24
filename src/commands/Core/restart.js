@@ -1,17 +1,17 @@
 import { SlashCommandBuilder } from 'discord.js';
 import { performScheduledRestart } from '../../services/systemHealthService.js';
 
-const OWNER_ID = '1022691434974957618';
+import { isPrimaryBotOwner } from '../../config/bot.js';
 
 export default {
   data: new SlashCommandBuilder()
     .setName('restart')
-    .setDescription('Restart Beacon (bot owner only)'),
+    .setDescription('Bot Owner Only • Safely restart Beacon'),
 
   category: 'Core',
 
   async execute(interaction) {
-    if (interaction.user.id !== OWNER_ID) {
+    if (!isPrimaryBotOwner(interaction.user.id)) {
       return interaction.reply({
         content: '❌ Only the bot owner can use this command.',
         ephemeral: true,

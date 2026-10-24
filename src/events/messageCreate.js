@@ -8,7 +8,7 @@ import { supportsPrefixExecution, executePrefixCommand, resolvePrefixAccessKey }
 import { resolveCommandAlias, resolveSubcommandAlias } from '../config/commands/commandAliases.js';
 import { getPrefixRestriction } from '../config/commands/prefixRestrictions.js';
 import { getGuildConfig } from '../services/config/guildConfig.js';
-import { getCommandPrefix, getBotMessage, isBotOwner, isCommandCategoryEnabled, isMaintenanceMode } from '../config/bot.js';
+import { getCommandPrefix, getBotMessage, isBotOwner, isPrimaryBotOwner, isCommandCategoryEnabled, isMaintenanceMode } from '../config/bot.js';
 import { enforceAbuseProtection, formatCooldownDuration } from '../utils/abuseProtection.js';
 import { createEmbed } from '../utils/embeds.js';
 import { isCommandEnabled } from '../services/commandAccessService.js';
@@ -112,6 +112,14 @@ async function handlePrefixCommand(message, client, guildConfig) {
     if (!command) {
       logger.warn(`Command not found: ${resolvedCommandName}`);
       return; 
+    }
+
+    if (command.ownerOnly && !isPrimaryBotOwner(message.author.id)) {
+      await message.channel.send({
+        embeds: [createEmbed({ title: '👑 Bot Owner Only', description: 'This command is reserved for the Beacon bot owner.', color: 'warning' })],
+        allowedMentions: { parse: [] },
+      }).catch(() => {});
+      return;
     }
 
     if (isMaintenanceMode() && !isBotOwner(message.author.id)) {

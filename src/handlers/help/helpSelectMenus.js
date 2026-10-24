@@ -4,6 +4,7 @@ import { Collection, ActionRowBuilder, MessageFlags } from 'discord.js';
 import { logger } from '../../utils/logger.js';
 import { handleInteractionError } from '../../utils/errorHandler.js';
 import { formatDefaultMemberPermissions } from '../../utils/helpPermissionLabels.js';
+import { isOwnerOnlyCommand } from '../../config/commands/commandCategories.js';
 import { paginateHelpEntries, splitHelpEntries } from '../../utils/helpPagination.js';
 
 const BACK_BUTTON_ID = "help-back-to-main";
@@ -16,6 +17,7 @@ const SUBCOMMAND_GROUP_TYPE = 2;
 
 const CATEGORY_ICONS = {
     Core: "ℹ️",
+    'Bot Owner': '👑',
     Moderation: "🛡️",
     Economy: "💰",
     Music: "🎵",
@@ -47,7 +49,7 @@ function formatCategoryName(rawCategory) {
 function getCommandAccess(commandData) {
     const name = String(commandData?.name || '').toLowerCase();
 
-    if (['broadcast', 'popularity', 'announcement', 'giveexp', 'removeleaderboard', 'restoreleaderboard'].includes(name)) return 'Bot Owner only';
+    if (isOwnerOnlyCommand(name)) return 'Bot Owner Only';
     if (name === 'claim' || name === 'priority') return 'Manage Server or Ticket Staff';
     if (name === 'close') return 'Manage Server, Ticket Staff, or ticket creator';
 

@@ -2,16 +2,16 @@ import { SlashCommandBuilder } from 'discord.js';
 import { createEmbed, warningEmbed } from '../../utils/embeds.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 
-const OWNER_ID = '1022691434974957618';
+import { isPrimaryBotOwner } from '../../config/bot.js';
 
 export default {
   data: new SlashCommandBuilder()
     .setName('popularity')
-    .setDescription('View Beacon server coverage.')
+    .setDescription('Bot Owner Only • View Beacon's server coverage')
     ,category: 'core',
 
   async execute(interaction) {
-    if (interaction.user.id !== OWNER_ID) {
+    if (!isPrimaryBotOwner(interaction.user.id)) {
       return InteractionHelper.safeReply(interaction, {
         embeds: [warningEmbed('Owner Only', 'This command is restricted to SandyMandy.')],
         ephemeral: true,

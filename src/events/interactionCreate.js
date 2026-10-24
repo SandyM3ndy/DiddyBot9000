@@ -4,6 +4,7 @@ import { getGuildConfig } from '../services/config/guildConfig.js';
 import {
   getBotMessage,
   isBotOwner,
+  isPrimaryBotOwner,
   isCommandCategoryEnabled,
   isMaintenanceMode,
 } from '../config/bot.js';
@@ -94,6 +95,15 @@ export default {
                 `No command matching ${interaction.commandName} was found.`,
                 ErrorTypes.CONFIGURATION,
                 'Sorry, that command does not exist.',
+                withTraceContext({ commandName: interaction.commandName }, interactionTraceContext)
+              );
+            }
+
+            if (command.ownerOnly && !isPrimaryBotOwner(interaction.user.id)) {
+              throw createError(
+                'Bot owner command denied',
+                ErrorTypes.PERMISSION,
+                'This command is reserved for the Beacon bot owner.',
                 withTraceContext({ commandName: interaction.commandName }, interactionTraceContext)
               );
             }

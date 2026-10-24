@@ -1,6 +1,7 @@
 import { SlashCommandBuilder, PermissionFlagsBits, ChannelType, MessageFlags } from 'discord.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 import { logger } from '../../utils/logger.js';
+import { isPrimaryBotOwner } from '../../config/bot.js';
 
 // Servers that explicitly opted out of global broadcasts.
 const DISABLED_GUILD_IDS = new Set(['1533146166965964943']);
@@ -8,12 +9,12 @@ const DISABLED_GUILD_IDS = new Set(['1533146166965964943']);
 export default {
   data: new SlashCommandBuilder()
     .setName('broadcast')
-    .setDescription('Send an owner announcement to every eligible Beacon server')
+    .setDescription('Bot Owner Only • Announce to eligible Beacon servers')
     .addStringOption(o => o.setName('message').setDescription('Broadcast message').setRequired(true).setMaxLength(1900)),
   category: 'Core',
 
   async execute(interaction, config, client) {
-    if (interaction.user.id !== '1022691434974957618') {
+    if (!isPrimaryBotOwner(interaction.user.id)) {
       return InteractionHelper.safeReply(interaction, {
         content: 'Only the bot owner can use this command.',
         flags: MessageFlags.Ephemeral,

@@ -4,12 +4,12 @@ import { InteractionHelper } from '../../utils/interactionHelper.js';
 import { getGuildConfig } from '../../services/config/guildConfig.js';
 import { logger } from '../../utils/logger.js';
 
-const OWNER_ID = '1022691434974957618';
+import { isPrimaryBotOwner } from '../../config/bot.js';
 
 export default {
   data: new SlashCommandBuilder()
     .setName('announcement')
-    .setDescription('Broadcast an official Beacon update to configured update channels')
+    .setDescription('Bot Owner Only • Broadcast updates to subscribed channels')
     .addStringOption(option => option
       .setName('title')
       .setDescription('Announcement title')
@@ -23,7 +23,7 @@ export default {
   category: 'Owner',
 
   async execute(interaction) {
-    if (interaction.user.id !== OWNER_ID) {
+    if (!isPrimaryBotOwner(interaction.user.id)) {
       return InteractionHelper.safeReply(interaction, {
         content: '❌ You do not have permission to use this command.',
         flags: MessageFlags.Ephemeral,

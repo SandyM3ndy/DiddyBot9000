@@ -4,6 +4,7 @@ import { fileURLToPath, pathToFileURL } from 'url';
 import { Collection } from 'discord.js';
 import { logger } from '../../utils/logger.js';
 import botConfig from '../../config/bot.js';
+import { isOwnerOnlyCommand } from '../../config/commands/commandCategories.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -71,7 +72,8 @@ export async function loadCommands(client) {
                 logger.warn(`Command at ${filePath} is missing required "data" or "execute" property.`);
                 continue;
             }
-            command.category = category;
+            command.ownerOnly = isOwnerOnlyCommand(command.data.name);
+            command.category = command.ownerOnly ? 'BotOwner' : category;
             command.filePath = normalizedPath;
             const primaryCommandName = command.data.name;
             if (uniqueCommandNames.has(primaryCommandName)) {

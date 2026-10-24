@@ -92,6 +92,9 @@ const COMMAND_CATEGORY_FEATURE_MAP = { community: "community", economy: "economy
 function normalizeCategoryKey(category) { return String(category || "").trim().toLowerCase().replace(/\s+/g, "_"); }
 export function getCommandPrefix() { return botConfig.commands?.prefix ?? "!"; }
 export function getBotOwners() { return (botConfig.commands?.owners ?? []).map((id) => String(id).trim()).filter(Boolean); }
+export function isPrimaryBotOwner(userId) {
+  return Boolean(userId && String(userId) === String(botConfig.commands.primaryOwnerId));
+}
 export function isBotOwner(userId) { return !!userId && getBotOwners().includes(String(userId)); }
 export function isMaintenanceMode() { return botConfig.commands?.maintenanceMode === true; }
 export function getBotMessage(key, replacements = {}) { let message = botConfig.messages?.[key] || key; for (const [placeholder, value] of Object.entries(replacements)) message = message.replace(new RegExp(`\\{${placeholder}\\}`, "g"), String(value)); return message; }

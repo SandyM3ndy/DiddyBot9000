@@ -5,6 +5,7 @@
 export const CATEGORY_ICONS = {
   Community: '👥',
   Core: 'ℹ️',
+  BotOwner: '👑',
   Fun: '🎮',
   Giveaway: '🎉',
   JoinToCreate: '🔌',
@@ -22,7 +23,14 @@ export const CATEGORY_ICONS = {
 };
 
 /** Commands that always stay available so server admins can recover access. */
-export const PROTECTED_COMMANDS = new Set(['dashboard', 'antinuke']);
+export const OWNER_ONLY_COMMANDS = new Set([
+  'announcement', 'broadcast', 'giveexp', 'removeexp',
+  'removeleaderboard', 'restoreleaderboard', 'popularity', 'restart',
+]);
+export const PROTECTED_COMMANDS = new Set(['dashboard', 'antinuke', ...OWNER_ONLY_COMMANDS]);
+export function isOwnerOnlyCommand(name) {
+  return OWNER_ONLY_COMMANDS.has(String(name || '').toLowerCase());
+}
 
 export function normalizeCategoryKey(category) {
   return String(category || '')

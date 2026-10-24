@@ -3,12 +3,12 @@ import { createEmbed } from '../../utils/embeds.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 import { getServerProgression } from '../../services/serverProgressionService.js';
 
-const OWNER_ID = '1022691434974957618';
+import { isPrimaryBotOwner } from '../../config/bot.js';
 
 export default {
   data: new SlashCommandBuilder()
     .setName('removeleaderboard')
-    .setDescription('Remove a server from the global Server Progression leaderboard')
+    .setDescription('Bot Owner Only • Exclude a server from the global leaderboard')
     .addStringOption(option => option
       .setName('server_id')
       .setDescription('The Discord server ID to remove from the leaderboard')
@@ -16,7 +16,7 @@ export default {
   category: 'Owner',
 
   async execute(interaction) {
-    if (interaction.user.id !== OWNER_ID) {
+    if (!isPrimaryBotOwner(interaction.user.id)) {
       return InteractionHelper.safeReply(interaction, {
         content: '❌ You do not have permission to use this command.',
         flags: MessageFlags.Ephemeral,

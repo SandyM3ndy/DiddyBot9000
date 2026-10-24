@@ -3,13 +3,13 @@ import { createEmbed } from '../../utils/embeds.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 import { getServerProgression } from '../../services/serverProgressionService.js';
 
-const OWNER_ID = '1022691434974957618';
+import { isPrimaryBotOwner } from '../../config/bot.js';
 
 export default {
-  data: new SlashCommandBuilder().setName('restoreleaderboard').setDescription('Restore a server to the global progression leaderboard').addStringOption(option => option.setName('server_id').setDescription('The Discord server ID').setRequired(true)),
+  data: new SlashCommandBuilder().setName('restoreleaderboard').setDescription('Bot Owner Only • Restore a server to the global leaderboard').addStringOption(option => option.setName('server_id').setDescription('The Discord server ID').setRequired(true)),
   category: 'Core',
   async execute(interaction) {
-    if (interaction.user.id !== OWNER_ID) return InteractionHelper.safeReply(interaction, { embeds: [createEmbed({ title: '🔒 Owner Only', description: 'Only the bot owner can use this command.', color: 'error' })], flags: MessageFlags.Ephemeral });
+    if (!isPrimaryBotOwner(interaction.user.id)) return InteractionHelper.safeReply(interaction, { embeds: [createEmbed({ title: '🔒 Owner Only', description: 'Only the bot owner can use this command.', color: 'error' })], flags: MessageFlags.Ephemeral });
     const serverId = interaction.options.getString('server_id', true).trim();
     if (!/^\d{17,20}$/.test(serverId)) return InteractionHelper.safeReply(interaction, { embeds: [createEmbed({ title: '❌ Invalid Server ID', description: 'Please provide a valid Discord server ID.', color: 'error' })], flags: MessageFlags.Ephemeral });
     const guild = interaction.client.guilds.cache.get(serverId);
