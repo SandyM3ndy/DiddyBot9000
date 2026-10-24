@@ -46,9 +46,12 @@ export default {
                 const me = guild.members.me;
                 const permissions = me ? channel.permissionsFor(me) : null;
                 if (!permissions?.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages])) {
-                    return;
-                }
-
+                    logger.debug('Skipping goodbye delivery because Beacon cannot send in the channel', {
+                        guildId: guild.id,
+                        channelId: channel.id,
+                    });
+                } else {
+                try {
                 const formatData = { user, guild, member };
                 const goodbyeMessage = formatWelcomeMessage(
                     welcomeConfig.leaveMessage || welcomeConfig.leaveEmbed?.description || botConfig.welcome?.defaultGoodbyeMessage || '{user} has left the server.',
@@ -94,6 +97,14 @@ export default {
                         allowedMentions: welcomeConfig?.goodbyePing ? { users: [user.id] } : { parse: [] },
                         embeds: [embed]
                     });
+                }
+                } catch (error) {
+                    logger.warn('Goodbye delivery failed; continuing member-leave processing', {
+                        guildId: guild.id,
+                        channelId: channel.id,
+                        error: error?.message,
+                    });
+                }
                 }
             }
         }
