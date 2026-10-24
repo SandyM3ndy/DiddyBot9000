@@ -5,7 +5,7 @@ import {
     ComponentType,
     EmbedBuilder,
 } from 'discord.js';
-import { getColor } from '../../../config/bot.js';
+import { getColor, BEACON_FOOTER } from '../../../config/bot.js';
 import { replyUserError, ErrorTypes } from '../../../utils/errorHandler.js';
 import { getJoinToCreateConfig } from '../../../utils/database.js';
 import { initializeJoinToCreate } from '../../../services/joinToCreateService.js';
@@ -32,9 +32,10 @@ export async function openDashboardFeature(feature, interaction) {
         await interaction.editReply({
             embeds: [
                 new EmbedBuilder()
-                    .setTitle('🔊 Join to Create')
+                    .setTitle('🔊 Beacon • Join to Create')
                     .setDescription('No Join to Create trigger channel is configured yet. Select a voice channel below to create the system.')
-                    .setColor(getColor('info')),
+                    .setColor(getColor('info'))
+                    .setFooter({ text: BEACON_FOOTER }),
             ],
             components: [
                 new ActionRowBuilder().addComponents(
