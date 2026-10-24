@@ -7,6 +7,30 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const activityBuckets = new Map();
 const commandBuckets = new Map();
 const guildLocks = new Map();
+const postgresAdvisorySlots = new WeakMap();
+
+// Advisory locks each occupy a pooled connection while a data read/write
+// needs another one. Bound concurrent holders to avoid connection starvation.
+async function reserveAdvisorySlot(pool) {
+  const max = Number(pool?.options?.max || 20);
+  if (max <= 1) {
+    throw new Error('Beacon progression requires at least two PostgreSQL connections for safe concurrent writes.');
+  }
+  let state = postgresAdvisorySlots.get(pool);
+  if (!state) {
+    state = { active: 0, queue: [] };
+    postgresAdvisorySlots.set(pool, state);
+  }
+  const capacity = Math.max(1, Math.min(4, Math.floor(max / 2)));
+  if (state.active >= capacity) {
+    await new Promise(resolve => state.queue.push(resolve));
+  }
+  state.active += 1;
+  return () => {
+    state.active -= 1;
+    state.queue.shift()?.();
+  };
+}
 
 // Keep inactive per-user activity buckets from accumulating forever.
 const activityCleanupTimer = setInterval(() => {
@@ -503,10 +527,11 @@ export async function withGuildLock(guildId, task, client = null) {
 
   await previous.catch(() => {});
 
-  let lockClient=null,locked=false;
+  let lockClient=null,locked=false,releaseSlot=null;
   try {
     const pool=client?.db?.db?.pool && client.db.db.isAvailable?.() ? client.db.db.pool : null;
     if(pool) {
+      releaseSlot=await reserveAdvisorySlot(pool);
       lockClient=await pool.connect();
       await lockClient.query('SELECT pg_advisory_lock(hashtextextended($1, 0))',[String(guildId)]);
       locked=true;
@@ -515,6 +540,7 @@ export async function withGuildLock(guildId, task, client = null) {
   } finally {
     if(locked)await lockClient.query('SELECT pg_advisory_unlock(hashtextextended($1, 0))',[String(guildId)]).catch(()=>{});
     lockClient?.release();
+    releaseSlot?.();
     release();
     if (guildLocks.get(guildId) === current) {
       guildLocks.delete(guildId);
@@ -522,12 +548,27 @@ export async function withGuildLock(guildId, task, client = null) {
   }
 }
 
-async function load(client, guildId) {
+async function load(client, guildId, { persistRollover = false } = {}) {
   const key = `${KEY_PREFIX}${guildId}${KEY_SUFFIX}`;
-  const raw = await client.db.get(key, defaultProgression());
+  const raw = await client.db.get(key, null);
   const memberCount = client.guilds?.cache?.get(guildId)?.memberCount ?? 1;
-  const now=new Date();
-  return ensureExtras(ensureDailyQuests(normalizeProgression(raw),guildId,now,memberCount),guildId,memberCount,now);
+  const now = new Date();
+  const data = ensureExtras(
+    ensureDailyQuests(normalizeProgression(raw), guildId, now, memberCount),
+    guildId, memberCount, now,
+  );
+  // Panels may be the first activity after UTC reset. Save the new quests
+  // and previous history immediately, even if nobody chats that day.
+  if (persistRollover && (
+    !raw || raw.lastQuestDay !== data.lastQuestDay ||
+    raw.weekly?.week !== data.weekly?.week ||
+    raw.contributors?.day !== data.contributors?.day ||
+    raw.contributors?.week !== data.contributors?.week ||
+    raw.joinDay !== data.joinDay
+  )) {
+    await save(client, guildId, data);
+  }
+  return data;
 }
 
 async function save(client, guildId, data) {
@@ -770,8 +811,7 @@ export async function addServerXp(client, guildId, amount) {
 }
 
 export async function getServerProgression(client, guildId) {
-  const data = await load(client, guildId);
-  return data;
+  return withGuildLock(guildId, () => load(client, guildId, { persistRollover: true }), client);
 }
 
 export async function getGlobalProgressionLeaderboard(client) {
