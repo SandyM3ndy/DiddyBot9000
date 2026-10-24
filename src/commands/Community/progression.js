@@ -53,7 +53,7 @@ function getPosition(entries, guildId) {
 function disabledEmbed() {
   return createEmbed({
     title: '📈 Server Progression Is Paused',
-    description: 'Your server owner can enable Beacon progression from **/dashboard → Server Progression**.\n\nYou can still browse the **World Rankings** tab to see other participating communities.',
+    description: 'Your server owner can enable Beacon progression with the **Enable Progression** button below.\n\n**Sample preview (fictional):**\n🥇 Nova Hub — 12,500 XP\n🥈 The Outpost — 9,200 XP\n🥉 Starter Server — 2,400 XP\n\nThe **World Rankings** tab shows real servers.',
     color: 'warning',
     footer: 'No XP is earned until server progression is enabled.',
   });
@@ -175,7 +175,7 @@ function contributorsEmbed(guild,data){
  const weekly=contributorRanking(data,'weekly',10);
  const lifetime=contributorRanking(data,'lifetime',5);
  return createEmbed({title:'👥 '+cleanName(guild.name)+' • Contributors',
-  description:'Members who helped with eligible activity. No message content is stored.\n\n'+
+  description:'Members who helped with eligible activity. No message content is stored. Use \`/progression privacy\` to hide your name.\n\n'+
     '**This week**\n'+(weekly.length?weekly.map((c,i)=>'#'+(i+1)+' <@'+c.userId+'> — **'+c.actions+'** actions ('+c.messages+' messages, '+c.commands+' commands)').join('\n'):'No contributions yet.')+'\n\n'+
     '**All-time top 5**\n'+(lifetime.length?lifetime.map((c,i)=>'#'+(i+1)+' <@'+c.userId+'> — '+c.actions+' actions').join('\n'):'None recorded.'),
   color:'primary',footer:'Contribution totals persist across daily and weekly resets.'});
@@ -358,7 +358,9 @@ export default {
     .addSubcommand(sub => sub.setName('rank').setDescription('View your server XP and world position'))
     .addSubcommand(sub => sub.setName('milestones').setDescription('Browse level rewards and milestones'))
     .addSubcommand(sub => sub.setName('weekly').setDescription('View the weekly community challenges'))
-    .addSubcommand(sub => sub.setName('contributors').setDescription('View the member contribution board')),
+    .addSubcommand(sub => sub.setName('contributors').setDescription('View the member contribution board'))
+    .addSubcommand(sub => sub.setName('privacy').setDescription('Hide or show your contributor ranking')
+      .addBooleanOption(opt => opt.setName('hidden').setDescription('Hide your name on the contributor board').setRequired(true))),
   category: 'Community',
 
   async execute(interaction) {
@@ -367,6 +369,23 @@ export default {
         content: 'Open Beacon progression from a Discord server.',
         flags: MessageFlags.Ephemeral,
       });
+    }
+    if(interaction.options.getSubcommand()==='privacy'){
+      if(!(await InteractionHelper.safeDefer(interaction,{flags:MessageFlags.Ephemeral})))return;
+      const hidden=interaction.options.getBoolean('hidden',true);
+      try {
+        await mutateServerProgression(interaction.client,interaction.guildId,data=>{
+          const next=new Set(data.contributionOptOut||[]);
+          if(hidden)next.add(interaction.user.id);else next.delete(interaction.user.id);
+          data.contributionOptOut=[...next];
+          return {changed:true};
+        });
+        return InteractionHelper.safeEditReply(interaction,{content:hidden?
+          '🔒 You are now hidden from public contributor rankings. Your contribution totals remain saved.':
+          '✅ Your name is visible on contributor rankings again.'});
+      }catch(error){
+        return InteractionHelper.safeEditReply(interaction,{content:'❌ Could not save your preference. Try again.'});
+      }
     }
     // Public on purpose: server achievements should be easy for members to share.
     if (!(await InteractionHelper.safeDefer(interaction, {}))) return;
