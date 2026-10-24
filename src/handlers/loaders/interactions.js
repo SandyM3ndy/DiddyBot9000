@@ -71,5 +71,15 @@ export default async (client) => {
     }
   } catch (error) {
     logger.error('Error loading interactions:', error);
+    throw error;
+  }
+
+  // A missing button previously caused interactionCreate to ignore the click
+  // without acknowledging it, producing "Beacon did not respond" in Discord.
+  // Fail startup loudly instead of silently running with broken ticket controls.
+  const requiredButtons = ['ticket_info', 'ticket_transcript', 'ticket_claim', 'ticket_close'];
+  const missing = requiredButtons.filter(name => !client.buttons?.has(name));
+  if (missing.length) {
+    throw new Error('Required ticket buttons failed to register: ' + missing.join(', '));
   }
 };

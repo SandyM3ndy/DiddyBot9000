@@ -815,6 +815,8 @@ export default {
                         }
 
                         if (selected === 'commandAccess') {
+                            // Acknowledge the menu immediately before any database/API work.
+                            await componentInteraction.deferUpdate();
                             componentCollector.stop('command_access');
                             await commandsDashboard.execute(
                                 interaction,
@@ -825,6 +827,8 @@ export default {
                         }
 
                         if (selected === 'logging') {
+                            // Acknowledge the menu immediately before any database/API work.
+                            await componentInteraction.deferUpdate();
                             componentCollector.stop('logging');
                             await loggingDashboard.execute(
                                 interaction,
@@ -835,6 +839,8 @@ export default {
                         }
 
                         if (selected === 'welcome') {
+                            // Acknowledge the menu immediately before any database/API work.
+                            await componentInteraction.deferUpdate();
                             componentCollector.stop('welcome');
                             await greetDashboard.execute(
                                 interaction,
@@ -845,6 +851,8 @@ export default {
                         }
 
                         if (selected === 'ticketSystem') {
+                            // Acknowledge the menu immediately before any database/API work.
+                            await componentInteraction.deferUpdate();
                             componentCollector.stop('ticket_system');
                             await ticketDashboard.execute(
                                 interaction,
@@ -855,6 +863,7 @@ export default {
                         }
 
                         if (selected === 'joinToCreate' || selected === 'reactionRoles') {
+                            await componentInteraction.deferUpdate();
                             componentCollector.stop(selected);
                             await openDashboardFeature(selected, interaction);
                             return;
@@ -871,10 +880,18 @@ export default {
                     }
                 } catch (error) {
                     logger.error('Dashboard interaction error:', error);
-                    await replyUserError(componentInteraction, {
-                        type: ErrorTypes.UNKNOWN,
-                        message: 'Failed to process your selection. Please try again.',
-                    }).catch(() => {});
+                    const message = error?.userMessage || 'Failed to process this setting. Please try again.';
+                    if (componentInteraction.deferred && !componentInteraction.replied) {
+                        await InteractionHelper.safeEditReply(interaction, {
+                            embeds: [warningEmbed('Dashboard Could Not Open', message)],
+                            components: [],
+                        }).catch(() => {});
+                    } else {
+                        await replyUserError(componentInteraction, {
+                            type: ErrorTypes.CONFIGURATION,
+                            message,
+                        }).catch(() => {});
+                    }
                 }
             });
         } catch (error) {

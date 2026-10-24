@@ -465,7 +465,6 @@ export default {
 
           if (!button) {
             if (
-              !interaction.customId.includes(':') ||
               isCollectorManagedComponent(customId)
             ) {
               return;
