@@ -3,16 +3,17 @@ import { createEmbed, successEmbed, infoEmbed, warningEmbed } from '../../utils/
 import { logger } from '../../utils/logger.js';
 import { replyUserError, ErrorTypes } from '../../utils/errorHandler.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
+import unixCommand from './unixtime.js';
 export default {
     data: new SlashCommandBuilder()
         .setName('time')
-        .setDescription('Get the current time in different timezones')
-        .addStringOption(option =>
-            option.setName('timezone')
-                .setDescription('The timezone to display (e.g., UTC, America/New_York)')
-                .setRequired(false)),
+        .setDescription('View current world times and Unix timestamps')
+        .addSubcommand(sub => sub.setName('now').setDescription('Show the current time in a timezone')
+            .addStringOption(o => o.setName('timezone').setDescription('Timezone, e.g. Australia/Brisbane or UTC')))
+        .addSubcommand(sub => sub.setName('unix').setDescription('Show Unix timestamps in seconds and milliseconds')),
 
     async execute(interaction) {
+        if (interaction.options.getSubcommand() === 'unix') return unixCommand.execute(interaction);
         await InteractionHelper.safeExecute(
             interaction,
             async () => {

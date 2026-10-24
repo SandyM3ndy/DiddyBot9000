@@ -2,6 +2,8 @@ import { SlashCommandBuilder, MessageFlags } from 'discord.js';
 import { createEmbed } from '../../utils/embeds.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 import { getGuildConfig } from '../../services/config/guildConfig.js';
+import rankCommand from './rank.js';
+import levelsCommand from './levels.js';
 import {
   getServerProgression,
   getGlobalProgressionLeaderboard,
@@ -20,17 +22,22 @@ export default {
       .setDescription('View today\'s server quests'))
     .addSubcommand(sub => sub
       .setName('leaderboard')
-      .setDescription('View the global server XP leaderboard')),
+      .setDescription('View the global server XP leaderboard'))
+    .addSubcommand(sub => sub.setName('rank').setDescription('View your server level, XP and rank'))
+    .addSubcommand(sub => sub.setName('milestones').setDescription('Browse level rewards and milestone perks')),
   category: 'Community',
 
   async execute(interaction) {
+    const action = interaction.options.getSubcommand();
+    if (action === 'rank') return rankCommand.execute(interaction);
+    if (action === 'milestones') return levelsCommand.execute(interaction);
     const config = await getGuildConfig(interaction.client, interaction.guildId);
 
     if (config?.serverProgression?.enabled !== true) {
       return InteractionHelper.safeReply(interaction, {
         embeds: [createEmbed({
           title: '📈 Server Progression Disabled',
-          description: 'The server owner has not enabled Server Progression yet.\n\nEnable it from **/configwizard → Server Progression**.',
+          description: 'The server owner has not enabled Server Progression yet.\n\nEnable it from **/dashboard → Server Progression**.',
           color: 'warning',
         })],
         flags: MessageFlags.Ephemeral,

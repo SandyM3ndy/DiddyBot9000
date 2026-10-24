@@ -4,16 +4,22 @@ import { logger } from '../../utils/logger.js';
 import { WarningService } from '../../services/moderation/warningService.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 import { buildWarningsView } from '../../utils/moderation/warningDisplay.js';
+import warnCommand from './warn.js';
 
 export default {
   data: new SlashCommandBuilder()
     .setName('warnings')
     .setDescription('Privately review and manage a member’s warnings')
     .setDMPermission(false)
-    .addUserOption(o => o.setName('target').setRequired(true).setDescription('Member to check'))
+    .addSubcommand(sub => sub.setName('list').setDescription('Review a member warning history')
+      .addUserOption(o => o.setName('target').setDescription('Member to check').setRequired(true)))
+    .addSubcommand(sub => sub.setName('add').setDescription('Issue a moderation warning')
+      .addUserOption(o => o.setName('target').setDescription('Member to warn').setRequired(true))
+      .addStringOption(o => o.setName('reason').setDescription('Reason for the warning').setRequired(true).setMaxLength(500)))
     .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
   category: 'Moderation',
   async execute(interaction, config, client) {
+    if (interaction.options.getSubcommand() === 'add') return warnCommand.execute(interaction, config, client);
     if (!(await InteractionHelper.safeDefer(interaction, { flags: MessageFlags.Ephemeral }))) return;
     const target = interaction.options.getUser('target', true);
     try {
