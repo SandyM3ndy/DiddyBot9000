@@ -35,6 +35,7 @@ export default {
       authorId:interaction.user.id,idea,status:'under_review',reviewedBy:null,
       createdAt:new Date().toISOString(),messageId:null,
     };
+    let published = false;
     try {
       // Do not promise a reviewable suggestion unless its state was first
       // committed to persistent storage. No TTL and no collector dependency.
@@ -45,6 +46,7 @@ export default {
         ...renderSuggestionPost(state),
       });
       if (!posted) return;
+      published = true;
       const message = await interaction.fetchReply();
       const votes = await Promise.allSettled([message.react('👍'), message.react('👎')]);
       if (votes.some(v => v.status === 'rejected')) {
@@ -56,11 +58,16 @@ export default {
     } catch (error) {
       logger.warn('Could not complete suggestion', { guildId: interaction.guildId, error: error?.message });
       // A refused database write must never look like a successfully saved suggestion.
-      if (interaction.deferred || interaction.replied) {
+      if (!published) {
+        await InteractionHelper.safeEditReply(interaction,{
+          content:'❌ Your suggestion could not be saved or published. Check Beacon storage and channel permissions, then try again.',
+          embeds:[],components:[],
+        });
+      } else {
         await interaction.followUp({
-          content: '⚠️ Could not complete the suggestion. Check channel permissions.',
-          flags: MessageFlags.Ephemeral,
-        }).catch(() => {});
+          content:'⚠️ Suggestion published, but Beacon could not finish setting up reactions.',
+          flags:MessageFlags.Ephemeral,
+        }).catch(()=>{});
       }
     }
   },
