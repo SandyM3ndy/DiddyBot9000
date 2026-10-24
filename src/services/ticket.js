@@ -69,26 +69,35 @@ function rethrowTicketError(error, operation, userMessage, context = {}) {
 
 
 
-function buildTicketControlRow({ claimedBy = null } = {}) {
+export function buildTicketControlRow({ claimedBy = null } = {}) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId('ticket_claim')
-      .setLabel(claimedBy ? 'Claimed' : 'Claim')
+      .setCustomId(claimedBy ? 'ticket_unclaim' : 'ticket_claim')
+      .setLabel(claimedBy ? 'Release' : 'Claim')
       .setStyle(claimedBy ? ButtonStyle.Secondary : ButtonStyle.Primary)
-      .setEmoji('🙋')
-      .setDisabled(!!claimedBy),
-    new ButtonBuilder()
-      .setCustomId('ticket_pin')
-      .setLabel('Pin')
-      .setStyle(ButtonStyle.Secondary)
-      .setEmoji('📌'),
-    new ButtonBuilder()
-      .setCustomId('ticket_close')
-      .setLabel('Close')
-      .setStyle(ButtonStyle.Danger)
-      .setEmoji('🔒'),
+      .setEmoji(claimedBy ? '🔓' : '🙋'),
+    new ButtonBuilder().setCustomId('ticket_info')
+      .setLabel('Info').setStyle(ButtonStyle.Secondary).setEmoji('📋'),
+    new ButtonBuilder().setCustomId('ticket_pin')
+      .setLabel('Pin').setStyle(ButtonStyle.Secondary).setEmoji('📌'),
+    new ButtonBuilder().setCustomId('ticket_close')
+      .setLabel('Close').setStyle(ButtonStyle.Danger).setEmoji('🔒'),
   );
 }
+
+export function buildPriorityControlRow() {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('ticket_priority:low').setLabel('Low')
+      .setStyle(ButtonStyle.Secondary).setEmoji('🔵'),
+    new ButtonBuilder().setCustomId('ticket_priority:medium').setLabel('Medium')
+      .setStyle(ButtonStyle.Secondary).setEmoji('🟢'),
+    new ButtonBuilder().setCustomId('ticket_priority:high').setLabel('High')
+      .setStyle(ButtonStyle.Secondary).setEmoji('🟠'),
+    new ButtonBuilder().setCustomId('ticket_priority:urgent').setLabel('Urgent')
+      .setStyle(ButtonStyle.Danger).setEmoji('🔴'),
+  );
+}
+
 
 export const getUserTicketCount = wrapServiceBoundary(async function getUserTicketCount(guildId, userId) {
   return await getOpenTicketCountForUser(guildId, userId);
@@ -212,40 +221,37 @@ export async function createTicket(guild, member, categoryId, reason = 'No reaso
     const priorityInfo = PRIORITY_MAP[priority] || PRIORITY_MAP.none;
     
     const embed = createEmbed({
-      title: `Ticket #${ticketNumber}`,
-      description: `${member.toString()}, thanks for creating a ticket!\n\n**Type:** ${(ticketData.type || 'support').toUpperCase()}\n**Reason:** ${reason}\n**Priority:** ${priorityInfo.emoji} ${priorityInfo.label}`,
+      title: 'Ticket #' + ticketNumber,
+      description: [
+        '🎫 **Welcome to your private support space.**',
+        'Thanks for contacting us, ' + member.toString() + '. Our team will respond when available.',
+        '',
+        '**Your request**',
+        String(reason || 'No summary supplied').slice(0, 1100),
+        '',
+        'Use **Info** to review status, **Claim** for staff assignment, and **Close** when the conversation is finished.',
+      ].join('\n'),
       color: priorityInfo.color,
       fields: [
         { name: 'Status', value: '🟢 Open', inline: true },
         { name: 'Claimed By', value: 'Not claimed', inline: true },
-        { name: 'Created', value: `<t:${Math.floor(Date.now() / 1000)}:R>`, inline: true },
+        { name: 'Created', value: '<t:' + Math.floor(Date.now() / 1000) + ':R>', inline: true },
+        { name: 'Category', value: ticketData.type[0].toUpperCase() + ticketData.type.slice(1), inline: true },
+        { name: 'Priority', value: priorityInfo.emoji + ' ' + priorityInfo.label, inline: true },
       ],
+      footer: 'Beacon • Private support ticket • Never share passwords or account tokens',
     });
-    
-    const row = buildTicketControlRow();
-    
-    if (ticketConfig.enablePriority) {
-      row.addComponents(
-        new ButtonBuilder()
-          .setCustomId('ticket_priority:low')
-          .setLabel('Low')
-          .setStyle(ButtonStyle.Secondary)
-          .setEmoji('🔵'),
-        new ButtonBuilder()
-          .setCustomId('ticket_priority:high')
-          .setLabel('High')
-          .setStyle(ButtonStyle.Danger)
-          .setEmoji('🔴')
-      );
-    }
-    
+
+    const rows = [buildTicketControlRow()];
+    if (ticketConfig.enablePriority) rows.push(buildPriorityControlRow());
+
     const staffMention = config.ticketStaffRoleId ? ` <@&${config.ticketStaffRoleId}>` : '';
     const messageContent = `${member.toString()}${staffMention}`;
     
     const ticketMessage = await channel.send({ 
       content: messageContent,
       embeds: [embed],
-      components: [row],
+      components: rows,
       allowedMentions: { users: [member.id], roles: config.ticketStaffRoleId ? [config.ticketStaffRoleId] : [] },
     });
 
@@ -591,6 +597,8 @@ export async function reopenTicket(channel, reopener) {
     let openCategoryMoveFailed = false;
     
     ticketData.status = 'open';
+    ticketData.claimedBy = null;
+    ticketData.claimedAt = null;
     ticketData.closedBy = null;
     ticketData.closedAt = null;
     ticketData.closeReason = null;
