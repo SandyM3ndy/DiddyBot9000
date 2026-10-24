@@ -438,7 +438,7 @@ function defaultProgression() {
     dailyQuests: [],
     updatedAt: new Date().toISOString(),
     leaderboardExcluded: false,
-    weekly: null,weeklyHistory:[],dailyHistory:[],contributors:null,dailyRerollDay:null,joinDay:null,joinIds:[],
+    weekly: null,weeklyHistory:[],dailyHistory:[],contributors:null,dailyRerollDay:null,joinDay:null,joinIds:[],contributionOptOut:[],
   };
 }
 
