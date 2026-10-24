@@ -1,5 +1,6 @@
 import { SlashCommandBuilder, version as discordVersion } from 'discord.js';
 import { createEmbed } from '../../utils/embeds.js';
+import { getRegisteredCommandCount } from '../../utils/commandCounts.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 import { isAntiNukeAIConfigured, getAntiNukeAIModel } from '../../services/aiSecurityService.js';
 
@@ -29,7 +30,7 @@ export default {
       fields: [
         { name: '🌐 Servers', value: client.guilds.cache.size.toLocaleString(), inline: true },
         { name: '👥 Members (estimated)', value: client.guilds.cache.reduce((n, g) => n + (g.memberCount || 0), 0).toLocaleString(), inline: true },
-        { name: '📚 Commands', value: String(client.commands?.size ?? 0), inline: true },
+        { name: '📚 Commands', value: String(getRegisteredCommandCount(client)), inline: true },
         { name: '📡 Gateway Ping', value: ping, inline: true },
         { name: '⏱️ Uptime', value: displayUptime(Math.floor(process.uptime())), inline: true },
         { name: '🧠 RAM', value: Math.round(memory.rss / 1024 / 1024) + ' MB', inline: true },

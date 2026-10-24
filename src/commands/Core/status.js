@@ -1,5 +1,6 @@
 import { SlashCommandBuilder, MessageFlags } from 'discord.js';
 import { createEmbed } from '../../utils/embeds.js';
+import { getRegisteredCommandCount } from '../../utils/commandCounts.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 import { isBotOwner } from '../../config/bot.js';
 
@@ -36,7 +37,7 @@ export default {
         { name: '🗄️ Database', value: dbReady ? '🟢 PostgreSQL • Connected' : '🟠 Unavailable or degraded', inline: true },
         { name: '⏱️ Uptime', value: uptimeLabel, inline: true },
         { name: '🌐 Servers', value: client.guilds.cache.size.toLocaleString(), inline: true },
-        { name: '📚 Commands', value: String(client.commands?.size ?? 0), inline: true },
+        { name: '📚 Commands', value: String(getRegisteredCommandCount(client)), inline: true },
         { name: '🧠 Memory Usage', value: Math.round(process.memoryUsage().rss / 1024 / 1024) + ' MB', inline: true },
       ],
       footer: 'Beacon • Live health snapshot',

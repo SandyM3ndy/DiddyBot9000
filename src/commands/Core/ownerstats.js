@@ -1,6 +1,7 @@
 import { SlashCommandBuilder, MessageFlags } from 'discord.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 import { createEmbed } from '../../utils/embeds.js';
+import { getRegisteredCommandCount } from '../../utils/commandCounts.js';
 import { isPrimaryBotOwner } from '../../config/bot.js';
 
 export default {
@@ -18,7 +19,7 @@ export default {
     const guilds = [...interaction.client.guilds.cache.values()];
     const sum = pick => guilds.reduce((total, guild) => total + (Number(pick(guild)) || 0), 0);
     const members = sum(guild => guild.memberCount);
-    const commands = [...interaction.client.commands.values()].filter(cmd => !cmd.legacyOnly);
+    const publicCommandCount = getRegisteredCommandCount(interaction.client);
     const stats = createEmbed({
       title: '👑 Beacon • Owner Operations',
       description: '**Private platform overview**\nLive statistics from all currently connected Beacon servers.',
@@ -26,7 +27,7 @@ export default {
       fields: [
         { name: '🌐 Servers', value: guilds.length.toLocaleString('en-AU'), inline: true },
         { name: '👥 Members (estimated)', value: members.toLocaleString('en-AU'), inline: true },
-        { name: '📚 Slash Commands', value: String(commands.length), inline: true },
+        { name: '📚 Slash Commands', value: String(publicCommandCount), inline: true },
         { name: '📝 Channels', value: sum(guild => guild.channels?.cache?.size).toLocaleString('en-AU'), inline: true },
         { name: '🎭 Roles', value: sum(guild => guild.roles?.cache?.size).toLocaleString('en-AU'), inline: true },
         { name: '⏱️ Process Uptime', value: Math.floor(process.uptime() / 3600) + ' hours', inline: true },
