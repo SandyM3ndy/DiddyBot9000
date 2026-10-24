@@ -9,7 +9,7 @@ export function messageHasButtonCustomId(message, buttonCustomId) {
         for (const component of components) {
             const json = typeof component.toJSON === 'function' ? component.toJSON() : component;
             if (!json) continue;
-            if (json.type === 2 && json.custom_id === buttonCustomId) return true;
+            if (json.type === 2 && (json.custom_id === buttonCustomId || json.custom_id?.startsWith(buttonCustomId + ':'))) return true;
             if (Array.isArray(json.components) && walk(json.components)) return true;
         }
         return false;
