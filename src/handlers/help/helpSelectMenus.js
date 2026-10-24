@@ -5,7 +5,7 @@ import { logger } from '../../utils/logger.js';
 import { handleInteractionError } from '../../utils/errorHandler.js';
 import { formatDefaultMemberPermissions } from '../../utils/helpPermissionLabels.js';
 import { isOwnerOnlyCommand } from '../../config/commands/commandCategories.js';
-import { paginateHelpEntries, splitHelpEntries } from '../../utils/helpPagination.js';
+import { paginateHelpEntries } from '../../utils/helpPagination.js';
 
 const BACK_BUTTON_ID = "help-back-to-main";
 const ALL_COMMANDS_ID = "help-all-commands";
@@ -57,13 +57,21 @@ function getCommandAccess(commandData) {
     return formatDefaultMemberPermissions(commandData?.default_member_permissions);
 }
 
-function formatHelpEntry(cmd, registeredCommands) {
-    const registeredCmd = registeredCommands.get(cmd.baseName);
-    const mention = registeredCmd?.id
-        ? `</${cmd.displayName}:${registeredCmd.id}>`
-        : `/${cmd.displayName}`;
-
-    return `**${mention}** — ${cmd.description}\n> 👤 **Who can use it:** ${getCommandAccess(cmd.commandData)}`;
+function formatHelpField(cmd, registeredCommands) {
+    const registered = registeredCommands.get(cmd.baseName);
+    const mention = registered?.id
+        ? '</' + cmd.displayName + ':' + registered.id + '>'
+        : '/' + cmd.displayName;
+    const access = getCommandAccess(cmd.commandData);
+    const description = String(cmd.description || 'No description')
+        .replace(/^Bot Owner Only\s*[•-]\s*/i, '')
+        .trim();
+    const icon = access === 'Bot Owner Only' ? '👑' : access === 'Everyone' ? '🌐' : '🔒';
+    return {
+        name: mention.slice(0, 256),
+        value: (description + '\n' + icon + ' **Access:** ' + access).slice(0, 1024),
+        inline: false,
+    };
 }
 
 function buildHelpEntries(command, category) {
@@ -188,25 +196,19 @@ export async function createCategoryCommandsMenu(category, client, page = 1) {
 
     const registeredCommands = await getRegisteredCommands(client);
 
+    const categoryPage = paginateHelpEntries(categoryCommands, page, 6);
     const embed = createEmbed({
-        title: `${icon} ${categoryName} Commands`,
-        description: categoryCommands.length > 0
-            ? `Every command below includes its purpose and who can use it.`
-            : `No commands found in the **${categoryName}** category.`
+        title: icon + ' ' + categoryName + ' • Commands',
+        description: categoryCommands.length
+            ? '**' + categoryCommands.length + ' tools** in this category • Page **' +
+              categoryPage.page + ' / ' + categoryPage.totalPages + '**\nChoose a command to see its purpose and access level.'
+            : 'No commands are available in this category.',
+        color: 'primary',
+        footer: 'Beacon • Command Center • ' + categoryName,
     });
-
-    const categoryPage = paginateHelpEntries(categoryCommands, page, 8);
     if (categoryPage.items.length) {
-        const chunks = splitHelpEntries(categoryPage.items.map(cmd => formatHelpEntry(cmd, registeredCommands)), 900);
-        for (const [index, chunk] of chunks.entries()) {
-            embed.addFields({ name: chunks.length > 1 ? `Commands (${index + 1}/${chunks.length})` : 'Commands', value: chunk, inline: false });
-        }
+        embed.addFields(categoryPage.items.map(cmd => formatHelpField(cmd, registeredCommands)));
     }
-    if (categoryPage.totalPages > 1) {
-        embed.setDescription(`Browse **${categoryName}** commands — page **${categoryPage.page} of ${categoryPage.totalPages}**.`);
-    }
-    embed.setFooter({ text: FOOTER_TEXT });
-    embed.setTimestamp();
 
     const backButton = createButton(
         BACK_BUTTON_ID,
@@ -241,22 +243,18 @@ export async function createAllCommandsMenu(page = 1, client) {
 
     const registeredCommands = await getRegisteredCommands(client);
 
-    const { page: currentPage, totalPages, items: pageCommands } = paginateHelpEntries(allCommands, page, 10);
-
+    const { page: currentPage, totalPages, items: pageCommands } = paginateHelpEntries(allCommands, page, 7);
     const embed = createEmbed({
-        title: "📋 All Commands",
-        description: `Simple command list: what each command does and who can use it. Use the buttons to browse pages.`
+        title: '📚 Beacon • All Commands',
+        description: '**' + allCommands.length + ' actions** • Page **' +
+          currentPage + ' / ' + totalPages + '**\nEach command shows its purpose and access requirements.',
+        color: 'primary',
+        footer: 'Beacon • Command Center • All Commands',
     });
-
-    embed.setFooter({ text: FOOTER_TEXT });
-    embed.setTimestamp();
-
-    if (pageCommands.length > 0) {
-        const chunks = splitHelpEntries(pageCommands.map(cmd => formatHelpEntry(cmd, registeredCommands)), 900);
-        for (const [index, chunk] of chunks.entries()) {
-            embed.addFields({ name: index === 0 ? `Commands (Page ${currentPage})` : 'Commands (cont.)', value: chunk, inline: false });
-        }
+    if (pageCommands.length) {
+        embed.addFields(pageCommands.map(cmd => formatHelpField(cmd, registeredCommands)));
     }
+
     const components = [];
 
     if (totalPages > 1) {
