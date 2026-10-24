@@ -9,6 +9,7 @@ Beacon ("the Bot") is a Discord bot operated by SandyM3ndy. This policy explains
 - Server configuration such as selected channels, roles, moderation settings, ticket settings, logging settings, welcome settings, reaction-role settings, and other dashboard preferences.
 - Feature data created by server members or staff, such as moderation cases, warnings, tickets, applications, giveaways, polls, and server progression/XP data, when those features are enabled.
 - When Server Progression is enabled: eligible activity counts attributed to Discord user IDs, daily/weekly quest completion and reward history, server XP, rank metadata, founding-community badges, and contributor display preferences. Beacon's progression features do not need to store chat message contents in their contribution records.
+- For community suggestions submitted with `/suggest`: suggestion text, the author's Discord user ID, server and channel identifiers, timestamps, and staff review status are stored to keep review decisions available after restarts. Suggestion votes continue to use Discord reactions; Beacon does not need to store a separate list of voters for this feature.
 - Technical information needed to operate the service, such as command activity, error information, timestamps, and diagnostic trace IDs.
 
 Beacon does not require the contents of private messages for its normal server features. Some Discord features may require message content access where Discord requires it for that feature to function.
