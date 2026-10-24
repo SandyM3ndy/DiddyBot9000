@@ -99,6 +99,11 @@ export function buildPriorityControlRow() {
 }
 
 
+export function buildTicketControlRows({ claimedBy = null, enablePriority = false } = {}) {
+  return [buildTicketControlRow({ claimedBy }),
+    ...(enablePriority ? [buildPriorityControlRow()] : [])];
+}
+
 export const getUserTicketCount = wrapServiceBoundary(async function getUserTicketCount(guildId, userId) {
   return await getOpenTicketCountForUser(guildId, userId);
 }, {
@@ -242,8 +247,7 @@ export async function createTicket(guild, member, categoryId, reason = 'No reaso
       footer: 'Beacon • Private support ticket • Never share passwords or account tokens',
     });
 
-    const rows = [buildTicketControlRow()];
-    if (ticketConfig.enablePriority) rows.push(buildPriorityControlRow());
+    const rows = buildTicketControlRows({ enablePriority: Boolean(ticketConfig.enablePriority) });
 
     const staffMention = config.ticketStaffRoleId ? ` <@&${config.ticketStaffRoleId}>` : '';
     const messageContent = `${member.toString()}${staffMention}`;
@@ -519,11 +523,12 @@ export async function claimTicket(channel, claimer) {
         claimedField.value = claimer.toString();
       }
       
-      const row = buildTicketControlRow({ claimedBy: claimer.id });
+      const config = await getGuildConfig(channel.client, channel.guild.id);
+      const rows = buildTicketControlRows({ claimedBy: claimer.id, enablePriority: Boolean(config.tickets?.enablePriority) });
       
       await ticketMessage.edit({ 
         embeds: [embed],
-        components: [row] 
+        components: rows 
       });
     }
     
@@ -652,11 +657,11 @@ export async function reopenTicket(channel, reopener) {
         statusField.value = '🟢 Open';
       }
       
-      const row = buildTicketControlRow({ claimedBy: ticketData.claimedBy });
+      const rows = buildTicketControlRows({ claimedBy: ticketData.claimedBy, enablePriority: Boolean(config.tickets?.enablePriority) });
       
       await ticketMessage.edit({ 
         embeds: [embed],
-        components: [row] 
+        components: rows 
       });
     }
     
@@ -843,11 +848,12 @@ export async function unclaimTicket(channel, unclaimer) {
         claimedField.value = 'Not claimed';
       }
       
-      const row = buildTicketControlRow();
+      const config = await getGuildConfig(channel.client, channel.guild.id);
+      const rows = buildTicketControlRows({ enablePriority: Boolean(config.tickets?.enablePriority) });
       
       await ticketMessage.edit({ 
         embeds: [embed],
-        components: [row] 
+        components: rows 
       });
     }
     
