@@ -5,7 +5,10 @@ import { getWelcomeConfig } from '../utils/database.js';
 import { formatWelcomeMessage } from '../utils/welcome.js';
 import { logEvent, EVENT_TYPES } from '../services/loggingService.js';
 import { getServerCounters, updateCounter } from '../services/serverstatsService.js';
-import { setBirthday as dbSetBirthday } from '../utils/database.js';
+// The legacy birthday writer is not exposed by all database versions.
+// Import the namespace so a missing optional writer cannot prevent the
+// entire member-join event (welcomes, verification, logging) from loading.
+import * as legacyDatabase from '../utils/database.js';
 import { logger } from '../utils/logger.js';
 import { recordMemberJoinActivity } from '../services/serverProgressionService.js';
 
@@ -144,11 +147,25 @@ export default {
             const backupKey = `guild:${guild.id}:birthdays:left`;
             const backup = (await member.client.db.get(backupKey)) || {};
             if (backup[user.id]) {
-                const { month, day } = backup[user.id];
-                await dbSetBirthday(member.client, guild.id, user.id, month, day);
-                delete backup[user.id];
-                await member.client.db.set(backupKey, backup);
-                logger.debug(`Birthday restored for user ${user.id} in guild ${guild.id}`);
+                // Keep legacy birthday backups intact when the destination
+                // writer does not exist: never delete a stored birthday
+                // unless it has been safely restored.
+                if (typeof legacyDatabase.setBirthday !== 'function') {
+                    logger.warn('Legacy birthday restore unavailable; preserved saved backup', {
+                        guildId: guild.id,
+                        userId: user.id,
+                    });
+                } else {
+                    const { month, day } = backup[user.id];
+                    await legacyDatabase.setBirthday(member.client, guild.id, user.id, month, day);
+                    const remaining = { ...backup };
+                    delete remaining[user.id];
+                    const persisted = await member.client.db.set(backupKey, remaining);
+                    if (persisted === false) {
+                        throw new Error('Could not save updated birthday restore backup');
+                    }
+                    logger.debug(`Birthday restored for user ${user.id} in guild ${guild.id}`);
+                }
             }
         } catch (error) {
             logger.debug('Error restoring birthday on member join:', error);
