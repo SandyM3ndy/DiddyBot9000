@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, MessageFlags } from 'discord.js';
+import { SlashCommandBuilder, MessageFlags, PermissionFlagsBits } from 'discord.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 import add from './add.js';
 import remove from './remove.js';
@@ -7,9 +7,22 @@ import claim from './claim.js';
 import close from './close.js';
 import priority from './priority.js';
 import stats from './ticketstats.js';
+import ticketDashboard from './modules/ticket_dashboard.js';
 import { showMyTickets, showTicketQueue, showTicketInfo, showTicketTranscript, reopenTicketAction, unclaimTicketAction } from './modules/ticketActions.js';
 
-const actions = { add, remove, rename, claim, close, priority, stats,
+const openPanel = {
+  async execute(interaction, guildConfig, client) {
+    if (!interaction.guildId || !interaction.memberPermissions?.has?.(PermissionFlagsBits.ManageGuild)) {
+      return InteractionHelper.safeReply(interaction, {
+        content: 'Manage Server permission is required to open the ticket settings dashboard.',
+        flags: MessageFlags.Ephemeral,
+      });
+    }
+    if (!(await InteractionHelper.safeDefer(interaction, { flags: MessageFlags.Ephemeral }))) return;
+    return ticketDashboard.execute(interaction, guildConfig, client || interaction.client);
+  },
+};
+const actions = { add, remove, rename, claim, close, priority, stats, panel: openPanel,
   my: { execute: showMyTickets }, queue: { execute: showTicketQueue },
   info: { execute: showTicketInfo }, transcript: { execute: showTicketTranscript }, reopen: { execute: reopenTicketAction },
   unclaim: { execute: unclaimTicketAction },
@@ -34,6 +47,7 @@ export default {
         { name: 'Medium', value: 'medium' }, { name: 'Low', value: 'low' }, { name: 'None', value: 'none' },
       )))
     .addSubcommand(sub => sub.setName('stats').setDescription('View ticket statistics (staff only)'))
+    .addSubcommand(sub => sub.setName('panel').setDescription('Open ticket system settings (Manage Server only)'))
     .addSubcommand(sub => sub.setName('my').setDescription('Show your private ticket history'))
     .addSubcommand(sub => sub.setName('queue').setDescription('Browse open support tickets (staff only)'))
     .addSubcommand(sub => sub.setName('info').setDescription('View status and assignment details for this ticket'))

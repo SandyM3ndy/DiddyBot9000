@@ -161,6 +161,16 @@ function buildDashboardEmbed(config, guild, panelStatus = null, ticketStats = nu
 
     const openTickets = ticketStats ? String(ticketStats.openCount) : '`—`';
     const avgCloseTime = ticketStats ? formatCloseDuration(ticketStats.avgCloseTimeMs) : '`—`';
+    const missing = [
+        !config.ticketPanelChannelId && 'Support panel channel',
+        !config.ticketStaffRoleId && 'Staff role',
+        !config.ticketCategoryId && 'Open ticket category',
+        !config.ticketTranscriptChannelId && 'Private transcript channel',
+    ].filter(Boolean);
+    const setupHealth = missing.length
+        ? '⚠️ **Configuration needed:** ' + missing.join(', ')
+        : '✅ Core ticket settings are configured. Use /diagnose to check actual permissions.';
+
     const feedbackSummary = ticketStats?.feedbackCount
         ? `${ticketStats.avgRating}/5 (${ticketStats.feedbackCount} rating${ticketStats.feedbackCount !== 1 ? 's' : ''})`
         : '`No ratings yet`';
@@ -171,6 +181,7 @@ function buildDashboardEmbed(config, guild, panelStatus = null, ticketStats = nu
         .setColor(getColor('info'))
         .addFields(
             { name: '📢 Panel Status', value: panelStatusValue, inline: false },
+            { name: '🩺 Setup Health', value: setupHealth, inline: false },
             { name: 'Panel Channel', value: panelChannel, inline: true },
             { name: 'Staff Role', value: staffRole, inline: true },
             { name: '\u200B', value: '\u200B', inline: true },
@@ -185,10 +196,12 @@ function buildDashboardEmbed(config, guild, panelStatus = null, ticketStats = nu
             { name: 'Transcript Channel', value: transcriptChannel, inline: true },
             { name: '\u200B', value: '\u200B', inline: true },
             { name: 'Open Tickets', value: openTickets, inline: true },
+            { name: 'Unclaimed Queue', value: ticketStats ? String(ticketStats.unclaimedOpenCount) : '—', inline: true },
+            { name: 'First Staff Reply', value: ticketStats ? formatCloseDuration(ticketStats.avgFirstResponseMs) : '—', inline: true },
             { name: 'Avg Close Time', value: avgCloseTime, inline: true },
             { name: 'Feedback Rating', value: feedbackSummary, inline: true },
         )
-        .setFooter({ text: 'Select an option below • Dashboard closes after 10 minutes of inactivity' })
+        .setFooter({ text: 'Beacon • /ticket queue to manage work • Dashboard expires after 10 minutes' })
         .setTimestamp();
 }
 
