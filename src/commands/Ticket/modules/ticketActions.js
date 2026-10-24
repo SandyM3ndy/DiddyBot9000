@@ -6,6 +6,7 @@ import { getTicketPermissionContext } from '../../../utils/ticket/ticketPermissi
 import { reopenTicket, unclaimTicket, generateTicketTranscript } from '../../../services/ticket.js';
 import { evaluateTicketSla, getTicketSlaMinutes } from '../../../services/ticketSlaService.js';
 import { getGuildConfig } from '../../../services/config/guildConfig.js';
+import { loadTicketCommandCenter } from '../../../utils/ticket/ticketCommandCenter.js';
 
 const privateReply = (interaction, content) =>
   InteractionHelper.safeReply(interaction, { content, flags: MessageFlags.Ephemeral });
@@ -60,26 +61,8 @@ export async function showTicketQueue(interaction, _config, client) {
     if (!hasStaffAccess(ctx, interaction) && !interaction.memberPermissions?.has?.(PermissionFlagsBits.ManageGuild)) {
       return InteractionHelper.safeEditReply(interaction, { content: '🔒 Only ticket staff and server managers can view the queue.' });
     }
-    const queue = await listOpenSupportQueue(interaction.guildId);
-    const config = await getGuildConfig(client || interaction.client, interaction.guildId);
-    const open = queue.filter(t => !t.claimedBy);
-    const late = queue.filter(t => evaluateTicketSla(t, config).overdue);
-    return InteractionHelper.safeEditReply(interaction, {
-      embeds: [createEmbed({
-        title: '📥 Beacon • Support Queue',
-        description: '**' + queue.length + ' open** • **' + open.length + ' unclaimed** • **' + late.length + ' past first-response target**\nSLA: ' + (getTicketSlaMinutes(config) ? getTicketSlaMinutes(config) + ' minutes' : 'Off') + '. Priority order, then oldest first.',
-        color: open.some(t => t.priority === 'urgent') ? 'warning' : 'primary',
-        fields: queue.slice(0, 12).map(t => ({
-          name: (evaluateTicketSla(t, config).overdue ? '⏰' : t.priority === 'urgent' ? '🔴' : t.priority === 'high' ? '🟠' : '🔹') +
-            ' ' + (t.ticketNumber ? '#' + t.ticketNumber : 'Ticket') +
-            ' • ' + String(t.priority || 'normal').toUpperCase(),
-          value: '<#' + t.id + '> • ' + (t.claimedBy ? 'Claimed by <@' + t.claimedBy + '>' : '**Unclaimed**') +
-            '\nOpened ' + formatTimestamp(t.createdAt),
-          inline: false,
-        })),
-        footer: 'Beacon • Private staff queue • ' + (queue.length > 12 ? 'Showing first 12 tickets' : 'All open tickets shown'),
-      })],
-    });
+    const payload=await loadTicketCommandCenter(client||interaction.client,interaction.guildId,'open',0);
+    return InteractionHelper.safeEditReply(interaction,payload);
   } catch {
     return InteractionHelper.safeEditReply(interaction, { content: '⚠️ Support queue is unavailable. Check /status and retry.' });
   }
