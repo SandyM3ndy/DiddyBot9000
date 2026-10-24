@@ -1,5 +1,22 @@
 import { logger } from '../utils/logger.js';
 
+/** Official public brand copy. Do not substitute campaign taglines for the motto. */
+export const BEACON_MOTTO = "Your community's all-in-one Discord assistant.";
+export const BEACON_FOOTER = `Beacon • ${BEACON_MOTTO}`;
+
+/**
+ * Preserve useful context in a Discord embed footer without letting panels
+ * appear anonymous. Full motto belongs on default and promotional surfaces;
+ * contextual footers simply get a short Beacon attribution.
+ */
+export function formatBeaconFooter(context = '') {
+  const text = String(context || '').trim();
+  if (!text) return BEACON_FOOTER;
+  if (/\\bBeacon\\b/i.test(text)) return text.slice(0, 2048);
+  const suffix = ' • Beacon';
+  return text.slice(0, 2048 - suffix.length) + suffix;
+}
+
 export const botConfig = {
   // =========================
   // BEACON PRESENCE
@@ -50,7 +67,7 @@ export const botConfig = {
       economy: "#F1C40F", moderation: "#9B59B6",
       priority: { none: "#95A5A6", low: "#3498db", medium: "#2ecc71", high: "#f1c40f", urgent: "#e74c3c" },
     },
-    footer: { text: "Beacon • Your community's all-in-one Discord assistant.", icon: null },
+    footer: { text: BEACON_FOOTER, icon: null },
     thumbnail: null,
     author: { name: "Beacon", icon: null, url: null },
   },
