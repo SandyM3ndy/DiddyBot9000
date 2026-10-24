@@ -476,7 +476,7 @@ async function recordActivity(client, guildId, metric, options = {}) {
       const now = Date.now();
 
       if (metric === 'message') {
-        const content = String(options.content || '').trim().toLowerCase().replace(/\\s+/g, ' ');
+        const content = String(options.content || '').trim().toLowerCase().replace(/\s+/g, ' ');
         if (content.length < 3 && !options.hasAttachments) return null;
         const signature = content || '[attachment]';
         const bucketKey = `${guildId}:${options.userId}`;
