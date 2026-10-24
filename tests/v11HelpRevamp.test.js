@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { SlashCommandBuilder, Collection } from 'discord.js';
 import { createInitialHelpMenu, getHelpOverview } from '../src/commands/Core/help.js';
-import { createCategoryCommandsMenu, createAllCommandsMenu } from '../src/handlers/help/helpSelectMenus.js';
+import { createCategoryCommandsMenu, createAllCommandsMenu, createHelpQuickStartMenu } from '../src/handlers/help/helpSelectMenus.js';
 
 function command(name, category, description, ownerOnly = false) {
   return { data: new SlashCommandBuilder().setName(name).setDescription(description), category, ownerOnly };
@@ -52,4 +52,20 @@ test('all commands view includes administrator tools', async () => {
   assert.match(content, /diagnose/);
   assert.match(content, /ticket/);
   assert.match(content, /roleaudit/);
+});
+
+test('Quick Start is prominent and gives three practical, no-setup-required paths',async()=>{
+  const home=await createInitialHelpMenu(mockClient());
+  const buttons=home.components[0].toJSON().components;
+  assert.ok(buttons.some(button=>button.custom_id==='help-quickstart'));
+  const selections=home.components[1].toJSON().components[0].options;
+  assert.ok(selections.some(option=>option.value==='help-quickstart'));
+  const guide=createHelpQuickStartMenu();
+  const embed=guide.embeds[0].toJSON();
+  assert.match(embed.title,/Start Here/);
+  assert.match(JSON.stringify(embed.fields),/Server owner/);
+  assert.match(JSON.stringify(embed.fields),/Moderator/);
+  assert.match(JSON.stringify(embed.fields),/Community member/);
+  assert.match(JSON.stringify(embed.fields),/\/progression overview/);
+  assert.ok(guide.components[0].toJSON().components.some(button=>button.custom_id==='help-back-to-main'));
 });
