@@ -218,7 +218,7 @@ export default {
     let view = subcommand === 'rank' ? 'overview' : subcommand;
     let page = 0;
     let payload = await buildPanel(interaction, view, page);
-    await InteractionHelper.safeEditReply(interaction, payload);
+    await InteractionHelper.safeEditReply(interaction, { embeds: payload.embeds, components: payload.components });
     const reply = await interaction.fetchReply().catch(() => null);
     if (!reply?.createMessageComponentCollector) return;
 
