@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
 import { logger } from '../src/utils/logger.js';
+import { isManagedBackupFilename } from './backupFileNaming.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
@@ -72,7 +73,7 @@ async function pruneBackups(backupDir, retentionDays) {
   let removed = 0;
 
   for (const entry of entries) {
-    if (!entry.isFile() || !entry.name.endsWith('.dump')) {
+    if (!entry.isFile() || !isManagedBackupFilename(entry.name, 'regular')) {
       continue;
     }
 
@@ -107,7 +108,7 @@ async function run() {
 
   const outputPath = args.output
     ? path.resolve(args.output)
-    : path.join(backupDir, `diddybot9000-backup-${createTimestamp()}.dump`);
+    : path.join(backupDir, `beacon-backup-${createTimestamp()}.dump`);
 
   const dumpArgs = [
     '--format=custom',
