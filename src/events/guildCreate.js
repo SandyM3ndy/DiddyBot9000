@@ -3,6 +3,7 @@ import { logger } from '../utils/logger.js';
 import { botConfig, getColor } from '../config/bot.js';
 import { buildGuildJoinFields } from '../utils/guildJoinNotification.js';
 import { getGuildConfig, setGuildConfig } from '../services/config/guildConfig.js';
+import { registerFoundingServers } from '../services/serverProgressionService.js';
 
 export default {
   name: Events.GuildCreate,
@@ -23,6 +24,8 @@ export default {
       logger.error(`Error initializing guild ${guild.id} on join:`, error);
     }
 
+    await registerFoundingServers(client).catch(error => logger.error('Founding registry update failed',error));
+
     let serverOwner = null;
     try {
       serverOwner = await guild.fetchOwner();
@@ -30,7 +33,8 @@ export default {
         '👋 **Welcome to Beacon!**\n\n' +
           'The whole development team behind **Beacon** is extremely happy that you chose Beacon as one of the bots in **' + guild.name + '**. Thank you for trusting us to be part of your community!\n\n' +
           'Beacon was built to give communities powerful moderation, security, staff tools, tickets, progression, and more — all in one place. We hope it makes running your server a little easier and a lot more enjoyable.\n\n' +
-          '🚀 **Beacon v1.0** is only the beginning. We have plenty more planned, and we are excited to keep improving Beacon alongside the communities that use it.\n\n' +
+          '🏆 **NEW: Beacon Server Progression!** Want to put your community on the world rankings? Use `/progression overview` inside your server, then press **Enable Progression** to start earning XP and daily quests. It is free and optional.\n\n' +
+          '🚀 Beacon keeps improving alongside its communities.\n\n' +
           "*Your community’s all-in-one Discord assistant.*"
       );
       logger.info('Sent Beacon welcome DM to the owner of ' + guild.name);
