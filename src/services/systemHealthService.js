@@ -1,8 +1,10 @@
 import { getHeapStatistics } from 'node:v8';
 import { logger } from '../utils/logger.js';
 import { sanitizeMessageText } from '../utils/embeds.js';
+import { botConfig } from '../config/bot.js';
 
-const OWNER_ID = '1022691434974957618';
+// Keep health and restart notifications aligned with Beacon's configured primary owner.
+const OWNER_ID = botConfig.commands.primaryOwnerId;
 const MONITOR_INTERVAL_MS = 60_000;
 const RESTART_INTERVAL_MS = 12 * 60 * 60 * 1000;
 const DEGRADED_CONSECUTIVE_CHECKS = 3;
