@@ -1,5 +1,6 @@
 import { SlashCommandBuilder } from 'discord.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
+import { createEmbed } from '../../utils/embeds.js';
 import {
     skipTrack,
     stopPlayback,
@@ -92,6 +93,7 @@ export default {
         .addSubcommand((sub) =>
             sub.setName('clear').setDescription('Clear the queue'),
         )
+        .addSubcommand(sub => sub.setName('status').setDescription('Check music service, voice and queue health'))
         .addSubcommand((sub) =>
             sub.setName('leave').setDescription('Disconnect the bot from the voice channel'),
         )
@@ -109,6 +111,26 @@ export default {
         const subcommand = interaction.options.getSubcommand();
 
         switch (subcommand) {
+            case 'status': {
+                const nodes = client?.riffy?.nodeMap ? [...client.riffy.nodeMap.values()] : [];
+                const active = nodes.filter(node => node.connected).length;
+                const player = client?.riffy?.players?.get(interaction.guildId);
+                const voice = player?.voiceChannel ? '<#' + player.voiceChannel + '>' : 'Not connected';
+                const embed = createEmbed({
+                    title: '🎵 Beacon • Music Diagnostics',
+                    description: active ? '**🟢 Music service connected.**' : '**🟠 Lavalink disconnected or not configured.**',
+                    color: active ? 'success' : 'warning',
+                    fields: [
+                        { name: '📡 Lavalink Nodes', value: active + ' / ' + nodes.length + ' connected', inline: true },
+                        { name: '🔊 Voice Channel', value: voice, inline: true },
+                        { name: '🎶 Queue Length', value: String(player?.queue?.length ?? 0), inline: true },
+                        { name: '▶️ Playback State', value: player?.playing ? 'Playing' : player?.paused ? 'Paused' : 'Idle', inline: true },
+                    ],
+                    footer: 'Beacon • Music Service Health',
+                });
+                await InteractionHelper.safeEditReply(interaction, { embeds: [embed] });
+                break;
+            }
             case 'pause': {
                 const embed = await pausePlayback(client, interaction);
                 await replyMusicSuccess(interaction, embed);
