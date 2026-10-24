@@ -9,11 +9,13 @@ export default {
     .setDescription('Inspect a user, view their roles, and see their avatar')
     .addUserOption(o => o.setName('target').setDescription('User to inspect (defaults to you)'))
     .addBooleanOption(o => o.setName('avatar').setDescription('Show the full-size avatar in the info card'))
+    .addBooleanOption(o => o.setName('private').setDescription('Show this profile only to you (default: public)'))
     .setDMPermission(false),
   category: 'Utility',
 
   async execute(interaction) {
-    if (!(await InteractionHelper.safeDefer(interaction, { flags: MessageFlags.Ephemeral }))) return;
+    const privateView = interaction.options.getBoolean?.('private') === true;
+    if (!(await InteractionHelper.safeDefer(interaction, privateView ? { flags: MessageFlags.Ephemeral } : {}))) return;
     try {
       const user = interaction.options.getUser('target') || interaction.user;
       const showAvatar = interaction.options.getBoolean?.('avatar') ?? true;

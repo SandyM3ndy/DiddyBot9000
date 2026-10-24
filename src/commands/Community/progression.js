@@ -44,7 +44,8 @@ export default {
       });
     }
 
-    await InteractionHelper.safeDefer(interaction, { flags: MessageFlags.Ephemeral });
+    // Progression, quests and rankings describe the server, not private user records.
+    if (!(await InteractionHelper.safeDefer(interaction))) return;
 
     const subcommand = interaction.options.getSubcommand();
 

@@ -62,13 +62,16 @@ export default {
 
   async execute(interaction) {
     try {
-      const deferSuccess = await InteractionHelper.safeDefer(interaction, { flags: MessageFlags.Ephemeral });
+      const subcommand = interaction.options.getSubcommand();
+      // Public status/leaderboards, private administrative settings and changes.
+      const publicView = subcommand === 'status' || subcommand === 'leaderboard';
+      const deferSuccess = await InteractionHelper.safeDefer(interaction,
+        publicView ? {} : { flags: MessageFlags.Ephemeral });
       if (!deferSuccess) {
         logger.warn('Count command defer failed', { userId: interaction.user.id, guildId: interaction.guildId });
         return;
       }
 
-      const subcommand = interaction.options.getSubcommand();
       // Anyone can inspect status and leaderboard; only managers change settings.
       if (!['status', 'leaderboard'].includes(subcommand) && !interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
         return await replyUserError(interaction, { type: ErrorTypes.PERMISSION, message: 'Manage Server permission is required to change counting-game settings.' });

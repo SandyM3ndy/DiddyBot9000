@@ -48,6 +48,7 @@ export default {
         embed.addFields({ name: '🔒 Owner Diagnostics', value: String(err.message).slice(0, 900), inline: false });
       }
     }
-    return InteractionHelper.safeReply(interaction, { flags: MessageFlags.Ephemeral, embeds: [embed] });
+    // Only owner-specific database failure diagnostics require a private reply.
+    return InteractionHelper.safeReply(interaction, { ...(owner ? { flags: MessageFlags.Ephemeral } : {}), embeds: [embed] });
   },
 };

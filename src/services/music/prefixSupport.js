@@ -2,7 +2,9 @@ import { MessageFlags } from 'discord.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 
 export function getMusicDeferOptions(interaction) {
-    return interaction._isPrefixCommand ? {} : { flags: MessageFlags.Ephemeral };
+    // Playback changes are community activity. Only service diagnostics stay private.
+    return interaction.commandName === 'music' && interaction.options?.getSubcommand?.(false) === 'status'
+        ? { flags: MessageFlags.Ephemeral } : {};
 }
 
 export async function deferMusicCommand(interaction) {

@@ -56,7 +56,7 @@ export default {
             'Failed to get current time. Please try again.',
             {
                 autoDefer: true,
-                deferOptions: { flags: MessageFlags.Ephemeral }
+                deferOptions: {}
             }
         );
     },

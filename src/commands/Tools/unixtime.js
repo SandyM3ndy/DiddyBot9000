@@ -31,7 +31,7 @@ export default {
             'Failed to get unix timestamp. Please try again.',
             {
                 autoDefer: true,
-                deferOptions: { flags: MessageFlags.Ephemeral }
+                deferOptions: {}
             }
         );
     },

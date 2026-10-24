@@ -14,7 +14,7 @@ export default {
         ),
 
     async execute(interaction, config, client) {
-        if (!(await InteractionHelper.safeDefer(interaction, { flags: MessageFlags.Ephemeral }))) return;
+        if (!(await InteractionHelper.safeDefer(interaction))) return;
         if (!interaction.guildId) {
             return InteractionHelper.safeEditReply(interaction, { content: 'Use /queue inside a server.' });
         }

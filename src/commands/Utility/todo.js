@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, PermissionFlagsBits, PermissionsBitField, ChannelType, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
+import { SlashCommandBuilder, PermissionFlagsBits, PermissionsBitField, ChannelType, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } from 'discord.js';
 import { createEmbed, successEmbed, infoEmbed, warningEmbed } from '../../utils/embeds.js';
 import { getFromDb, setInDb } from '../../utils/database.js';
 import { logger } from '../../utils/logger.js';
@@ -182,7 +182,8 @@ export default {
             return listData;
         }
 
-        const deferSuccess = await InteractionHelper.safeDefer(interaction);
+        // Personal and shared-list contents must not be echoed into the channel.
+        const deferSuccess = await InteractionHelper.safeDefer(interaction, { flags: MessageFlags.Ephemeral });
         if (!deferSuccess) {
             logger.warn(`Todo interaction defer failed`, {
                 userId: interaction.user.id,

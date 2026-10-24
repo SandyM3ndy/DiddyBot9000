@@ -27,7 +27,7 @@ export default {
         ),
 
     async execute(interaction, config, client) {
-        const deferred = await InteractionHelper.safeDefer(interaction, { flags: MessageFlags.Ephemeral });
+        const deferred = await InteractionHelper.safeDefer(interaction);
         if (!deferred) return;
 
         const query = interaction.options.getString('query');

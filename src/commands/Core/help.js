@@ -81,10 +81,13 @@ export default {
   data: new SlashCommandBuilder()
     .setName('help')
     .setDescription('Open the Beacon command center and feature categories')
-    .addStringOption(o => o.setName('search').setDescription('Find commands by name or purpose').setMaxLength(70)),
+    .addStringOption(o => o.setName('search').setDescription('Find commands by name or purpose').setMaxLength(70))
+    .addBooleanOption(o => o.setName('private').setDescription('Show command help only to you (default: public)')),
+
   category: 'Core',
   async execute(interaction, config, client) {
-    if (!(await InteractionHelper.safeDefer(interaction, { flags: MessageFlags.Ephemeral }))) return;
+    const privateView = interaction.options?.getBoolean?.('private') === true;
+    if (!(await InteractionHelper.safeDefer(interaction, privateView ? { flags: MessageFlags.Ephemeral } : {}))) return;
     try {
       const query = interaction.options?.getString?.('search')?.trim();
       if (query) {
@@ -102,7 +105,7 @@ export default {
             value: x.description,
             inline: false,
           })),
-          footer: 'Beacon • Command Center • Private search',
+          footer: 'Beacon • Command Center • Search all public commands',
         });
         return await InteractionHelper.safeEditReply(interaction, { embeds: [embed], components: [] });
       }

@@ -28,7 +28,6 @@ export default {
           }),
         ],
         components: [actionRow],
-        flags: MessageFlags.Ephemeral,
       });
     } catch (error) {
       logger.error('Support command error:', error);
