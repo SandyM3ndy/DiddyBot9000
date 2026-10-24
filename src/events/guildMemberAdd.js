@@ -35,6 +35,7 @@ export default {
             // Skip only the welcome message if permissions are missing; the rest of the
             // join pipeline (auto-role, verification, logging, counters) must still run.
             if (permissions?.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages])) {
+                try {
                 const formatData = { user, guild, member };
                 const welcomeMessage = formatWelcomeMessage(
                     welcomeConfig.welcomeMessage || welcomeConfig.welcomeEmbed?.description || botConfig.welcome?.defaultWelcomeMessage || 'Welcome {user} to {server}!',
@@ -79,6 +80,13 @@ export default {
                     await channel.send({ 
                         content: messageContent,
                         embeds: [embed] 
+                    });
+                }
+                } catch (error) {
+                    logger.warn('Welcome delivery failed; continuing member-join processing', {
+                        guildId: guild.id,
+                        channelId: channel.id,
+                        error: error?.message,
                     });
                 }
             }
