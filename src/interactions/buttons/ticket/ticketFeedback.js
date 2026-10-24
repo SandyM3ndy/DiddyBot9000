@@ -33,6 +33,12 @@ const feedbackHandler = {
             return;
         }
 
+        if (!['1', '2', '3', '4', '5'].includes(ratingStr)) {
+            return InteractionHelper.safeReply(interaction, {
+                content: 'Invalid rating. Please select between 1 and 5 stars.',
+                flags: 64,
+            });
+        }
         try {
             await interaction.deferUpdate();
         } catch (err) {
@@ -97,6 +103,10 @@ const feedbackHandler = {
             await saveTicketData(guildId, channelId, ticketData);
         } catch (err) {
             logger.error('ticketFeedback: failed to save feedback', { guildId, channelId, rating, error: err.message });
+            return InteractionHelper.safeEditReply(interaction, {
+                content: '⚠️ Your rating was not saved. Please retry when the support database is available.',
+                embeds: [], components: [],
+            });
         }
 
         try {
@@ -128,6 +138,7 @@ const feedbackHandler = {
             try {
                 const claimer = await client.users.fetch(ticketData.claimedBy);
                 await claimer.send({
+                    allowedMentions: { parse: [] },
                     embeds: [
                         new EmbedBuilder()
                             .setTitle('⭐ Ticket Rating Received')
@@ -174,6 +185,14 @@ const commentHandler = {
                 components: [],
             });
             return;
+        }
+
+        // Do not even open the feedback form for users who did not create the ticket.
+        let ticketData;
+        try { ticketData = await getTicketData(guildId, channelId); }
+        catch { return InteractionHelper.safeReply(interaction, { content: 'Ticket feedback is unavailable right now.', flags: 64 }); }
+        if (!ticketData || ticketData.userId !== interaction.user.id) {
+            return InteractionHelper.safeReply(interaction, { content: 'Only the ticket creator can leave feedback.', flags: 64 });
         }
 
         const modal = new ModalBuilder()

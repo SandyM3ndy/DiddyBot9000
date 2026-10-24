@@ -78,7 +78,11 @@ export default {
             return;
         }
 
-        const rating = parseInt(interaction.values[0], 10);
+        const raw = String(interaction.values?.[0] || '');
+        if (!['1', '2', '3', '4', '5'].includes(raw)) {
+            return interaction.reply({ content: 'Choose a rating from 1 to 5 stars.', ephemeral: true });
+        }
+        const rating = parseInt(raw, 10);
         const ratingLabel = STAR_LABELS[String(rating)] ?? `${rating} stars`;
 
         try {
@@ -89,6 +93,7 @@ export default {
             await saveTicketData(guildId, channelId, ticketData);
         } catch (err) {
             logger.error('ticketFeedback: failed to save feedback', { guildId, channelId, rating, error: err.message });
+            return interaction.reply({ content: '⚠️ Feedback was not saved. Retry shortly.', ephemeral: true });
         }
 
         try {

@@ -184,7 +184,7 @@ export function summarizeGuildTickets(tickets) {
         }
 
         const rating = ticket.feedback?.rating;
-        if (rating != null && Number.isFinite(Number(rating))) {
+        if (rating != null && Number.isInteger(Number(rating)) && Number(rating) >= 1 && Number(rating) <= 5) {
             feedbackCount++;
             ratingSum += Number(rating);
         }

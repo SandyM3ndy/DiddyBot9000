@@ -87,6 +87,7 @@ export default {
             await saveTicketData(guildId, channelId, ticketData);
         } catch (err) {
             logger.error('ticketFeedbackComment: failed to save feedback', { guildId, channelId, error: err.message });
+            return InteractionHelper.safeEditReply(interaction, { content: '⚠️ Your comment could not be saved. Please retry.', embeds: [] });
         }
 
         try {
@@ -115,6 +116,7 @@ export default {
             try {
                 const claimer = await client.users.fetch(ticketData.claimedBy);
                 await claimer.send({
+                    allowedMentions: { parse: [] },
                     embeds: [
                         new EmbedBuilder()
                             .setTitle('⭐ Ticket Feedback Received')
