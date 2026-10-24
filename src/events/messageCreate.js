@@ -103,7 +103,7 @@ async function handlePrefixCommand(message, client, guildConfig) {
       args = [musicPrefixShortcut, ...args];
     }
 
-    logger.info(`Prefix command detected: ${commandName}, args: ${args.join(', ')}`);
+    logger.info('Prefix command detected', { guildId: message.guild.id, command: commandName });
 
     const resolvedCommandName = resolveCommandAlias(commandName);
     logger.info(`Resolved command name: ${resolvedCommandName}`);
