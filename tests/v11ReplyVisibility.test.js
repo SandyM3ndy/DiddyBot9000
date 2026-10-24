@@ -8,12 +8,11 @@ import userinfo from '../src/commands/Utility/userinfo.js';
 
 const read = name => readFile(name,'utf8');
 
-test('public music commands stay public; internal music diagnostics stay private', () => {
+test('all music commands, including service status, use public replies', () => {
   assert.deepEqual(getMusicDeferOptions({ commandName:'music', options:{ getSubcommand:()=> 'skip' } }), {});
   assert.deepEqual(getMusicDeferOptions({ commandName:'join', options:{} }), {});
   assert.deepEqual(getMusicDeferOptions({ commandName:'nowplaying', options:{} }), {});
-  assert.deepEqual(getMusicDeferOptions({ commandName:'music', options:{ getSubcommand:()=> 'status' } }),
-    { flags: MessageFlags.Ephemeral });
+  assert.deepEqual(getMusicDeferOptions({ commandName:'music', options:{ getSubcommand:()=> 'status' } }), {});
 });
 
 test('help and user profile offer opt-in privacy, not forced ephemeral replies', () => {
@@ -72,4 +71,19 @@ test('public help remains a readable menu and private help stays opt-in',async()
   const src=await read('src/commands/Core/help.js');
   assert.match(src,/privateView \? \{ flags: MessageFlags\.Ephemeral \} : \{\}/);
   assert.doesNotMatch(src,/Command Center • Private search/);
+});
+
+
+test('verification and cleanup results are public by default with private overrides', async () => {
+  const verify = (await import('../src/commands/Verification/verify.js')).default;
+  const purge = (await import('../src/commands/Moderation/purge.js')).default;
+  for (const command of [verify, purge]) {
+    assert.equal(command.data.toJSON().options.find(o => o.name === 'private')?.type, 5);
+  }
+  for (const path of ['src/commands/Verification/verify.js','src/commands/Moderation/purge.js']) {
+    const code = await read(path);
+    assert.match(code, /privateView \? \{ flags: MessageFlags\.Ephemeral \} : \{\}/);
+  }
+  const source = await read('src/commands/Moderation/purge.js');
+  assert.match(source, /message\.id !== ownReply\?\.id/);
 });
