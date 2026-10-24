@@ -954,10 +954,13 @@ export default {
                 } catch (error) {
                     logger.error('Dashboard interaction error:', error);
                     const message = error?.userMessage || 'Failed to process this setting. Please try again.';
-                    if (componentInteraction.deferred && !componentInteraction.replied) {
-                        await InteractionHelper.safeEditReply(interaction, {
+                    // Keep the original control panel and its settings intact.
+                    // Acknowledged menus cannot receive another initial reply, so
+                    // show a private follow-up rather than wiping the dashboard.
+                    if (componentInteraction.deferred || componentInteraction.replied) {
+                        await componentInteraction.followUp({
                             embeds: [warningEmbed('Dashboard Could Not Open', message)],
-                            components: [],
+                            flags: MessageFlags.Ephemeral,
                         }).catch(() => {});
                     } else {
                         await replyUserError(componentInteraction, {
