@@ -1,4 +1,4 @@
-import { botConfig, getColor } from '../../../config/bot.js';
+import { botConfig, getColor, formatBeaconFooter } from '../../../config/bot.js';
 import {
     ActionRowBuilder,
     StringSelectMenuBuilder,
@@ -64,7 +64,7 @@ function buildDashboardEmbed(cfg, guild, verifiedUserCount = 0, conflictSummary 
     const panelStatusValue = cfg.channelId ? formatPanelStatusField(panelStatus) : '`Not configured`';
 
     const embed = new EmbedBuilder()
-        .setTitle('✅ Verification System Dashboard')
+        .setTitle('✅ Beacon • Verification System Dashboard')
         .setDescription(`Manage verification settings for **${guild.name}**.\nSelect an option below to modify a setting.`)
         .setColor(getColor('info'))
         .addFields(
@@ -83,7 +83,7 @@ function buildDashboardEmbed(cfg, guild, verifiedUserCount = 0, conflictSummary 
     }
 
     return embed
-        .setFooter({ text: 'Dashboard closes after 10 minutes of inactivity' })
+        .setFooter({ text: formatBeaconFooter('Dashboard closes after 10 minutes of inactivity') })
         .setTimestamp();
 }
 
