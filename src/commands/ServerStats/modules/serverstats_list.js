@@ -1,4 +1,4 @@
-import { getColor } from '../../../config/bot.js';
+import { getColor, formatBeaconFooter } from '../../../config/bot.js';
 import { PermissionFlagsBits } from 'discord.js';
 import { createEmbed } from '../../../utils/embeds.js';
 import { getServerCounters, saveServerCounters, getCounterEmoji as getCounterTypeEmoji, getCounterTypeLabel, getGuildCounterStats } from '../../../services/serverstatsService.js';
@@ -63,7 +63,7 @@ export async function handleList(interaction, client) {
             });
 
             embed.setFooter({ 
-                text: "Counter System • Automatic updates every 15 minutes" 
+                text: formatBeaconFooter('Counter System • Automatic updates every 15 minutes') 
             });
 
             await InteractionHelper.safeEditReply(interaction, { embeds: [embed] }).catch(logger.error);
@@ -112,7 +112,7 @@ export async function handleList(interaction, client) {
         });
 
         embed.setFooter({ 
-            text: "Counter System • Automatic updates every 15 minutes" 
+            text: formatBeaconFooter('Counter System • Automatic updates every 15 minutes') 
         });
         embed.setTimestamp();
 
