@@ -173,11 +173,12 @@ export default {
               return;
             }
 
+            await command.execute(interaction, guildConfig, client);
+
+            // Reward successfully executed commands only (with cooldown in progression service).
             if (interaction.guild) {
               await recordCommandActivity(client, interaction, guildConfig).catch(() => {});
             }
-
-            await command.execute(interaction, guildConfig, client);
 
           } catch (error) {
             await handleInteractionError(
