@@ -35,11 +35,13 @@ async function assertTicketPermission(interaction, client, actionLabel, options 
   const { allowTicketCreator = false, operation = 'manage' } = options;
 
   let context;
+  let timeoutHandle;
   try {
     const contextPromise = getTicketPermissionContext({ client, interaction });
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Timeout')), timeoutMs)
-    );
+    const timeoutPromise = new Promise((_, reject) => {
+      timeoutHandle = setTimeout(() => reject(new Error('Timeout')), timeoutMs);
+      timeoutHandle.unref?.();
+    });
     context = await Promise.race([contextPromise, timeoutPromise]);
   } catch (error) {
     if (error.message === 'Timeout') {
@@ -54,6 +56,8 @@ async function assertTicketPermission(interaction, client, actionLabel, options 
       ErrorTypes.UNKNOWN,
       `Failed to check permissions: ${error.message}`
     );
+  } finally {
+    clearTimeout(timeoutHandle);
   }
 
   if (!context.ticketData) {
