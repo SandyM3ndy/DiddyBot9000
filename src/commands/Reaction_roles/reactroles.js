@@ -1,4 +1,4 @@
-import { getColor } from '../../config/bot.js';
+import { getColor, formatBeaconFooter } from '../../config/bot.js';
 import { SlashCommandBuilder, PermissionFlagsBits, ChannelType, ActionRowBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, RoleSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle, MessageFlags, ComponentType, EmbedBuilder, LabelBuilder, CheckboxBuilder, TextDisplayBuilder } from 'discord.js';
 import { createEmbed, successEmbed, infoEmbed, warningEmbed } from '../../utils/embeds.js';
 import { logger } from '../../utils/logger.js';
@@ -281,7 +281,7 @@ async function handleSetup(interaction) {
             name: 'Available Roles',
             value: roles.map(role => `• ${role}`).join('\n')
         })
-        .setFooter({ text: 'Select roles from the dropdown menu below' });
+        .setFooter({ text: formatBeaconFooter('Select roles from the dropdown menu below') });
 
     const message = await channel.send({
         embeds: [panelEmbed],
@@ -434,7 +434,7 @@ function buildReactionRoleDashboardPayload(panelData, discordMsg, guildId, guild
     const showRepost = panelStatus?.exists === false && panelStatus?.reason === 'panel_deleted';
 
     const embed = new EmbedBuilder()
-        .setTitle('Reaction Roles Dashboard')
+        .setTitle('🎭 Beacon • Reaction Roles Dashboard')
         .setDescription(
             `**Title:** ${title}\n\nSelect an option below to modify a setting.${discordMsg ? `\n[Click Here to View Panel](${discordMsg.url})` : ''}`,
         )
@@ -446,7 +446,7 @@ function buildReactionRoleDashboardPayload(panelData, discordMsg, guildId, guild
             { name: '\u200B', value: '\u200B', inline: true },
             { name: 'Role List', value: roleList, inline: false },
         )
-        .setFooter({ text: 'Dashboard closes after 10 minutes of inactivity' })
+        .setFooter({ text: formatBeaconFooter('Dashboard closes after 10 minutes of inactivity') })
         .setTimestamp();
 
     const buttons = [];
@@ -932,7 +932,7 @@ async function handleRemoveRole(selectInteraction, rootInteraction, panelData, p
                 await InteractionHelper.safeEditReply(rootInteraction, {
                     embeds: [
                         new EmbedBuilder()
-                            .setTitle('Reaction Roles Dashboard')
+                            .setTitle('🎭 Beacon • Reaction Roles Dashboard')
                             .setDescription('No panels remain. Use **/dashboard → Reaction Roles → Create First Panel** to create one.')
                             .setColor(getColor('info')),
                     ],
@@ -944,7 +944,7 @@ async function handleRemoveRole(selectInteraction, rootInteraction, panelData, p
                 await InteractionHelper.safeEditReply(rootInteraction, {
                     embeds: [
                         new EmbedBuilder()
-                            .setTitle('Reaction Roles Dashboard')
+                            .setTitle('🎭 Beacon • Reaction Roles Dashboard')
                             .setDescription('Panel deleted. Open **/dashboard → Reaction Roles** to manage another panel.')
                             .setColor(getColor('success')),
                     ],
@@ -1073,7 +1073,7 @@ async function handleDeletePanel(btnInteraction, rootInteraction, panelData, pan
         await InteractionHelper.safeEditReply(rootInteraction, {
             embeds: [
                 new EmbedBuilder()
-                    .setTitle('Reaction Roles Dashboard')
+                    .setTitle('🎭 Beacon • Reaction Roles Dashboard')
                     .setDescription('No panels remain. Use **/dashboard → Reaction Roles → Create First Panel** to create one.')
                     .setColor(getColor('info')),
             ],
@@ -1084,7 +1084,7 @@ async function handleDeletePanel(btnInteraction, rootInteraction, panelData, pan
         await InteractionHelper.safeEditReply(rootInteraction, {
             embeds: [
                 new EmbedBuilder()
-                    .setTitle('Reaction Roles Dashboard')
+                    .setTitle('🎭 Beacon • Reaction Roles Dashboard')
                     .setDescription('Panel deleted. Open **/dashboard → Reaction Roles** to manage another panel.')
                     .setColor(getColor('success')),
             ],
