@@ -1,5 +1,6 @@
 import {
   helpBackButton,
+  helpQuickStartButton,
   helpBugReportButton,
   helpPaginationButton,
   helpCategoryPaginationButton,
@@ -19,6 +20,7 @@ const paginationInteractions = paginationIds.map((name) => ({
 
 export default [
   helpBackButton,
+  helpQuickStartButton,
   helpBugReportButton,
   ...paginationInteractions,
   { name: 'help-cat-prev', execute: helpCategoryPaginationButton.execute },
