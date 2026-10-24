@@ -23,5 +23,5 @@ test('global button router never drops unrecognized controls without responding'
 test('loader requires transcript and info controls at startup', async () => {
   const source = await readFile('src/handlers/loaders/interactions.js', 'utf8');
   assert.match(source, /'ticket_info', 'ticket_transcript'/);
-  assert.match(source, /Required ticket buttons failed to register/);
+  assert.match(source, /Required Beacon interface buttons failed to register/);
 });
