@@ -35,6 +35,7 @@ test('suggestion review records and decisions survive simulated restarts',async(
 
 test('suggestion storage failures do not report false success',async()=>{
   const client=mockClient();
+  await createSuggestionRecord(client,initial());
   client.db.set=async()=>false;
   await assert.rejects(()=>createSuggestionRecord(client,initial()),/rejected/);
   await assert.rejects(()=>changeSuggestionStatus(client,guildId,id,'accepted','666666666666666666'),/not saved/);
