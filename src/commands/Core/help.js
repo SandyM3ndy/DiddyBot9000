@@ -33,7 +33,7 @@ export async function createInitialHelpMenu(client) {
   const embed = createEmbed({
     title: '✦ Beacon | Command Center',
     description: [
-      '**Level up your Discord community.**',
+      '**Your community\'s all-in-one Discord assistant.**',
       'Global server rankings, rotating quests, moderation, tickets and security — all in Beacon.', 
       '',
       'Choose a category below to browse commands and their access requirements.',
