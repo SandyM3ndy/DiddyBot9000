@@ -50,14 +50,14 @@ test('merged poll accepts both existing input formats', async () => {
   assert.match(content, /Promise\.allSettled/);
 });
 
-test('new diagnostic, role and suggestion management commands require separate review', async () => {
-  const proposed = [
-    'src/commands/Core/diagnose.js',
-    'src/commands/Moderation/roleaudit.js',
-    'src/commands/Community/suggestions.js',
-  ];
-  // These are still proposed; this test documents that no new slash entry was registered.
-  for (const filename of proposed) {
-    await assert.rejects(access(path.join(root, filename)), { code: 'ENOENT' }, filename);
+test('approved diagnostics and role audit exist; suggestions remain planned', async () => {
+  for (const [filename, name] of [
+    ['src/commands/Utility/diagnose.js', 'diagnose'],
+    ['src/commands/Moderation/roleaudit.js', 'roleaudit'],
+  ]) {
+    const content = await source(filename);
+    assert.ok(content.includes(".setName('" + name + "')"), filename);
+    assert.match(content, /setDefaultMemberPermissions/);
   }
+  await assert.rejects(access(path.join(root, 'src/commands/Community/suggestions.js')), { code: 'ENOENT' });
 });

@@ -1,6 +1,6 @@
 # Beacon v1.1 — Proposed New Commands (Planning Only)
 
-**Status:** Design approved as candidates, **not implemented or registered**.
+**Status:** Owner-approved v1.1 work. `/diagnose` and `/roleaudit` are now on `main`; `/suggestions` remains proposed.
 This document records the required overlap audit and implementation order before touching slash command registration.
 
 ## Code inspected
@@ -13,7 +13,7 @@ This document records the required overlap audit and implementation order before
 
 ## Recommended sequence
 
-### 1. `/diagnose` — first
+### 1. `/diagnose` — implemented
 
 **Purpose:** Read-only, administrator-facing report of bot permissions and server configuration health.
 
@@ -29,7 +29,7 @@ Proposed checks:
 
 **Acceptance:** Unit tests for diagnostic rule classification and channel permission mappings; two live test servers (configured and incomplete) before release.
 
-### 2. `/roleaudit` — second
+### 2. `/roleaudit` — implemented
 
 **Purpose:** Snapshot of roles with high-impact permissions; read-only and private.
 
@@ -50,7 +50,7 @@ Keep `/suggest` as the submission command. Do not merge it with `/poll`; `/poll`
 
 ## Hard constraints before any registration change
 
-- No new commands in `src/commands/` until implementation is reviewed and tested.
+- New commands require permission checks and tests; the owner approved `/diagnose`, `/roleaudit` and `/ticketstats` in the v1.1 improvement request.
 - The `/poll` merge was approved and completed in the v1.1 cleanup; preserve both legacy input styles.
 - Preserve existing free and safety-critical functionality.
 - Run `npm run preflight`, Docker build, migrations and security audit; perform actual Discord smoke tests before release.

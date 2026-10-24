@@ -13,9 +13,17 @@
 - [x] Use the central configured primary-owner ID for system-health and restart notifications.
 - [x] Preserve the separate new-server owner DM and developer guild-join DM from the previous iteration.
 
+## Added since the first v1.1 batch
+
+- [x] 👑 Bot Owner category and consistent restricted-command descriptions and checks.
+- [x] /diagnose: non-mutating guild setup checks and tests.
+- [x] /roleaudit: read-only high-impact permissions report and tests.
+- [x] /ticketstats: private staff summary and strict database errors.
+- [x] Patched Zod 4.6.7 and body-parser 2.4.0; security audit passed on updated lockfile.
+
 ## Release blockers — do not call v1.1 complete yet
 
-- [ ] **Dependency security audit:** Current npm audit flags high-severity vulnerabilities in `body-parser` (GHSA-27r3-jxmh-p828) and `zod` (GHSA-mrhx-c7xc-m3w5). The latter needs a planned Zod v3-to-v4 migration: schemas currently use `z.record(valueSchema)`, which has changed in v4. Regenerate and commit `package-lock.json` alongside any dependency changes; do not use `npm audit fix --force` on production without validating data and schema compatibility.
+- [x] **Dependency security audit:** Patched Zod, body-parser and iconv-lite. The GitHub security check passed.
 - [ ] Full `npm run preflight`, `npm audit --omit=dev --audit-level=high`, Docker build, migration checks and fresh production deployment.
 - [ ] Two live Discord server smoke tests (including a server with incomplete permissions), plus tickets, welcome roles, AutoMod, prefix/slash commands and owner notification.
 - [ ] Review dashboard, moderation/anti-nuke, ticket reopen/claim, rate limiting, reaction roles and music for regression and concurrency edge cases.
@@ -26,9 +34,9 @@
 ## Next recommended development work
 
 1. **Security / reliability:** Fix and verify dependency advisories, test PostgreSQL migration and degraded-mode recovery; test restart-watchdog behaviour on the actual host.
-2. **Core diagnostics:** Implement the existing planned read-only `/diagnose` command, with per-feature missing permission checks and private output; do not register it before acceptance tests.
-3. **Support operations:** Add `/ticketstats` from the command ideas, showing completed/claimed tickets without exposing transcripts or staff private notes.
-4. **Moderator safety:** Add read-only `/roleaudit`, reusing the anti-nuke dangerous-permission list, and exercise emergency lockdown recovery in a test guild.
+2. **Core diagnostics:** `/diagnose` implemented. Still test a correctly configured and an incomplete live server.
+3. **Support operations:** `/ticketstats` implemented. Live-test with staff and non-staff accounts.
+4. **Moderator safety:** `/roleaudit` implemented; exercise lockdown recovery in a test guild.
 5. **User experience:** Audit dashboard menus, stale component errors, loading/timeout messages, embed consistency, help pagination and music error messages.
 
 ## Existing command design notes

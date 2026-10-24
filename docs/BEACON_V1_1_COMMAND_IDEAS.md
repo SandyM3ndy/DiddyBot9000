@@ -1,5 +1,5 @@
 # Beacon — Suggested commands (ideas only)
-**Not implemented.** The user must approve additions or merges before development.
+**Living proposal list.** `/diagnose`, `/roleaudit` and `/ticketstats` were added on `main` with the owner's approval. Other ideas remain proposals.
 
 | Priority | Proposed command | Free/Paid concept | Why |
 |---|---|---|---|
