@@ -517,10 +517,26 @@ const deleteTicketConfirmHandler = {
       await assertTicketPermission(interaction, client, 'delete the ticket', { operation: 'delete' });
       if (!(await InteractionHelper.safeDefer(interaction, { flags: MessageFlags.Ephemeral }))) return;
       const { deleteTicket } = await import('../services/ticket.js');
-      const deleted = await deleteTicket(interaction.channel, interaction.user);
-      return InteractionHelper.safeEditReply(interaction, { content:
-        '✅ Ticket archived (' + deleted.archivedMessageCount + ' messages) and deleted.',
-        embeds: [], components: [] });
+      await deleteTicket(interaction.channel, interaction.user, {
+        onArchived: async ({ messageCount, archiveChannelId }) => {
+          const acknowledged = await InteractionHelper.safeEditReply(interaction, {
+            content: '✅ **Transcript archived** (' + messageCount + ' messages) in <#' +
+              archiveChannelId + '>. Removing this ticket channel now. This confirmation may disappear when the channel is deleted.',
+            embeds: [], components: [],
+            allowedMentions: { parse: [] },
+          });
+          if (!acknowledged) {
+            throw createError(
+              'Unable to acknowledge ticket deletion',
+              ErrorTypes.UNKNOWN,
+              'The transcript was archived, but Beacon could not confirm deletion. The ticket channel was retained. Please retry.'
+            );
+          }
+        },
+      });
+      // The channel is gone. Never editReply()/followUp() on its interaction.
+      // The archive entry is the durable success confirmation.
+      return true;
     } catch (error) {
       logger.warn('Ticket archive/deletion cancelled', { error: error?.message, channelId: interaction.channelId });
       const payload = { content: '⚠️ ' + (error.userMessage || 'Could not archive or delete this ticket. Check that Beacon can upload transcripts.'), components: [] };

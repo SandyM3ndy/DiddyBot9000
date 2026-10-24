@@ -16,6 +16,8 @@ import createTicketHandler, {
 export default [
   createTicketHandler,
   myTicketsButtonHandler,
+  ticketInfoButtonHandler,
+  ticketTranscriptButtonHandler,
   closeTicketHandler,
   claimTicketHandler,
   priorityTicketHandler,

@@ -198,11 +198,26 @@ export class InteractionHelper {
                 return await this.safeReply(interaction, options);
             }
             if (error.code === 10008) {
-                logger.debug(`Interaction ${interaction.id} reply message deleted, using followUp fallback`);
+                // Discord cannot edit or create interaction messages in a channel
+                // that has just been deleted (notably after ticket deletion).
+                const channelGone = interaction.channel?.deleted === true ||
+                    Boolean(interaction.guild?.channels?.cache &&
+                        interaction.channelId &&
+                        !interaction.guild.channels.cache.has(interaction.channelId));
+                if (channelGone) {
+                    logger.debug(`Interaction ${interaction.id} belongs to a deleted channel; skipping follow-up`);
+                    return false;
+                }
+                logger.debug(`Interaction ${interaction.id} reply message deleted, attempting followUp fallback`);
                 try {
                     await interaction.followUp(sanitizeResponseOptions(options));
                     return true;
                 } catch (followUpError) {
+                    if (followUpError.code === 10008) {
+                        // Deleted original message or channel: not a service outage.
+                        logger.debug(`Interaction ${interaction.id} followUp target no longer exists`);
+                        return false;
+                    }
                     if (isInteractionUnavailableError(followUpError)) {
                         logger.warn(`Interaction ${interaction.id} unavailable during followUp:`, followUpError.message);
                         return false;

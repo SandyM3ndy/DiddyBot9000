@@ -771,7 +771,7 @@ export async function generateTicketTranscript(channel) {
     messageCount: messages.length };
 }
 
-export async function deleteTicket(channel, deleter) {
+export async function deleteTicket(channel, deleter, { onArchived } = {}) {
   return withTicketMutationLock(channel.guild.id, channel.id, async () => {
   try {
     const ticketData = requireTicket(await getTicketData(channel.guild.id, channel.id), channel);
@@ -830,6 +830,16 @@ export async function deleteTicket(channel, deleter) {
       ticketUserError('Transcript delivery failed',
         'Beacon could not safely save this transcript. The ticket has NOT been deleted. Check archive-channel permissions and retry.',
         ErrorTypes.CONFIGURATION);
+    }
+
+    // A button interaction belongs to this channel. Acknowledge while it still
+    // exists: editing/replying after channel.delete() fails with Discord 10008.
+    // If the confirmation cannot be delivered, keep the channel intact.
+    if (onArchived) {
+      await onArchived({
+        messageCount: transcript.messageCount,
+        archiveChannelId: archiveChannel.id,
+      });
     }
 
     await channel.delete('Ticket transcript saved and channel deleted by ' + deleter.id);
