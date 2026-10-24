@@ -1,201 +1,210 @@
-import { SlashCommandBuilder, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, MessageFlags } from 'discord.js';
-import { createEmbed, infoEmbed } from '../../utils/embeds.js';
-import { getModerationCases } from '../../utils/moderation.js';
-import { logger } from '../../utils/logger.js';
+import {
+  SlashCommandBuilder, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder,
+  ButtonStyle, StringSelectMenuBuilder, MessageFlags, ComponentType,
+} from 'discord.js';
+import { createEmbed } from '../../utils/embeds.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
-import { replyUserError, ErrorTypes } from '../../utils/errorHandler.js';
+import { getModerationCases } from '../../utils/moderation.js';
+import { getCase, normalizeCase, updateCaseReview } from '../../services/moderationCaseManager.js';
+import { logger } from '../../utils/logger.js';
+
+const PAGE_SIZE = 5;
+const clean = (value, max = 500) => String(value || 'Not specified').replaceAll('@', '@\u200b').slice(0, max);
+const timestamp = value => {
+  const ms = new Date(value).getTime();
+  return Number.isFinite(ms) ? '<t:' + Math.floor(ms / 1000) + ':f>' : 'Unknown';
+};
+const canReview = interaction => Boolean(
+  interaction.guild?.ownerId === interaction.user.id ||
+  interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild) ||
+  interaction.memberPermissions?.has(PermissionFlagsBits.ModerateMembers)
+);
+
+export function buildCaseDetail(case_) {
+  const item = normalizeCase(case_);
+  const notes = item.review.notes.slice(-3).reverse().map(n => '• ' + clean(n.text, 230) +
+    ' — <@' + n.authorId + '>').join('\n');
+  const evidence = item.review.evidence.slice(-3).reverse().map(e =>
+    '• [Evidence link](' + e.url.replace(/\)/g, '%29') + ') added by <@' + e.authorId + '>').join('\n');
+  return createEmbed({
+    title: '⚖️ Beacon • Case #' + item.caseId,
+    description: '**' + clean(item.action,100) + '**\n' + clean(item.reason, 650),
+    color: item.review.status === 'resolved' ? 'success' :
+      item.review.status === 'appealed' ? 'warning' : 'primary',
+    fields: [
+      { name:'📋 Review Status',value:item.review.status.toUpperCase(),inline:true },
+      { name:'👤 Target',value: clean(item.target,150),inline:true },
+      { name:'🛡️ Moderator',value:clean(item.executor,150),inline:true },
+      { name:'📅 Created',value:timestamp(item.createdAt),inline:true },
+      { name:'✏️ Updated',value:item.review.updatedAt ? timestamp(item.review.updatedAt) : 'No review changes',inline:true },
+      { name:'🔎 Source',value:clean(item.metadata?.source || 'Moderation',75),inline:true },
+      { name:'📝 Staff Notes (' + item.review.notes.length + ')',value:notes || 'No review notes',inline:false },
+      { name:'📎 Evidence Links (' + item.review.evidence.length + ')',value:evidence || 'No evidence links',inline:false },
+    ],
+    footer: 'Beacon • Private case record • Use /cases status, note or evidence to update',
+  });
+}
+
+export function buildCaseListPage(cases, guildName, page = 0) {
+  const last = Math.max(0, Math.ceil(cases.length / PAGE_SIZE) - 1);
+  const current = Math.max(0, Math.min(last, page));
+  const slice = cases.slice(current * PAGE_SIZE, (current + 1) * PAGE_SIZE);
+  const fields = slice.map(c => ({
+    name: 'Case #' + c.caseId + ' • ' + clean(c.action,80),
+    value: '**' + normalizeCase(c).review.status.toUpperCase() + '** • ' +
+      clean(c.target,100) + '\n' + clean(c.reason,220) + '\n' + timestamp(c.createdAt),
+    inline: false,
+  }));
+  const embed = createEmbed({
+    title: '⚖️ Beacon • Moderation Case Manager',
+    description: '**' + clean(guildName, 90) + '**\n' + cases.length +
+      ' cases • Page ' + (current + 1) + '/' + (last + 1) +
+      '\nBrowse incidents, then select a case to inspect its review history.',
+    color: 'primary',
+    fields: fields.length ? fields : [{name:'No cases',value:'No records match this search.'}],
+    footer: 'Beacon • Staff records • Updates require moderation permissions',
+  });
+  const controls = [];
+  if (slice.length) controls.push(new ActionRowBuilder().addComponents(
+    new StringSelectMenuBuilder().setCustomId('cases_pick')
+      .setPlaceholder('Choose a case to inspect...')
+      .addOptions(slice.map(c => ({
+        label: 'Case #' + c.caseId + ' • ' + clean(c.action, 55),
+        value: String(c.caseId),
+      }))),
+  ));
+  controls.push(new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('cases_prev').setLabel('Previous').setStyle(ButtonStyle.Secondary).setDisabled(current === 0),
+    new ButtonBuilder().setCustomId('cases_page').setLabel((current + 1) + '/' + (last + 1)).setStyle(ButtonStyle.Secondary).setDisabled(true),
+    new ButtonBuilder().setCustomId('cases_next').setLabel('Next').setStyle(ButtonStyle.Secondary).setDisabled(current === last),
+    new ButtonBuilder().setCustomId('cases_refresh').setLabel('Refresh').setStyle(ButtonStyle.Primary),
+  ));
+  return { embeds:[embed], components:controls, page:current };
+}
+
 export default {
-    data: new SlashCommandBuilder()
-        .setName('cases')
-        .setDescription('View moderation cases and audit logs')
-        .setDefaultMemberPermissions(PermissionFlagsBits.ViewAuditLog)
-        .setDMPermission(false)
-        .addStringOption(option =>
-            option.setName('filter')
-                .setDescription('Filter cases by type or user')
-                .addChoices(
-                    { name: 'All Cases', value: 'all' },
-                    { name: 'Bans', value: 'Member Banned' },
-                    { name: 'Kicks', value: 'Member Kicked' },
-                    { name: 'Timeouts', value: 'Member Timed Out' },
-                    { name: 'Warnings', value: 'User Warned' }
-                )
-        )
-        .addUserOption(option =>
-            option.setName('user')
-                .setDescription('Filter cases by specific user')
-        )
-        .addIntegerOption(option =>
-            option.setName('limit')
-                .setDescription('Number of cases to show (default: 10)')
-                .setMinValue(1)
-                .setMaxValue(50)
-        ),
+  category:'Moderation',
+  data: new SlashCommandBuilder().setName('cases')
+    .setDescription('Private moderation case manager with review notes and evidence')
+    .setDMPermission(false)
+    .setDefaultMemberPermissions(PermissionFlagsBits.ViewAuditLog)
+    .addSubcommand(sub => sub.setName('list').setDescription('Browse recent moderation cases')
+      .addUserOption(o => o.setName('user').setDescription('Filter by target user'))
+      .addStringOption(o => o.setName('type').setDescription('Filter by action')
+        .addChoices(
+          {name:'All',value:'all'},{name:'Bans',value:'Member Banned'},
+          {name:'Kicks',value:'Member Kicked'},{name:'Warnings',value:'User Warned'},
+          {name:'Timeouts',value:'Member Timed Out'},
+        )))
+    .addSubcommand(sub => sub.setName('view').setDescription('View a moderation case and its review history')
+      .addIntegerOption(o => o.setName('id').setDescription('Case number').setMinValue(1).setRequired(true)))
+    .addSubcommand(sub => sub.setName('status').setDescription('Set case review status (moderation staff)')
+      .addIntegerOption(o => o.setName('id').setDescription('Case number').setMinValue(1).setRequired(true))
+      .addStringOption(o => o.setName('state').setDescription('Review state').setRequired(true).addChoices(
+        {name:'Open',value:'open'},{name:'Under Review',value:'reviewing'},
+        {name:'Resolved',value:'resolved'},{name:'Appealed',value:'appealed'},
+      )))
+    .addSubcommand(sub => sub.setName('note').setDescription('Attach a private staff review note')
+      .addIntegerOption(o => o.setName('id').setDescription('Case number').setMinValue(1).setRequired(true))
+      .addStringOption(o => o.setName('text').setDescription('Private note (1–900 characters)').setMaxLength(900).setRequired(true)))
+    .addSubcommand(sub => sub.setName('evidence').setDescription('Attach an HTTPS evidence link to a case')
+      .addIntegerOption(o => o.setName('id').setDescription('Case number').setMinValue(1).setRequired(true))
+      .addStringOption(o => o.setName('url').setDescription('Secure evidence URL').setMaxLength(600).setRequired(true))),
 
-    category: 'moderation',
-
-    async execute(interaction, config, client) {
-        const deferSuccess = await InteractionHelper.safeDefer(interaction);
-        if (!deferSuccess) {
-            logger.warn(`Cases interaction defer failed`, {
-                userId: interaction.user.id,
-                guildId: interaction.guildId,
-                commandName: 'cases'
-            });
-            return;
-        }
-
-        try {
-            const filterType = interaction.options.getString('filter') || 'all';
-            const targetUser = interaction.options.getUser('user');
-            const limit = interaction.options.getInteger('limit') || 10;
-
-            const filters = {
-                limit,
-                action: filterType === 'all' ? undefined : filterType,
-                userId: targetUser?.id
-            };
-
-            const cases = await getModerationCases(interaction.guild.id, filters);
-
-            if (cases.length === 0) {
-                let emptyMessage = 'There are no moderation cases recorded in this server yet.';
-
-                if (targetUser) {
-                    emptyMessage = `There are no moderation cases recorded for ${targetUser.tag} in this server.`;
-                } else if (filterType !== 'all') {
-                    emptyMessage = `There are no ${filterType.toLowerCase()} cases recorded in this server yet.`;
-                }
-
-                return await interaction.editReply({
-                    embeds: [infoEmbed('No Moderation Cases', emptyMessage)],
-                    components: []
-                });
-            }
-
-            const CASES_PER_PAGE = 5;
-            const totalPages = Math.ceil(cases.length / CASES_PER_PAGE);
-            let currentPage = 1;
-
-            const createCasesEmbed = (page) => {
-                const startIndex = (page - 1) * CASES_PER_PAGE;
-                const endIndex = startIndex + CASES_PER_PAGE;
-                const pageCases = cases.slice(startIndex, endIndex);
-
-                const embed = createEmbed({
-                    title: 'Moderation Cases',
-                    description: `Showing moderation cases for **${interaction.guild.name}**\n\n**Page ${page} of ${totalPages}**`
-                });
-
-                pageCases.forEach(case_ => {
-                    const date = new Date(case_.createdAt).toLocaleDateString();
-                    const time = new Date(case_.createdAt).toLocaleTimeString();
-                    const targetId = case_.targetUserId || case_.metadata?.userId || 'Unknown';
-                    const moderatorId = case_.moderatorId || case_.metadata?.moderatorId || 'Unknown';
-                    const source = case_.metadata?.source || 'Moderation';
-
-                    embed.addFields({
-                        name: `Case #${case_.caseId} - ${case_.action}`,
-                        value:
-                            `**Target:** ${case_.target || 'Unknown'}\n` +
-                            `**Target ID:** \`${targetId}\`\n` +
-                            `**Moderator:** ${case_.executor || 'Unknown'}\n` +
-                            `**Moderator ID:** \`${moderatorId}\`\n` +
-                            `**Source:** ${source}\n` +
-                            `**Date:** ${date} at ${time}\n` +
-                            `**Reason:** ${case_.reason || 'No reason provided'}`,
-                        inline: false
-                    });
-                });
-
-                embed.setFooter({
-                    text: `Total cases: ${cases.length} | Filter: ${filterType}${targetUser ? ` | User: ${targetUser.tag}` : ''}`
-                });
-
-                return embed;
-            };
-
-            const createNavigationRow = (page) => {
-                const row = new ActionRowBuilder();
-                
-                const prevButton = new ButtonBuilder()
-                    .setCustomId('prev_page')
-                    .setLabel('⬅️ Previous')
-                    .setStyle(ButtonStyle.Secondary)
-                    .setDisabled(page === 1);
-
-                const pageInfoButton = new ButtonBuilder()
-                    .setCustomId('page_info')
-                    .setLabel(`Page ${page}/${totalPages}`)
-                    .setStyle(ButtonStyle.Primary)
-                    .setDisabled(true);
-
-                const nextButton = new ButtonBuilder()
-                    .setCustomId('next_page')
-                    .setLabel('Next ➡️')
-                    .setStyle(ButtonStyle.Secondary)
-                    .setDisabled(page === totalPages);
-
-                row.addComponents(prevButton, pageInfoButton, nextButton);
-                return row;
-            };
-
-            const message = await interaction.editReply({ 
-                embeds: [createCasesEmbed(currentPage)], 
-                components: [createNavigationRow(currentPage)]
-            });
-
-            const collector = message.createMessageComponentCollector({
-                componentType: ComponentType.Button,
-                time: 120000
-            });
-
-            collector.on('collect', async (buttonInteraction) => {
-                try {
-                    if (buttonInteraction.user.id !== interaction.user.id) {
-                        await buttonInteraction.reply({
-                            content: 'You cannot use these buttons. Run `/cases` to get your own case view.',
-                            flags: MessageFlags.Ephemeral
-                        });
-                        return;
-                    }
-
-                    if (buttonInteraction.customId === 'prev_page' && currentPage > 1) {
-                        currentPage--;
-                    } else if (buttonInteraction.customId === 'next_page' && currentPage < totalPages) {
-                        currentPage++;
-                    }
-
-                    await buttonInteraction.update({
-                        embeds: [createCasesEmbed(currentPage)],
-                        components: [createNavigationRow(currentPage)]
-                    });
-                } catch (error) {
-                    logger.warn('Case navigation failed:', error);
-                    if (!buttonInteraction.deferred && !buttonInteraction.replied) {
-                        await buttonInteraction.reply({
-                            content: 'Could not change pages. Please run `/cases` again.',
-                            flags: MessageFlags.Ephemeral
-                        }).catch(() => {});
-                    }
-                }
-            });
-
-            collector.on('end', async () => {
-                const disabledRow = createNavigationRow(currentPage);
-                disabledRow.components.forEach(button => button.setDisabled(true));
-                
-                try {
-                    await message.edit({
-                        components: [disabledRow]
-                    });
-                } catch (error) {
-                }
-            });
-
-        } catch (error) {
-            logger.error('Error in cases command:', error);
-            return await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: 'An error occurred while retrieving moderation cases. Please try again later.' });
-        }
+  async execute(interaction, config, client) {
+    if (!interaction.guildId) return InteractionHelper.safeReply(interaction, {
+      content:'Case records are available only in a server.',flags:MessageFlags.Ephemeral,
+    });
+    if (!interaction.memberPermissions?.has(PermissionFlagsBits.ViewAuditLog) &&
+        !interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild) &&
+        interaction.guild?.ownerId !== interaction.user.id) {
+      return InteractionHelper.safeReply(interaction, {
+        content:'View Audit Log permission is required to access case records.',flags:MessageFlags.Ephemeral,
+      });
     }
+    if (!(await InteractionHelper.safeDefer(interaction,{flags:MessageFlags.Ephemeral})))return;
+    try {
+      const action = interaction.options.getSubcommand();
+      if (['status','note','evidence'].includes(action)) {
+        if (!canReview(interaction)) return InteractionHelper.safeEditReply(interaction, {
+          content:'Only moderators with Moderate Members or Manage Server may edit case records.',
+        });
+        const caseId = interaction.options.getInteger('id',true);
+        const value = action === 'status' ? interaction.options.getString('state',true)
+          : action === 'note' ? interaction.options.getString('text',true)
+          : interaction.options.getString('url',true);
+        const updated = await updateCaseReview({
+          client: client || interaction.client, guild: interaction.guild,
+          caseId, editorId: interaction.user.id, operation:action,value,
+        });
+        return InteractionHelper.safeEditReply(interaction,{
+          content:'✅ Case #' + caseId + ' review record updated. This does **not** modify an actual Discord punishment.',
+          embeds:[buildCaseDetail(updated)],allowedMentions:{parse:[]},
+        });
+      }
+      if (action === 'view') {
+        const item = await getCase(interaction.guildId,interaction.options.getInteger('id',true));
+        return InteractionHelper.safeEditReply(interaction,{
+          embeds: item ? [buildCaseDetail(item)] : [createEmbed({
+            title:'No Case Found',description:'That case number does not exist in this server.',color:'warning',
+          })],
+          allowedMentions:{parse:[]},
+        });
+      }
+      const filter = interaction.options.getString('type') || 'all';
+      const user = interaction.options.getUser('user');
+      const load = () => getModerationCases(interaction.guildId,{
+        limit:1000, userId:user?.id, action:filter === 'all' ? undefined : filter,
+      });
+      let records = await load(), page = 0;
+      const show = () => buildCaseListPage(records, interaction.guild.name,page);
+      const render = show();
+      const ok = await InteractionHelper.safeEditReply(interaction,{
+        embeds:render.embeds,components:render.components,allowedMentions:{parse:[]},
+      });
+      if (!ok)return;
+      const message = await interaction.fetchReply().catch(()=>null);
+      if(!message?.createMessageComponentCollector)return;
+      const collector = message.createMessageComponentCollector({
+        time:180_000,filter:i=>['cases_pick','cases_prev','cases_next','cases_refresh','cases_back'].includes(i.customId),
+      });
+      collector.on('collect',async i=>{
+        try {
+          if(i.user.id!==interaction.user.id){
+            await i.reply({content:'Open /cases list for your own private session.',flags:MessageFlags.Ephemeral});
+            return;
+          }
+          await i.deferUpdate();
+          if(i.customId==='cases_pick'){
+            const item=await getCase(interaction.guildId,i.values[0]);
+            if(item){
+              await i.editReply({embeds:[buildCaseDetail(item)],
+                components:[new ActionRowBuilder().addComponents(
+                  new ButtonBuilder().setCustomId('cases_back').setLabel('Back to Cases').setEmoji('◀️').setStyle(ButtonStyle.Secondary),
+                )],allowedMentions:{parse:[]}});
+              return;
+            }
+          }
+          if(i.customId==='cases_refresh')records=await load();
+          if(i.customId==='cases_next')page++;
+          if(i.customId==='cases_prev')page--;
+          const view=show();
+          page=view.page;
+          await i.editReply({embeds:view.embeds,components:view.components,allowedMentions:{parse:[]}});
+        }catch(error){
+          logger.warn('Case browser failed',{guildId:interaction.guildId,error:error?.message});
+          if(i.deferred || i.replied)await i.followUp({content:'⚠️ Could not update this case view.',flags:MessageFlags.Ephemeral}).catch(()=>{});
+        }
+      });
+      collector.on('end',()=>void InteractionHelper.safeEditReply(interaction,{
+        embeds:[createEmbed({title:'⌛ Case Browser Closed',description:'Use /cases list to start a new private review session.',color:'primary'})],
+        components:[],
+      }));
+    }catch(error){
+      logger.error('Moderation case manager failed',{guildId:interaction.guildId,error:error?.message});
+      return InteractionHelper.safeEditReply(interaction,{
+        content:'⚠️ ' + (error?.message || 'Unable to load case records. Try again later.'),
+      });
+    }
+  },
 };
