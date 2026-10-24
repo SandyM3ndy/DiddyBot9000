@@ -716,6 +716,18 @@ export async function reopenTicket(channel, reopener) {
       logger.warn('Ticket reopened, but channel summary controls could not be updated', { channelId: channel.id, error: presentationError?.message });
     }
 
+    await logTicketEvent({
+      client: channel.client,
+      guildId: channel.guild.id,
+      event: {
+        type: 'reopen',
+        ticketId: channel.id,
+        ticketNumber: ticketData.ticketNumber || ticketData.id,
+        userId: ticketData.userId,
+        executorId: reopener.id,
+        metadata: { reopenedAt: new Date().toISOString(), movedToOpenCategory },
+      },
+    });
     return { ticketData, movedToOpenCategory, openCategoryMoveFailed };
     
   } catch (error) {

@@ -83,6 +83,7 @@ function getLogChannelForEventType(config, eventType) {
 
     case 'open':
     case 'close':
+    case 'reopen':
     case 'delete':
     case 'claim':
     case 'unclaim':
@@ -100,6 +101,7 @@ function getLogChannelForEventType(config, eventType) {
 const TICKET_EVENT_STYLES = {
   open: { color: 0x5865F2, title: 'Ticket Created' },
   close: { color: 0xED4245, title: 'Ticket Closed' },
+  reopen: { color: 0x57F287, title: 'Ticket Reopened' },
   delete: { color: 0x8b0000, title: 'Ticket Deleted' },
   claim: { color: 0x5865F2, title: 'Ticket Claimed' },
   unclaim: { color: 0xFAA61A, title: 'Ticket Unclaimed' },
@@ -119,7 +121,7 @@ async function createTicketLogEmbed(guild, event) {
   let inlineFields = [];
   let fields = [];
   let author = null;
-  let footer = { text: 'TitanBot Ticketing' };
+  let footer = { text: 'Beacon • Support Audit Log' };
 
   switch (event.type) {
     case 'open':
@@ -134,6 +136,15 @@ async function createTicketLogEmbed(guild, event) {
       if (event.reason) {
         fields.push({ name: 'Reason', value: String(event.reason).slice(0, 1024), inline: false });
       }
+      break;
+
+    case 'reopen':
+      author = await resolveUserAuthor(guild.client, event.executorId);
+      inlineFields = [
+        { name: 'Ticket', value: ticketRef, inline: true },
+        { name: 'Reopened by', value: executorMention || 'Unknown', inline: true },
+      ];
+      if (channelMention) inlineFields.push({ name: 'Channel', value: channelMention, inline: true });
       break;
 
     case 'close':
