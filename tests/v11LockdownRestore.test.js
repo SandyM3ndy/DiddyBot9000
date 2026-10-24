@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { restoreLockdown } from '../src/services/lockdownService.js';
 
 function makeClient(fail) {
-  const data = new Map([['guild:lockdown_state', {
+  const data = new Map([['guild:guild:lockdown_state', {
     active: true, roles: [{ id: 'r1', permissions: '1024' }],
     channels: [{ id: 'c1', overwrites: [] }],
   }]]);
@@ -33,7 +33,7 @@ test('failed lockdown restore retains the only saved permission snapshot', async
   assert.equal(result.success, false);
   assert.deepEqual(result.failedRoles, ['r1']);
   assert.equal(client.lockdownStates.get('guild'), true);
-  assert.ok(client.data.has('guild:lockdown_state'));
+  assert.ok(client.data.has('guild:guild:lockdown_state'));
 });
 test('successful retry clears persisted state only after permissions restore', async () => {
   const client = makeClient(true);
@@ -42,6 +42,6 @@ test('successful retry clears persisted state only after permissions restore', a
   client.fail = false;
   const result = await restoreLockdown(client, guild);
   assert.equal(result.success, true);
-  assert.equal(client.data.has('guild:lockdown_state'), false);
+  assert.equal(client.data.has('guild:guild:lockdown_state'), false);
   assert.equal(client.lockdownStates.get('guild'), false);
 });
