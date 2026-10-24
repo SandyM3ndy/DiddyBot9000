@@ -799,3 +799,55 @@ export function getLevelProgress(data) {
     percent: Math.min(100, Math.floor((progressXp / neededXp) * 100)),
   };
 }
+
+
+/** Every progression mutation uses the same per-server lock and persistent key as XP. */
+export async function mutateServerProgression(client,guildId,mutator){
+ return withGuildLock(guildId,async()=>{
+  const data=await load(client,guildId);
+  const result=await mutator(data);
+  if(result?.changed)await save(client,guildId,data);
+  return {data,result};
+ },client);
+}
+export async function rerollDailyQuest(client,guildId,questId){
+ return mutateServerProgression(client,guildId,data=>{
+  const day=dateKey();
+  if(data.dailyRerollDay===day)return {changed:false,error:'Daily reroll already used.'};
+  const idx=data.dailyQuests.findIndex(q=>q.id===questId&&!q.completed);
+  if(idx<0)return {changed:false,error:'Choose an unfinished quest.'};
+  const members=client.guilds?.cache?.get(guildId)?.memberCount||1;
+  const used=new Set(data.dailyQuests.map(q=>q.id));
+  const candidates=QUEST_POOL.filter(q=>members>=q.minMembers&&!used.has(q.id));
+  if(!candidates.length)return {changed:false,error:'No other quests are currently available.'};
+  let seed=hashSeed(guildId+':'+day+':reroll:'+questId);
+  seed=(Math.imul(seed,1664525)+1013904223)>>>0;
+  const sameDifficulty=candidates.filter(q=>q.difficulty===data.dailyQuests[idx].difficulty);
+  const choices=sameDifficulty.length?sameDifficulty:candidates;
+  const next={...choices[seed%choices.length],progress:0,completed:false};
+  const previous=data.dailyQuests[idx].title;
+  data.dailyQuests[idx]=next;data.dailyRerollDay=day;
+  return {changed:true,previous,next};
+ });
+}
+/** Immutable registration ledger, shared between processes using PostgreSQL advisory lock. */
+export async function registerFoundingServers(client){
+ return withGuildLock('beacon-founders',async()=>{
+  const raw=await client.db.get(FOUNDERS_KEY,null);
+  const entries=Array.isArray(raw?.entries)?raw.entries:[];
+  const seen=new Set(entries.map(x=>x.guildId));
+  const guilds=[...client.guilds.cache.values()].sort((a,b)=>(a.joinedTimestamp||0)-(b.joinedTimestamp||0)||a.id.localeCompare(b.id));
+  for(const guild of guilds){
+    if(entries.length>=FOUNDING_CAP)break;
+    if(seen.has(guild.id))continue;
+    entries.push({guildId:guild.id,number:entries.length+1,awardedAt:new Date().toISOString()});
+    seen.add(guild.id);
+  }
+  if(entries.length!==(raw?.entries?.length||0))await client.db.set(FOUNDERS_KEY,{version:1,entries});
+  return entries;
+ },client);
+}
+export async function getFoundingBadge(client,guildId){
+ const raw=await client.db.get(FOUNDERS_KEY,{entries:[]});
+ return (raw?.entries||[]).find(x=>x.guildId===guildId)||null;
+}
