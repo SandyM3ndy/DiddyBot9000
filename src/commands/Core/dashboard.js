@@ -96,67 +96,46 @@ function getThemeColorLines() {
 }
 
 function buildDashboardEmbed(config, guild) {
-    const setupDone = config.setupWizardCompleted;
+    const setupComplete = Boolean(config.setupWizardCompleted);
+    const enabled = '🟢 Enabled';
+    const disabled = '⚪ Disabled';
+    const code = (value) => String.fromCharCode(96) + value + String.fromCharCode(96);
 
     return createEmbed({
-        title: '⚙️ Server Configuration',
-        description: `Core settings for **${guild.name}**. Pick an option below or run the setup wizard.`,
-        color: 'info',
+        title: '⚙️ Beacon • Server Dashboard',
+        description: [
+            '**' + guild.name + '**',
+            'Your control center for moderation, support, security and community settings.',
+            '',
+            setupComplete
+                ? '✅ **Initial setup completed** • Choose a category to manage.'
+                : '🧭 **New here?** Select **Launch Setup Wizard** to get started.',
+        ].join('\n'),
+        color: 'primary',
+        thumbnail: guild.iconURL?.({ size: 256 }) || null,
         fields: [
+            { name: '⌨️ Prefix', value: code(config.prefix || getCommandPrefix()), inline: true },
+            { name: '🛡️ Moderator Role', value: formatRoleMention(guild, config.modRole), inline: true },
+            { name: '📝 Audit Logs', value: config.logging?.enabled
+                ? formatChannelMention(guild, config.logging?.channels?.audit)
+                : disabled, inline: true },
+            { name: '🛡️ AutoMod', value: config.autoModEnabled ? enabled : disabled, inline: true },
+            { name: '📈 Server Progression', value: config.serverProgression?.enabled ? enabled : disabled, inline: true },
+            { name: '📢 Bot Announcements', value: config.updates?.channelId
+                ? formatChannelMention(guild, config.updates.channelId)
+                : disabled, inline: true },
             {
-                name: '⌨️ Server Prefix',
-                value: `\`${config.prefix || getCommandPrefix()}\``,
-                inline: true,
-            },
-            {
-                name: '🛡️ Moderator Role',
-                value: formatRoleMention(guild, config.modRole),
-                inline: true,
-            },
-            {
-                name: '📋 Log Channel',
-                value: formatChannelMention(guild, config.logging?.channels?.audit),
-                inline: true,
-            },
-            {
-                name: '🛡️ AutoMod',
-                value: config.autoModEnabled ? '🟢 Basic protection enabled' : '🔴 Disabled',
-                inline: true,
-            },
-            {
-                name: '📈 Server Progression',
-                value: config.serverProgression?.enabled ? '🟢 Enabled' : '🔴 Disabled',
-                inline: true,
-            },
-            {
-                name: '📢 Update Announcements',
-                value: config.updates?.channelId ? `🟢 ${formatChannelMention(guild, config.updates.channelId)}` : '🔴 Disabled',
-                inline: true,
-            },
-            {
-                name: '💚 Bot Status',
-                value: getBotPresenceText(),
+                name: '🧰 Settings & Features',
+                value: 'Open the dropdown below for **tickets, logging, welcome messages, reaction roles, AutoMod, verification and more**.',
                 inline: false,
             },
             {
-                name: '🎨 Embed Theme',
-                value: `${getThemeColorLines()}\n-# Colors are set in bot config and apply globally.`,
-                inline: false,
-            },
-            {
-                name: '⚡ Command Access',
-                value: 'Use `/dashboard` → **Command Access** to manage commands and subcommands.',
-                inline: false,
-            },
-            {
-                name: `${setupDone ? '✅' : '📝'} Setup`,
-                value: setupDone
-                    ? 'Setup wizard completed — re-run anytime to update settings.'
-                    : 'Run the setup wizard to configure your server quickly.',
+                name: '🩺 Server Health',
+                value: 'Use **/diagnose** for missing permissions and configuration problems.\nUse **/roleaudit** to review privileged roles.',
                 inline: false,
             },
         ],
-        footer: 'Dashboard closes after 10 minutes of inactivity',
+        footer: 'Beacon • Server Dashboard • Private to server managers',
     });
 }
 
@@ -164,7 +143,7 @@ function buildSettingsSelect(guildId) {
     return new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder()
             .setCustomId(`${DASHBOARD_CUSTOM_ID}:${guildId}`)
-            .setPlaceholder('⚙️ Select a setting to edit...')
+            .setPlaceholder('⚙️ Choose a feature to configure...')
             .addOptions(
                 new StringSelectMenuOptionBuilder()
                     .setLabel('Server Prefix')
@@ -234,7 +213,7 @@ function buildButtonRow(config, guildId) {
     return new ActionRowBuilder().addComponents(
         new ButtonBuilder()
             .setCustomId(`${WIZARD_BUTTON_ID}:${guildId}`)
-            .setLabel('Quick Setup')
+            .setLabel('Launch Setup Wizard')
             .setEmoji('📝')
             .setStyle(ButtonStyle.Secondary),
     );
