@@ -1,4 +1,4 @@
-import { getColor } from '../../config/bot.js';
+import { getColor, formatBeaconFooter } from '../../config/bot.js';
 import { SlashCommandBuilder, PermissionFlagsBits, ChannelType, EmbedBuilder, MessageFlags } from 'discord.js';
 import { getWelcomeConfig, updateWelcomeConfig } from '../../utils/database.js';
 import { formatWelcomeMessage, truncateForEmbedField } from '../../utils/welcome.js';
@@ -109,7 +109,7 @@ export default {
                         { name: 'Ping User', value: ping ? 'Yes' : 'No' },
                         { name: 'Status', value: 'Enabled' }
                     )
-                    .setFooter({ text: 'Tip: Use /greet dashboard to customize goodbye settings' });
+                    .setFooter({ text: formatBeaconFooter('Tip: Use /greet dashboard to customize goodbye settings') });
 
                 if (image) {
                     embed.setImage(image);
