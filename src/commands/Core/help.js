@@ -33,8 +33,8 @@ export async function createInitialHelpMenu(client) {
   const embed = createEmbed({
     title: '✦ Beacon | Command Center',
     description: [
-      '**One bot. A better Discord community.**',
-      'Moderation, security, support tickets and powerful server tools.',
+      '**Level up your Discord community.**',
+      'Global server rankings, rotating quests, moderation, tickets and security — all in Beacon.', 
       '',
       'Choose a category below to browse commands and their access requirements.',
     ].join('\n'),
@@ -44,7 +44,8 @@ export async function createInitialHelpMenu(client) {
       { name: '📚 Commands', value: String(commands), inline: true },
       { name: '🗂️ Categories', value: String(categories.size), inline: true },
       { name: '🛡️ Security', value: 'Moderation & Anti-Nuke', inline: true },
-      { name: '🚀 Get started', value: '**/dashboard** — Configure your community\n**/diagnose** — Check setup and bot permissions', inline: false },
+      { name: '🚀 Get started', value: '**/progression overview** — Explore quests, rankings and server XP\n**/dashboard** — Configure your community\n**/diagnose** — Check setup and permissions', inline: false },
+      { name: '🎯 Community Progression', value: '**/progression quests** — Daily challenges\n**/progression weekly** — Weekly goals\n**/progression leaderboard** — Global server rankings', inline: false },
       { name: '🧰 Administration', value: '**/roleaudit** — Review powerful server roles\n**/ticketstats** — Track your support workload', inline: false },
       { name: '👑 Developer tools', value: 'The **Bot Owner** category contains commands reserved for Beacon’s creator. Server owners and moderators can manage their own communities normally.', inline: false },
     ],
