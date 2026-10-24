@@ -1,5 +1,7 @@
 import { Events } from 'discord.js';
-const autoModBuckets = new Map();
+import { createSpamTracker } from '../utils/autoModSpamTracker.js';
+
+const spamTracker = createSpamTracker();
 import { logger } from '../utils/logger.js';
 import { parsePrefixCommand } from '../utils/prefixParser.js';
 import { supportsPrefixExecution, executePrefixCommand, resolvePrefixAccessKey } from '../utils/messageAdapter.js';
@@ -25,9 +27,12 @@ export default {
     try {
       if (message.author.bot || !message.guild) return;
 
-      logger.debug(`Message received from ${message.author.tag}: ${message.content}`);
+      logger.debug('Guild message received', { guildId: message.guild.id, channelId: message.channel.id, userId: message.author.id });
 
-      const autoModTriggered = await handleBasicAutoMod(message, client);
+      // Read the guild configuration once per message instead of twice.
+      const guildConfig = await getGuildConfig(client, message.guild.id);
+
+      const autoModTriggered = await handleBasicAutoMod(message, guildConfig);
       if (!autoModTriggered) {
         await recordMessageActivity(client, message).catch(() => {});
       }
@@ -44,33 +49,23 @@ export default {
         return;
       }
 
-      await handlePrefixCommand(message, client);
+      await handlePrefixCommand(message, client, guildConfig);
     } catch (error) {
       logger.error('Error in messageCreate event:', error);
     }
   }
 };
 
-async function handleBasicAutoMod(message, client) {
+async function handleBasicAutoMod(message, guildConfig) {
   try {
-    const config = await getGuildConfig(client, message.guild.id);
-    if (config?.autoModEnabled !== true) return false;
+    if (guildConfig?.autoModEnabled !== true) return false;
 
-    const now = Date.now();
-    const key = `${message.guild.id}:${message.author.id}`;
-    const bucket = autoModBuckets.get(key) || [];
-    bucket.push({ at: now, content: message.content?.trim().toLowerCase() || '' });
-    const recent = bucket.filter(entry => now - entry.at <= 10_000).slice(-10);
-    autoModBuckets.set(key, recent);
-
-    const recentFiveSeconds = recent.filter(entry => now - entry.at <= 8_000);
-    const duplicateCount = recent.filter(entry => entry.content && entry.content === (message.content?.trim().toLowerCase() || '')).length;
-    const mentionCount = message.mentions.users.size + message.mentions.roles.size;
-
-    let reason = null;
-    if (recentFiveSeconds.length >= 6) reason = 'Spam — too many messages in a short period.';
-    else if (duplicateCount >= 3) reason = 'Spam — repeated messages.';
-    else if (mentionCount >= 6) reason = 'Spam — excessive mentions.';
+    const reason = spamTracker.inspect({
+      guildId: message.guild.id,
+      userId: message.author.id,
+      content: message.content,
+      mentionCount: message.mentions.users.size + message.mentions.roles.size,
+    });
 
     if (!reason) return false;
 
@@ -91,9 +86,8 @@ async function handleBasicAutoMod(message, client) {
   }
 }
 
-async function handlePrefixCommand(message, client) {
+async function handlePrefixCommand(message, client, guildConfig) {
   try {
-    const guildConfig = await getGuildConfig(client, message.guild.id);
     const prefix = guildConfig?.prefix || getCommandPrefix();
     const parsed = parsePrefixCommand(message.content, prefix);
     
