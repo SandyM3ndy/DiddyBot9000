@@ -481,7 +481,7 @@ function ensureDailyQuests(data, guildId, now = new Date(), memberCount = 1) {
   return data;
 }
 
-async function withGuildLock(guildId, task) {
+export async function withGuildLock(guildId, task, client = null) {
   const previous = guildLocks.get(guildId) || Promise.resolve();
   let release;
   const current = new Promise(resolve => { release = resolve; });
@@ -489,9 +489,18 @@ async function withGuildLock(guildId, task) {
 
   await previous.catch(() => {});
 
+  let lockClient=null,locked=false;
   try {
+    const pool=client?.db?.db?.pool && client.db.db.isAvailable?.() ? client.db.db.pool : null;
+    if(pool) {
+      lockClient=await pool.connect();
+      await lockClient.query('SELECT pg_advisory_lock(hashtextextended($1, 0))',[String(guildId)]);
+      locked=true;
+    }
     return await task();
   } finally {
+    if(locked)await lockClient.query('SELECT pg_advisory_unlock(hashtextextended($1, 0))',[String(guildId)]).catch(()=>{});
+    lockClient?.release();
     release();
     if (guildLocks.get(guildId) === current) {
       guildLocks.delete(guildId);
@@ -562,6 +571,7 @@ async function recordActivity(client, guildId, metric, options = {}) {
 
       const data = await load(client, guildId);
       const previousLevel = data.level;
+      const previousXp = data.xp;
       const now = Date.now();
 
       if (metric === 'message') {
@@ -609,6 +619,8 @@ async function recordActivity(client, guildId, metric, options = {}) {
           }
         }
       } else if (metric === 'newMembers') {
+        if(!options.userId || data.joinIds.includes(options.userId))return null;
+        data.joinIds.push(options.userId);
         applyMetric(data, 'newMembers', 1);
         addBaseXp(data, 25);
       } else if (metric === 'uniqueMember') {
@@ -623,10 +635,14 @@ async function recordActivity(client, guildId, metric, options = {}) {
       }
 
       const completed = completeQuests(data);
+      addContribution(data,options.userId,metric);
+      const earned=['message','command'].includes(metric)
+        ? data.xp-previousXp-completed.reduce((sum,q)=>sum+q.reward,0) : 0;
+      const weeklyCompleted=updateWeekly(data,metric,options.userId,completed.length,earned);
       await save(client, guildId, data);
 
-      return { data, completed, level: data.level, leveledUp: data.level > previousLevel, previousLevel, levelPerks: getLevelPerks(data.level) };
-    });
+      return { data, completed, weeklyCompleted, level: data.level, leveledUp: data.level > previousLevel, previousLevel, levelPerks: getLevelPerks(data.level) };
+    },client);
 
     return result;
   } catch (error) {
@@ -671,10 +687,10 @@ export async function recordMessageActivity(client, message, config = null) {
 
   if (result) {
     await announceLevelUp(message.channel, result, message.guild.name);
-    for (const quest of result.completed || []) {
+    for (const quest of [...(result.completed || []),...(result.weeklyCompleted || [])]) {
       await message.channel.send({
         embeds: [createEmbed({
-          title: '🎉 Daily Quest Complete!',
+          title: (result.weeklyCompleted || []).some(q=>q.id===quest.id) ? '🏆 Weekly Challenge Complete!' : '🎉 Daily Quest Complete!',
           description: `The server completed **${quest.title}**!\n\n🏆 **+${quest.reward.toLocaleString()} Server XP**`,
           color: 'success',
         })],
@@ -711,6 +727,7 @@ export async function recordMemberJoinActivity(client, member, config = null) {
 
   const result = await recordActivity(client, member.guild.id, 'newMembers', {
     config: effectiveConfig,
+    userId: member.id,
   });
   await announceLevelUp(member.guild.systemChannel, result, member.guild.name);
   return result;
@@ -735,7 +752,7 @@ export async function addServerXp(client, guildId, amount) {
       leveledUp: data.level > oldLevel,
       levelPerks: getLevelPerks(data.level),
     };
-  });
+  },client);
 }
 
 export async function getServerProgression(client, guildId) {
