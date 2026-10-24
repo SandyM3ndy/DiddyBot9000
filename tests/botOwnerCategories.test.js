@@ -5,7 +5,7 @@ import { isPrimaryBotOwner } from '../src/config/bot.js';
 import { isCommandEnabledInConfig } from '../src/services/commandAccessService.js';
 
 test('restricted commands are labeled, protected and grouped', () => {
-  const names = ['announcement','broadcast','giveexp','removeexp','removeleaderboard','restoreleaderboard','popularity','restart'];
+  const names = ['announcement','broadcast','giveexp','removeexp','removeleaderboard','restoreleaderboard','popularity','ownerstats','restart'];
   assert.equal(OWNER_ONLY_COMMANDS.size, names.length);
   for (const name of names) {
     assert.equal(isOwnerOnlyCommand(name), true, name);
