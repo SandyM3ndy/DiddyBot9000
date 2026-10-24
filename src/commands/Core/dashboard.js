@@ -917,17 +917,18 @@ export default {
                                 await componentInteraction.followUp({content:'↩️ No saved dashboard change is available to undo.',flags:MessageFlags.Ephemeral});
                                 return;
                             }
-                            const result=await undoLastDashboardSetting(
-                                interaction.client,interaction.guildId,componentInteraction.user.id,
-                                {isOwner:interaction.guild.ownerId===componentInteraction.user.id});
                             await componentInteraction.followUp({
-                                content:result.ok
-                                    ?'✅ Restored **'+result.key+'** from the previous saved dashboard value. Press Refresh.'
-                                    :'⚠️ '+result.reason,
+                                embeds:[warningEmbed('↩️ Confirm Dashboard Undo',
+                                    'Restore the previous saved value for **'+undo.key+'**?\n\n'+
+                                    'Beacon will check permissions and refuse if newer changes exist. This only affects one setting.')],
+                                components:[new ActionRowBuilder().addComponents(
+                                    new ButtonBuilder().setCustomId('dashboard_undo_confirm:'+interaction.guildId)
+                                        .setLabel('Confirm Undo').setStyle(ButtonStyle.Danger),
+                                    new ButtonBuilder().setCustomId('dashboard_undo_cancel:'+interaction.guildId)
+                                        .setLabel('Cancel').setStyle(ButtonStyle.Secondary),
+                                )],
                                 flags:MessageFlags.Ephemeral,
                             });
-                            if(result.ok)await refreshDashboard(interaction,
-                                await getGuildConfig(interaction.client,interaction.guildId),interaction.guild);
                             return;
                         }
                         if (componentInteraction.customId.startsWith(`${WIZARD_BUTTON_ID}:`)) {
