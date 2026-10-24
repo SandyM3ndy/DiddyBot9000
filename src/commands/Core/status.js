@@ -48,7 +48,12 @@ export default {
         embed.addFields({ name: '🔒 Owner Diagnostics', value: String(err.message).slice(0, 900), inline: false });
       }
     }
-    // Only owner-specific database failure diagnostics require a private reply.
-    return InteractionHelper.safeReply(interaction, { ...(owner ? { flags: MessageFlags.Ephemeral } : {}), embeds: [embed] });
+    // Healthy status is useful to everyone, including the bot owner.
+    // Keep private replies only when we include owner-only database diagnostics.
+    const privateOwnerDiagnostics = owner && !dbReady && Boolean(pg?.getLastFailure);
+    return InteractionHelper.safeReply(interaction, {
+      ...(privateOwnerDiagnostics ? { flags: MessageFlags.Ephemeral } : {}),
+      embeds: [embed],
+    });
   },
 };
