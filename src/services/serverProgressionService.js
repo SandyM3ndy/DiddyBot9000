@@ -5,71 +5,274 @@ const KEY_PREFIX = 'guild:';
 const KEY_SUFFIX = ':progression';
 const DAY_MS = 24 * 60 * 60 * 1000;
 const activityBuckets = new Map();
+const commandBuckets = new Map();
 const guildLocks = new Map();
 
 // Keep inactive per-user activity buckets from accumulating forever.
 const activityCleanupTimer = setInterval(() => {
   const cutoff = Date.now() - 60_000;
-  for (const [key, timestamps] of activityBuckets) {
-    const active = timestamps.filter(timestamp => timestamp > cutoff);
-    if (active.length) {
-      activityBuckets.set(key, active);
-    } else {
-      activityBuckets.delete(key);
-    }
+  for (const [key, messages] of activityBuckets) {
+    const active = messages.filter(message => message.at > cutoff);
+    if (active.length) activityBuckets.set(key, active);
+    else activityBuckets.delete(key);
+  }
+  for (const [key, timestamp] of commandBuckets) {
+    if (timestamp < cutoff) commandBuckets.delete(key);
   }
 }, 5 * 60_000);
 activityCleanupTimer.unref?.();
 
 const QUEST_POOL = [
   {
-    id: 'chatterbox',
-    title: '🗣️ Chatterbox',
-    description: 'Send 100 messages across the server.',
-    metric: 'messages',
-    target: 100,
-    reward: 350,
+    "id": "spark",
+    "title": "✨ First Sparks",
+    "description": "Send 3 eligible messages.",
+    "metric": "messages",
+    "target": 3,
+    "reward": 35,
+    "minMembers": 1,
+    "difficulty": "Starter"
   },
   {
-    id: 'social_butterfly',
-    title: '🦋 Social Butterfly',
-    description: 'Get 15 different members chatting today.',
-    metric: 'uniqueMembers',
-    target: 15,
-    reward: 450,
+    "id": "first_words",
+    "title": "💬 First Words",
+    "description": "Send 10 eligible messages.",
+    "metric": "messages",
+    "target": 10,
+    "reward": 80,
+    "minMembers": 1,
+    "difficulty": "Starter"
   },
   {
-    id: 'command_centre',
-    title: '🤖 Command Centre',
-    description: 'Use 25 bot commands across the server.',
-    metric: 'commands',
-    target: 25,
-    reward: 400,
+    "id": "campfire",
+    "title": "🔥 Campfire Chat",
+    "description": "Send 25 eligible messages.",
+    "metric": "messages",
+    "target": 25,
+    "reward": 155,
+    "minMembers": 1,
+    "difficulty": "Starter"
   },
   {
-    id: 'channel_hopper',
-    title: '🚪 Channel Hopper',
-    description: 'Have conversations in 5 different channels.',
-    metric: 'channels',
-    target: 5,
-    reward: 300,
+    "id": "chat_crew",
+    "title": "🎉 Chat Crew",
+    "description": "Send 50 eligible messages.",
+    "metric": "messages",
+    "target": 50,
+    "reward": 265,
+    "minMembers": 10,
+    "difficulty": "Medium"
   },
   {
-    id: 'busy_server',
-    title: '🔥 Busy Server',
-    description: 'Send 250 messages across the server.',
-    metric: 'messages',
-    target: 250,
-    reward: 650,
+    "id": "chatterbox",
+    "title": "🗣️ Chatterbox",
+    "description": "Send 100 eligible messages across the server.",
+    "metric": "messages",
+    "target": 100,
+    "reward": 350,
+    "minMembers": 25,
+    "difficulty": "Hard"
   },
   {
-    id: 'new_faces',
-    title: '👋 New Faces',
-    description: 'Welcome 5 new members today.',
-    metric: 'newMembers',
-    target: 5,
-    reward: 500,
+    "id": "busy_server",
+    "title": "🔥 Busy Server",
+    "description": "Send 250 eligible messages across the server.",
+    "metric": "messages",
+    "target": 250,
+    "reward": 650,
+    "minMembers": 100,
+    "difficulty": "Hard"
   },
+  {
+    "id": "bot_checkin",
+    "title": "🤖 Bot Check-In",
+    "description": "Use 2 eligible Beacon commands.",
+    "metric": "commands",
+    "target": 2,
+    "reward": 50,
+    "minMembers": 1,
+    "difficulty": "Starter"
+  },
+  {
+    "id": "bot_explorer",
+    "title": "🔍 Bot Explorer",
+    "description": "Use 5 eligible Beacon commands.",
+    "metric": "commands",
+    "target": 5,
+    "reward": 110,
+    "minMembers": 1,
+    "difficulty": "Starter"
+  },
+  {
+    "id": "command_crew",
+    "title": "⚙️ Command Crew",
+    "description": "Use 10 eligible Beacon commands.",
+    "metric": "commands",
+    "target": 10,
+    "reward": 190,
+    "minMembers": 5,
+    "difficulty": "Medium"
+  },
+  {
+    "id": "command_centre",
+    "title": "🤖 Command Centre",
+    "description": "Use 25 eligible Beacon commands.",
+    "metric": "commands",
+    "target": 25,
+    "reward": 400,
+    "minMembers": 25,
+    "difficulty": "Hard"
+  },
+  {
+    "id": "command_champions",
+    "title": "🎛️ Command Champions",
+    "description": "Use 40 eligible Beacon commands.",
+    "metric": "commands",
+    "target": 40,
+    "reward": 650,
+    "minMembers": 75,
+    "difficulty": "Hard"
+  },
+  {
+    "id": "home_base",
+    "title": "🏠 Home Base",
+    "description": "Be active in 1 text channel.",
+    "metric": "channels",
+    "target": 1,
+    "reward": 35,
+    "minMembers": 1,
+    "difficulty": "Starter"
+  },
+  {
+    "id": "two_corners",
+    "title": "🚪 Two Corners",
+    "description": "Chat in 2 different channels.",
+    "metric": "channels",
+    "target": 2,
+    "reward": 100,
+    "minMembers": 1,
+    "difficulty": "Starter"
+  },
+  {
+    "id": "three_hangouts",
+    "title": "🧭 Three Hangouts",
+    "description": "Chat in 3 different channels.",
+    "metric": "channels",
+    "target": 3,
+    "reward": 155,
+    "minMembers": 5,
+    "difficulty": "Medium"
+  },
+  {
+    "id": "four_corners",
+    "title": "🗺️ Four Corners",
+    "description": "Chat in 4 different channels.",
+    "metric": "channels",
+    "target": 4,
+    "reward": 215,
+    "minMembers": 10,
+    "difficulty": "Medium"
+  },
+  {
+    "id": "channel_hopper",
+    "title": "🚪 Channel Hopper",
+    "description": "Have conversations in 5 different channels.",
+    "metric": "channels",
+    "target": 5,
+    "reward": 300,
+    "minMembers": 25,
+    "difficulty": "Hard"
+  },
+  {
+    "id": "solo_signal",
+    "title": "📡 Solo Signal",
+    "description": "Have 1 member participate in chat.",
+    "metric": "uniqueMembers",
+    "target": 1,
+    "reward": 40,
+    "minMembers": 1,
+    "difficulty": "Starter"
+  },
+  {
+    "id": "dynamic_duo",
+    "title": "🤝 Dynamic Duo",
+    "description": "Have 2 different members participate in chat.",
+    "metric": "uniqueMembers",
+    "target": 2,
+    "reward": 105,
+    "minMembers": 2,
+    "difficulty": "Starter"
+  },
+  {
+    "id": "small_circle",
+    "title": "🫂 Small Circle",
+    "description": "Have 3 different members participate in chat.",
+    "metric": "uniqueMembers",
+    "target": 3,
+    "reward": 165,
+    "minMembers": 4,
+    "difficulty": "Medium"
+  },
+  {
+    "id": "five_friends",
+    "title": "🌟 Five Friends",
+    "description": "Have 5 different members participate in chat.",
+    "metric": "uniqueMembers",
+    "target": 5,
+    "reward": 265,
+    "minMembers": 10,
+    "difficulty": "Medium"
+  },
+  {
+    "id": "social_club",
+    "title": "🎈 Social Club",
+    "description": "Have 8 different members participate in chat.",
+    "metric": "uniqueMembers",
+    "target": 8,
+    "reward": 350,
+    "minMembers": 20,
+    "difficulty": "Medium"
+  },
+  {
+    "id": "social_butterfly",
+    "title": "🦋 Social Butterfly",
+    "description": "Get 15 different members chatting today.",
+    "metric": "uniqueMembers",
+    "target": 15,
+    "reward": 450,
+    "minMembers": 40,
+    "difficulty": "Hard"
+  },
+  {
+    "id": "fresh_face",
+    "title": "👋 Fresh Face",
+    "description": "Have 1 non-bot member join today.",
+    "metric": "newMembers",
+    "target": 1,
+    "reward": 125,
+    "minMembers": 10,
+    "difficulty": "Medium"
+  },
+  {
+    "id": "new_connections",
+    "title": "🌱 New Connections",
+    "description": "Have 2 non-bot members join today.",
+    "metric": "newMembers",
+    "target": 2,
+    "reward": 235,
+    "minMembers": 25,
+    "difficulty": "Medium"
+  },
+  {
+    "id": "new_faces",
+    "title": "👋 New Faces",
+    "description": "Have 5 non-bot members join today.",
+    "metric": "newMembers",
+    "target": 5,
+    "reward": 500,
+    "minMembers": 100,
+    "difficulty": "Hard"
+  }
 ];
 
 function dateKey(now = new Date()) {
@@ -101,18 +304,41 @@ function getLevelPerks(level) {
 function getXpMultiplier(level) { return level >= 25 ? 1.10 : level >= 10 ? 1.05 : 1; }
 function getQuestCount(level) { return level >= 30 ? 6 : level >= 15 ? 5 : level >= 5 ? 4 : 3; }
 
-function pickDailyQuests(guildId, day, level = 1) {
-  const pool = [...QUEST_POOL];
+function pickDailyQuests(guildId, day, level = 1, memberCount = 1) {
+  const pool = QUEST_POOL.filter(quest => memberCount >= quest.minMembers);
   let seed = hashSeed(`${guildId}:${day}`);
-  const selected = [];
-
-  while (selected.length < Math.min(getQuestCount(level), pool.length) && pool.length) {
+  for (let i = pool.length - 1; i > 0; i--) {
     seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
-    const index = seed % pool.length;
-    selected.push(pool.splice(index, 1)[0]);
+    const j = seed % (i + 1);
+    [pool[i], pool[j]] = [pool[j], pool[i]];
   }
 
+  const count = Math.min(getQuestCount(level), pool.length);
+  const selected = [];
+  const starter = pool.find(quest =>
+    quest.difficulty === 'Starter' && ['messages', 'commands'].includes(quest.metric));
+  if (starter) selected.push(starter);
+
+  // Give each server a varied set of achievable objectives before repeating metrics.
+  for (const quest of pool) {
+    if (selected.length >= count) break;
+    if (!selected.includes(quest) && !selected.some(chosen => chosen.metric === quest.metric)) {
+      selected.push(quest);
+    }
+  }
+  for (const quest of pool) {
+    if (selected.length >= count) break;
+    if (!selected.includes(quest)) selected.push(quest);
+  }
   return selected;
+}
+
+export function getQuestCatalog() {
+  return QUEST_POOL.map(quest => ({ ...quest }));
+}
+
+export function previewDailyQuests(guildId, day, level = 1, memberCount = 1) {
+  return pickDailyQuests(guildId, day, level, memberCount).map(quest => ({ ...quest }));
 }
 
 function defaultProgression() {
@@ -150,7 +376,7 @@ function levelFromXp(xp) {
   return Math.max(1, Math.floor(Math.sqrt(Math.max(0, xp) / 500)) + 1);
 }
 
-function ensureDailyQuests(data, guildId, now = new Date()) {
+function ensureDailyQuests(data, guildId, now = new Date(), memberCount = 1) {
   const day = dateKey(now);
 
   if (data.lastQuestDay === day && data.dailyQuests.length) {
@@ -158,7 +384,7 @@ function ensureDailyQuests(data, guildId, now = new Date()) {
   }
 
   data.lastQuestDay = day;
-  data.dailyQuests = pickDailyQuests(guildId, day, data.level).map(quest => ({
+  data.dailyQuests = pickDailyQuests(guildId, day, data.level, memberCount).map(quest => ({
     ...quest,
     progress: 0,
     completed: false,
@@ -188,7 +414,8 @@ async function withGuildLock(guildId, task) {
 async function load(client, guildId) {
   const key = `${KEY_PREFIX}${guildId}${KEY_SUFFIX}`;
   const raw = await client.db.get(key, defaultProgression());
-  return ensureDailyQuests(normalizeProgression(raw), guildId);
+  const memberCount = client.guilds?.cache?.get(guildId)?.memberCount ?? 1;
+  return ensureDailyQuests(normalizeProgression(raw), guildId, new Date(), memberCount);
 }
 
 async function save(client, guildId, data) {
@@ -249,34 +476,37 @@ async function recordActivity(client, guildId, metric, options = {}) {
       const now = Date.now();
 
       if (metric === 'message') {
+        const content = String(options.content || '').trim().toLowerCase().replace(/\\s+/g, ' ');
+        if (content.length < 3 && !options.hasAttachments) return null;
+        const signature = content || '[attachment]';
+        const bucketKey = `${guildId}:${options.userId}`;
+        const recent = (activityBuckets.get(bucketKey) || []).filter(item => now - item.at < 60_000);
+        if (recent.length >= 6 ||
+            (recent.length && now - recent[recent.length - 1].at < 8_000) ||
+            recent.some(item => item.signature === signature)) return null;
+
+        recent.push({ at: now, signature });
+        activityBuckets.set(bucketKey, recent);
         data.totalMessages += 1;
         applyMetric(data, 'messages', 1);
-
         for (const quest of data.dailyQuests) {
-          if (quest.metric === 'channels' && !quest.completed && options.channelId) {
+          if (quest.completed) continue;
+          if (quest.metric === 'channels' && options.channelId) {
             quest._channels = Array.isArray(quest._channels) ? quest._channels : [];
-            if (!quest._channels.includes(options.channelId)) {
-              quest._channels.push(options.channelId);
-            }
+            if (!quest._channels.includes(options.channelId)) quest._channels.push(options.channelId);
             quest.progress = Math.min(quest.target, quest._channels.length);
           }
-          if (quest.metric === 'uniqueMembers' && !quest.completed && options.userId) {
+          if (quest.metric === 'uniqueMembers' && options.userId) {
             quest._members = Array.isArray(quest._members) ? quest._members : [];
-            if (!quest._members.includes(options.userId)) {
-              quest._members.push(options.userId);
-            }
+            if (!quest._members.includes(options.userId)) quest._members.push(options.userId);
             quest.progress = Math.min(quest.target, quest._members.length);
           }
         }
-
-        const bucketKey = `${guildId}:${options.userId}`;
-        const bucket = (activityBuckets.get(bucketKey) || []).filter(ts => now - ts < 60_000);
-        if (bucket.length < 10) {
-          bucket.push(now);
-          activityBuckets.set(bucketKey, bucket);
-          addBaseXp(data, 5);
-        }
+        addBaseXp(data, 5);
       } else if (metric === 'command') {
+        const bucketKey = `${guildId}:${options.userId}`;
+        if (!options.userId || now - (commandBuckets.get(bucketKey) || 0) < 30_000) return null;
+        commandBuckets.set(bucketKey, now);
         data.totalCommands += 1;
         applyMetric(data, 'commands', 1);
         addBaseXp(data, 10);
@@ -345,47 +575,29 @@ export async function recordMessageActivity(client, message, config = null) {
   const result = await recordActivity(client, message.guild.id, 'message', {
     config: effectiveConfig,
     userId: message.author.id,
+    channelId: message.channel.id,
+    content: message.content,
+    hasAttachments: Boolean(message.attachments?.size),
   });
 
   if (result) {
     await announceLevelUp(message.channel, result, message.guild.name);
-
-    const channelResult = await recordActivity(client, message.guild.id, 'channel', {
-      config: effectiveConfig,
-      channelId: message.channel.id,
-    });
-    const memberResult = await recordActivity(client, message.guild.id, 'uniqueMember', {
-      config: effectiveConfig,
-      userId: message.author.id,
-    });
-
-    const completed = [
-      ...(result.completed || []),
-      ...(channelResult?.completed || []),
-      ...(memberResult?.completed || []),
-    ];
-
-    if (completed.length) {
-      const unique = [...new Map(completed.map(q => [q.id, q])).values()];
-      for (const quest of unique) {
-        await message.channel.send({
-          embeds: [createEmbed({
-            title: '🎉 Daily Quest Complete!',
-            description: `The server completed **${quest.title}**!
-
-🏆 **+${quest.reward.toLocaleString()} Server XP**`,
-            color: 'success',
-          })],
-        }).catch(() => {});
-      }
+    for (const quest of result.completed || []) {
+      await message.channel.send({
+        embeds: [createEmbed({
+          title: '🎉 Daily Quest Complete!',
+          description: `The server completed **${quest.title}**!\n\n🏆 **+${quest.reward.toLocaleString()} Server XP**`,
+          color: 'success',
+        })],
+      }).catch(() => {});
     }
   }
-
   return result;
 }
 
 export async function recordCommandActivity(client, interaction, config = null) {
   if (!interaction?.guild || interaction.user?.bot) return null;
+  if (['progression', 'rank', 'levels', 'giveexp', 'removeexp', 'removeleaderboard', 'restoreleaderboard'].includes(interaction.commandName)) return null;
 
   const effectiveConfig = config || await (async () => {
     const { getGuildConfig } = await import('./config/guildConfig.js');
@@ -394,6 +606,7 @@ export async function recordCommandActivity(client, interaction, config = null) 
 
   const result = await recordActivity(client, interaction.guild.id, 'command', {
     config: effectiveConfig,
+    userId: interaction.user.id,
   });
   await announceLevelUp(interaction.channel, result, interaction.guild.name);
   return result;
