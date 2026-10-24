@@ -21,6 +21,7 @@ export function getHelpOverview(client) {
 export async function createInitialHelpMenu(client) {
   const { commands, categories } = getHelpOverview(client);
   const options = [
+    { label: '🚀 Start Here', description: 'Guided setup for owners, staff and members', value: 'help-quickstart', emoji: '🚀' },
     { label: 'All Commands', description: 'Explore everything Beacon can do', value: 'help-all-commands', emoji: '📚' },
     ...[...categories].sort(([a], [b]) => a.localeCompare(b)).map(([category, count]) => ({
       label: formatCategoryName(category).slice(0, 100),
@@ -36,7 +37,7 @@ export async function createInitialHelpMenu(client) {
       '**Your community\'s all-in-one Discord assistant.**',
       'Global server rankings, rotating quests, moderation, tickets and security — all in Beacon.', 
       '',
-      'Choose a category below to browse commands and their access requirements.',
+      'New here? Press **Start Here** for a guided tour, or browse the command categories below.',
     ].join('\n'),
     color: 'primary',
     thumbnail: client?.user?.displayAvatarURL?.({ size: 256 }) || null,
@@ -56,7 +57,12 @@ export async function createInitialHelpMenu(client) {
     .setEmoji('💬')
     .setURL(SUPPORT_URL)
     .setStyle(ButtonStyle.Link);
-  const components = [new ActionRowBuilder().addComponents(supportButton)];
+  const startButton = new ButtonBuilder()
+    .setCustomId('help-quickstart')
+    .setLabel('Start Here')
+    .setEmoji('🚀')
+    .setStyle(ButtonStyle.Primary);
+  const components = [new ActionRowBuilder().addComponents(startButton, supportButton)];
   if (options.length) {
     components.push(createSelectMenu('help-category-select', '📚 Select a command category...', options));
   }
