@@ -34,9 +34,9 @@ export async function showMyTickets(interaction) {
           : 'No tickets yet. Visit the support panel to create one.',
         color: 'primary',
         fields: shown.map(t => ({
-          name: (t.status === 'open' ? '🟢 ' : '🔒 ') +
+          name: (t.status === 'open' ? '🟢 ' : t.status === 'archived' ? '📦 ' : '🔒 ') +
             (t.ticketNumber ? 'Ticket #' + t.ticketNumber : 'Support ticket'),
-          value: '**Channel:** <#' + t.id + '>\n**Priority:** ' + clean(t.priority || 'none', 25) +
+          value: '**Channel:** ' + (t.status === 'archived' ? 'Archived • transcript held privately by support staff' : '<#' + t.id + '>') + '\n**Priority:** ' + clean(t.priority || 'none', 25) +
             '\n**Assigned to:** ' + (t.claimedBy ? '<@' + t.claimedBy + '>' : 'Awaiting staff') +
             '\n**Created:** ' + formatTimestamp(t.createdAt),
           inline: false,

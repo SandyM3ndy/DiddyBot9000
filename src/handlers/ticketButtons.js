@@ -481,12 +481,12 @@ const deleteTicketHandler = {
       await assertTicketPermission(interaction, client, 'permanently delete tickets', { operation: 'delete' });
       const confirm = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId('ticket_delete_confirm:' + interaction.user.id)
-          .setLabel('Archive & Delete Permanently').setEmoji('🗑️').setStyle(ButtonStyle.Danger),
+          .setLabel('Archive & Remove Channel').setEmoji('🗑️').setStyle(ButtonStyle.Danger),
         new ButtonBuilder().setCustomId('ticket_delete_cancel:' + interaction.user.id)
           .setLabel('Cancel').setStyle(ButtonStyle.Secondary),
       );
       return InteractionHelper.safeReply(interaction, {
-        content: '⚠️ **Delete this ticket?**\n\nBeacon will create a private transcript, upload it to your configured archive channel, and **only then** delete this channel. This cannot be undone.',
+        content: '⚠️ **Delete this ticket?**\n\nBeacon will save the complete private transcript, then **remove the ticket channel**. Limited metadata is retained for support analytics and feedback. Channel removal cannot be undone.',
         components: [confirm],
         flags: MessageFlags.Ephemeral,
       });

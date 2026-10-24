@@ -154,7 +154,7 @@ export function summarizeGuildTickets(tickets) {
         if (ticket.status === 'open') {
             openCount++;
             if (!ticket.claimedBy) unclaimedOpenCount++;
-        } else if (ticket.status === 'closed') {
+        } else if (ticket.status === 'closed' || ticket.status === 'archived') {
             closedCount++;
             const elapsed = new Date(ticket.closedAt) - new Date(ticket.createdAt);
             if (ticket.createdAt && ticket.closedAt && Number.isFinite(elapsed) && elapsed >= 0) {

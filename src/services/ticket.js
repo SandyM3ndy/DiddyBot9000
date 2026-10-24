@@ -808,12 +808,36 @@ export async function deleteTicket(channel, deleter) {
         ErrorTypes.CONFIGURATION);
     }
 
-    await channel.delete('Ticket archived and permanently removed by ' + deleter.id);
-    // Purge stored metadata only after the channel has actually been deleted.
+    await channel.delete('Ticket transcript saved and channel deleted by ' + deleter.id);
+    // Keep only narrow operational metadata so existing feedback links and
+    // historical service statistics continue working after a channel is gone.
+    // The conversation itself is stored in the configured private transcript channel.
+    const archived = {
+      id: ticketData.id,
+      ticketNumber: ticketData.ticketNumber,
+      guildId: ticketData.guildId,
+      userId: ticketData.userId,
+      status: 'archived',
+      priority: ticketData.priority,
+      type: ticketData.type,
+      createdAt: ticketData.createdAt,
+      claimedAt: ticketData.claimedAt,
+      claimedBy: ticketData.claimedBy,
+      firstResponseAt: ticketData.firstResponseAt,
+      firstResponderId: ticketData.firstResponderId,
+      closedAt: ticketData.closedAt,
+      closedBy: ticketData.closedBy,
+      feedback: ticketData.feedback || null,
+      archivedAt: new Date().toISOString(),
+      archivedBy: deleter.id,
+      archivedMessageCount: transcript.messageCount,
+    };
     try {
-      await deleteTicketData(channel.guild.id, channel.id);
+      await saveTicketData(channel.guild.id, channel.id, archived);
     } catch (storageError) {
-      logger.error('Deleted ticket channel but could not purge its metadata', {
+      // The earlier ticket record should still exist. Do not misreport this
+      // as a failed channel deletion after the archive and deletion succeeded.
+      logger.error('Archived ticket metadata update failed', {
         guildId: channel.guild.id, channelId: channel.id, error: storageError?.message,
       });
     }
