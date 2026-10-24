@@ -126,54 +126,61 @@ async function listGuildTickets(guildId) {
     return tickets;
 }
 
-export async function getGuildTicketStats(guildId, { strict = false } = {}) {
-    try {
-        const tickets = await listGuildTickets(guildId);
-        let openCount = 0;
-        let closedCount = 0;
-        let totalCloseMs = 0;
-        let closeSamples = 0;
-        let feedbackCount = 0;
-        let ratingSum = 0;
+// Keep aggregation pure so support metrics are testable without Discord/DB mocks.
+export function summarizeGuildTickets(tickets) {
+    let openCount = 0, closedCount = 0, totalCloseMs = 0, closeSamples = 0;
+    let claimedCount = 0, unclaimedOpenCount = 0, totalClaimMs = 0, claimSamples = 0;
+    let feedbackCount = 0, ratingSum = 0;
+    const claimers = new Map();
 
-        for (const ticket of tickets) {
-            if (ticket.status === 'open') {
-                openCount += 1;
-            } else if (ticket.status === 'closed') {
-                closedCount += 1;
-                if (ticket.createdAt && ticket.closedAt) {
-                    const duration = new Date(ticket.closedAt) - new Date(ticket.createdAt);
-                    if (Number.isFinite(duration) && duration >= 0) {
-                        totalCloseMs += duration;
-                        closeSamples += 1;
-                    }
-                }
-            }
-
-            const rating = ticket.feedback?.rating;
-            if (rating != null && Number.isFinite(Number(rating))) {
-                feedbackCount += 1;
-                ratingSum += Number(rating);
+    for (const ticket of tickets || []) {
+        if (ticket.status === 'open') {
+            openCount++;
+            if (!ticket.claimedBy) unclaimedOpenCount++;
+        } else if (ticket.status === 'closed') {
+            closedCount++;
+            const elapsed = new Date(ticket.closedAt) - new Date(ticket.createdAt);
+            if (ticket.createdAt && ticket.closedAt && Number.isFinite(elapsed) && elapsed >= 0) {
+                totalCloseMs += elapsed;
+                closeSamples++;
             }
         }
 
-        return {
-            openCount,
-            closedCount,
-            avgCloseTimeMs: closeSamples > 0 ? Math.round(totalCloseMs / closeSamples) : null,
-            feedbackCount,
-            avgRating: feedbackCount > 0 ? Math.round((ratingSum / feedbackCount) * 10) / 10 : null,
-        };
+        if (ticket.claimedBy) {
+            claimedCount++;
+            claimers.set(ticket.claimedBy, (claimers.get(ticket.claimedBy) || 0) + 1);
+            const elapsed = new Date(ticket.claimedAt) - new Date(ticket.createdAt);
+            if (ticket.createdAt && ticket.claimedAt && Number.isFinite(elapsed) && elapsed >= 0) {
+                totalClaimMs += elapsed;
+                claimSamples++;
+            }
+        }
+
+        const rating = ticket.feedback?.rating;
+        if (rating != null && Number.isFinite(Number(rating))) {
+            feedbackCount++;
+            ratingSum += Number(rating);
+        }
+    }
+
+    return {
+        openCount, closedCount, claimedCount, unclaimedOpenCount,
+        avgCloseTimeMs: closeSamples ? Math.round(totalCloseMs / closeSamples) : null,
+        avgClaimTimeMs: claimSamples ? Math.round(totalClaimMs / claimSamples) : null,
+        feedbackCount,
+        avgRating: feedbackCount ? Math.round(ratingSum / feedbackCount * 10) / 10 : null,
+        topClaimers: [...claimers].sort((a, b) => b[1] - a[1]).slice(0, 3)
+            .map(([userId, tickets]) => ({ userId, tickets })),
+    };
+}
+
+export async function getGuildTicketStats(guildId, { strict = false } = {}) {
+    try {
+        return summarizeGuildTickets(await listGuildTickets(guildId));
     } catch (error) {
-        logger.error(`Error computing ticket stats for guild ${guildId}:`, error);
+        logger.error('Error computing guild ticket statistics', { guildId, error: error?.message });
         if (strict) throw error;
-        return {
-            openCount: 0,
-            closedCount: 0,
-            avgCloseTimeMs: null,
-            feedbackCount: 0,
-            avgRating: null,
-        };
+        return summarizeGuildTickets([]);
     }
 }
 

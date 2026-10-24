@@ -50,10 +50,13 @@ export default {
             { name: '✅ Closed', value: String(stats.closedCount), inline: true },
             { name: '📊 Total', value: String(stats.openCount + stats.closedCount), inline: true },
             { name: '⏱️ Avg. Resolution', value: formatTicketCloseTime(stats.avgCloseTimeMs), inline: true },
+            { name: '🤝 Claimed Tickets', value: String(stats.claimedCount), inline: true },
+            { name: '⌛ Open & Unclaimed', value: String(stats.unclaimedOpenCount), inline: true },
+            { name: '⏱️ Avg. Claim Time', value: formatTicketCloseTime(stats.avgClaimTimeMs), inline: true },
             { name: '⭐ Feedback', value: stats.feedbackCount > 0 ?
               String(stats.avgRating) + '/5 (' + stats.feedbackCount + ' ratings)' : 'No feedback yet', inline: true },
           ],
-          footer: 'Beacon v1.1 • Ticket staff and server managers only',
+          footer: 'Beacon • Private support metrics • Claim time is not first response time',
         })],
       });
     } catch {
