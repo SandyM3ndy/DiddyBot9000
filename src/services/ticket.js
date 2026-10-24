@@ -41,6 +41,24 @@ export async function withTicketCreationLock(guildId, userId, callback) {
 }
 
 
+// A per-channel mutex protects ticket lifecycle transitions from near-simultaneous
+// actions in one process. Multi-replica deployments should still use DB-backed locking.
+const ticketMutationLocks = new Map();
+export async function withTicketMutationLock(guildId, channelId, callback) {
+  const key = guildId + ':' + channelId;
+  const previous = ticketMutationLocks.get(key) || Promise.resolve();
+  let release;
+  const current = new Promise(resolve => { release = resolve; });
+  ticketMutationLocks.set(key, current);
+  await previous;
+  try {
+    return await callback();
+  } finally {
+    if (ticketMutationLocks.get(key) === current) ticketMutationLocks.delete(key);
+    release();
+  }
+}
+
 function ticketUserError(message, userMessage, type = ErrorTypes.VALIDATION, context = {}) {
   throw createError(message, type, userMessage, { service: TICKET_SERVICE, ...context });
 }
@@ -296,6 +314,7 @@ export async function createTicket(guild, member, categoryId, reason = 'No reaso
   });
 }
 export async function closeTicket(channel, closer, reason = 'No reason provided') {
+  return withTicketMutationLock(channel.guild.id, channel.id, async () => {
   try {
     const ticketData = requireTicket(await getTicketData(channel.guild.id, channel.id), channel);
     if (ticketData.status !== 'open') {
@@ -485,9 +504,12 @@ components: []
   } catch (error) {
     rethrowTicketError(error, 'closeTicket', 'Failed to close ticket. Please try again in a moment.', { guildId: channel?.guild?.id, channelId: channel?.id, closerId: closer?.id });
   }
+
+  });
 }
 
 export async function claimTicket(channel, claimer) {
+  return withTicketMutationLock(channel.guild.id, channel.id, async () => {
   try {
     const ticketData = requireTicket(await getTicketData(channel.guild.id, channel.id), channel);
     
@@ -582,9 +604,12 @@ export async function claimTicket(channel, claimer) {
   } catch (error) {
     rethrowTicketError(error, 'claimTicket', 'Failed to claim ticket. Please try again in a moment.', { guildId: channel?.guild?.id, channelId: channel?.id, claimerId: claimer?.id });
   }
+
+  });
 }
 
 export async function reopenTicket(channel, reopener) {
+  return withTicketMutationLock(channel.guild.id, channel.id, async () => {
   try {
     const ticketData = requireTicket(await getTicketData(channel.guild.id, channel.id), channel);
     
@@ -694,6 +719,8 @@ export async function reopenTicket(channel, reopener) {
   } catch (error) {
     rethrowTicketError(error, 'reopenTicket', 'Failed to reopen ticket. Please try again in a moment.', { guildId: channel?.guild?.id, channelId: channel?.id, reopenerId: reopener?.id });
   }
+
+  });
 }
 
 const MAX_ARCHIVE_MESSAGES = 3000;
@@ -731,6 +758,7 @@ export async function generateTicketTranscript(channel) {
 }
 
 export async function deleteTicket(channel, deleter) {
+  return withTicketMutationLock(channel.guild.id, channel.id, async () => {
   try {
     const ticketData = requireTicket(await getTicketData(channel.guild.id, channel.id), channel);
     if (ticketData.status !== 'closed') {
@@ -805,9 +833,12 @@ export async function deleteTicket(channel, deleter) {
       'Could not safely archive and delete the ticket. The channel has been retained if possible.',
       { guildId: channel?.guild?.id, channelId: channel?.id, deleterId: deleter?.id });
   }
+
+  });
 }
 
 export async function unclaimTicket(channel, unclaimer) {
+  return withTicketMutationLock(channel.guild.id, channel.id, async () => {
   try {
     const ticketData = requireTicket(await getTicketData(channel.guild.id, channel.id), channel);
     
@@ -904,6 +935,8 @@ export async function unclaimTicket(channel, unclaimer) {
   } catch (error) {
     rethrowTicketError(error, 'unclaimTicket', 'Failed to unclaim ticket. Please try again in a moment.', { guildId: channel?.guild?.id, channelId: channel?.id, unclaimerId: unclaimer?.id });
   }
+
+  });
 }
 
 async function getNextTicketNumber(guildId) {
@@ -911,6 +944,7 @@ async function getNextTicketNumber(guildId) {
 }
 
 export async function updateTicketPriority(channel, priority, updater) {
+  return withTicketMutationLock(channel.guild.id, channel.id, async () => {
   try {
     const ticketData = requireTicket(await getTicketData(channel.guild.id, channel.id), channel);
     
@@ -996,6 +1030,8 @@ export async function updateTicketPriority(channel, priority, updater) {
   } catch (error) {
     rethrowTicketError(error, 'updateTicketPriority', 'Failed to update ticket priority. Please try again in a moment.', { guildId: channel?.guild?.id, channelId: channel?.id, updaterId: updater?.id, priority });
   }
+
+  });
 }
 
 export async function closeInactiveTickets(client, inactivityMs = 72 * 60 * 60 * 1000) {
