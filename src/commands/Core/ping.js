@@ -50,10 +50,6 @@ export default {
         }
 
         try {
-            await InteractionHelper.safeEditReply(interaction, {
-                content: "Pinging...",
-            });
-
             const startTime = interaction._commandStartTime || interaction.createdTimestamp;
             const latency = Math.max(0, Date.now() - startTime);
             const apiLatency = Number.isFinite(interaction.client.ws?.ping) && interaction.client.ws.ping >= 0
