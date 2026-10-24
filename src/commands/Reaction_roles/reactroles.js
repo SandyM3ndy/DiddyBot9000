@@ -606,8 +606,7 @@ export async function openReactionRoleDashboard(interaction, selectedPanelId = n
         buttonMatcher: (customId) =>
             customId === `rr_edit_text_${guildId}` ||
             customId === `rr_delete_${guildId}` ||
-            customId === `rr_repost_${guildId}` ||
-            customId === REACTION_ROLE_SETUP_BUTTON,
+            customId === `rr_repost_${guildId}`,
         onSelect: async (selectInteraction) => {
             const selectedOption = selectInteraction.values[0];
             if (selectedOption === 'add_role') {
@@ -617,13 +616,8 @@ export async function openReactionRoleDashboard(interaction, selectedPanelId = n
             }
         },
         onButton: async (btnInteraction) => {
-            // Dashboard collector owns its controls. The setup button must be
-            // handled here too (rather than ignored by the global event handler).
-            if (btnInteraction.customId === REACTION_ROLE_SETUP_BUTTON) {
-                const { handleReactionRoleCreateButton } = await import('../../utils/reactionRoles/reactionRoleSetup.js');
-                await handleReactionRoleCreateButton(btnInteraction);
-                return;
-            }
+            // rr_dashboard_create is handled exclusively by the globally
+            // registered button. Do not acknowledge it twice via this collector.
             if (btnInteraction.customId === `rr_repost_${guildId}`) {
                 await btnInteraction.deferUpdate();
                 const fallbackEmbed = discordMsg?.embeds?.[0];

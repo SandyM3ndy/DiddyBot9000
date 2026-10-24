@@ -3,6 +3,9 @@ const COLLECTOR_MANAGED_PREFIXES = [
   'config_select',
   'config_wizard',
   'dashboard_',
+  // These panels own their own ephemeral component collectors.
+  'rr_edit_', 'rr_delete_', 'rr_repost_', 'rr_opts_', 'rr_add_', 'rr_remove_',
+  'jtc_', 'log_dash_', 'ticket_cfg_', 'greet_', 'welcome_', 'commands_',
 ];
 
 export function isCollectorManagedComponent(customId = '') {
