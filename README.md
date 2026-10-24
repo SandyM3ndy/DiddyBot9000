@@ -1,6 +1,12 @@
-# Beacon - Ultimate Discord Bot
+# Beacon — Level Up Your Discord Community
 
-**Beacon** is a powerful, feature-rich Discord bot designed to enhance your server experience with comprehensive moderation tools, engaging economy systems, utility features, and much more. Built with modern Discord.js v14 and PostgreSQL for optimal performance and data persistence.
+**Beacon** helps Discord communities grow through global server rankings, 25 rotating daily quests, weekly challenges, XP milestones, founding-community badges and shareable rank cards. It also includes moderation, tickets, reaction roles and essential server tools.
+
+Built with Discord.js v14 and PostgreSQL. Existing server progression is designed to survive restarts and upgrades, subject to persistent hosting and reliable backups.
+
+**Try it in your server:** use `/invite` in a server where Beacon is installed, then `/progression overview` to explore the rankings, or visit the [support server](https://discord.gg/76N2EM6v6k) for assistance.
+
+[Privacy Policy](PRIVACY.md) · [Terms of Service](TERMS.md) · [Report issues](https://discord.gg/76N2EM6v6k)
 
 [![Support Server](https://img.shields.io/badge/-Support%20Server-%235865F2?logo=discord&logoColor=white&style=flat-square&logoWidth=20)](https://discord.gg/76N2EM6v6k)
 [![Discord.js](https://img.shields.io/npm/v/discord.js?style=flat-square&labelColor=%23202225&color=%23202225&logo=npm&logoColor=white&logoWidth=20)](https://www.npmjs.com/package/discord.js)
@@ -20,6 +26,15 @@
 
 Beacon offers a complete suite of tools for Discord server management and community engagement:
 
+### 🏆 Global Server Progression
+- **World Rankings** — Compare servers by accumulated Server XP, including your global position
+- **25 Rotating Daily Quests** — Achievable objectives for tiny or established communities
+- **Weekly Challenges** — Progress saved across daily resets
+- **Free Quest Reroll** — Server owners can replace one unfinished quest each UTC day
+- **Founding Community Badges** — Permanent recognition for Beacon's earliest communities
+- **Shareable Rank Cards** — Show off a server's level, XP and rank
+- **Contributor Recognition** — Optional public member contribution rankings with privacy controls
+
 <table>
 <tr>
 <td width="50%" valign="top">
@@ -31,7 +46,7 @@ Beacon offers a complete suite of tools for Discord server management and commun
 
 ### Economy System
 - **Shop & Inventory** - Buy and manage items
-- **Gambling** - Risk it for rewards
+- **Community Economy** - Earn and exchange in-server currency
 - **Pay System** - Transfer money between users
 
 ### Fun & Entertainment
@@ -85,7 +100,7 @@ Beacon offers a complete suite of tools for Discord server management and commun
 ### Music
 - **24/7 Mode** - Play music 24/7
 - **Interative Button System** - Manage music through buttons
-- **Supports EVERY platform** - Supports spotify, deezer, youtube, apple music
+- **Streaming sources** - Playback availability depends on configured Lavalink nodes and supported source plugins
   
 </td>
 </tr>
@@ -94,9 +109,13 @@ Beacon offers a complete suite of tools for Discord server management and commun
 <a name="quick-setup"></a>
 ## Quick Setup (Recommended for non-coders)
 
-### Video Tutorial
-For a detailed step-by-step setup guide, watch our comprehensive video tutorial:
-[**Beacon Setup Tutorial**](https://discord.gg/76N2EM6v6k)
+### First-time setup
+1. Invite Beacon using the bot's `/invite` command in an existing server, or contact the [support server](https://discord.gg/76N2EM6v6k).
+2. Open `/dashboard` for server configuration.
+3. Use `/progression overview` and select **Enable Progression** (server owner only).
+4. Open `/progression quests`, `/progression weekly` and `/progression leaderboard` to explore.
+
+Progression is free and optional. Nothing resets your existing Server XP when you enable or disable it.
 
 ## Docker Deployment (Recommended)
 
@@ -104,8 +123,8 @@ Beacon is fully containerized for easy deployment.
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/codebymitch/Beacon.git
-   cd Beacon
+   git clone https://github.com/SandyM3ndy/DiddyBot9000.git
+   cd DiddyBot9000
    ```
 
 2. **Configure environment variables:**
@@ -148,7 +167,7 @@ Music uses [Lavalink v4](https://github.com/lavalink-devs/Lavalink) via [Riffy](
 The bot is automatically published to GitHub Container Registry on every push to main.
 
 ```bash
-docker pull ghcr.io/codebymitch/beacon:main
+docker pull ghcr.io/sandym3ndy/diddybot9000:main
 ```
 
 <a name="manual-installation-steps"></a>
@@ -156,13 +175,13 @@ docker pull ghcr.io/codebymitch/beacon:main
 
 ### Prerequisites
 - Node.js 20.10.0 or higher
-- PostgreSQL server (recommended) or memory storage fallback
+- PostgreSQL server (**required for durable production data**; optional memory storage is for local development only)
 - Discord bot application with proper intents
 
 1. **Clone the Repository**
    ```bash
-   git clone https://github.com/codebymitch/Beacon.git
-   cd Beacon
+   git clone https://github.com/SandyM3ndy/DiddyBot9000.git
+   cd DiddyBot9000
    ```
 
 2. **Install Dependencies**
