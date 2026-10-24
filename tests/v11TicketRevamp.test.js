@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildTicketTranscriptHtml } from '../src/utils/ticket/ticketTranscriptHtml.js';
-import { withTicketCreationLock, buildTicketControlRows } from '../src/services/ticket.js';
+import { withTicketCreationLock, withTicketMutationLock, buildTicketControlRows } from '../src/services/ticket.js';
 import { buildPanelButtonRow, buildPanelEmbed } from '../src/commands/Ticket/modules/ticket_dashboard.js';
 import { readFile } from 'node:fs/promises';
 
@@ -68,6 +68,23 @@ test('public support panel offers categories and a personal ticket portal', () =
   const embed = buildPanelEmbed().toJSON();
   assert.match(embed.title, /Support Center/);
   assert.match(embed.description, /private conversation/);
+});
+
+
+test('staff operations on a single ticket are serialized, but separate tickets are independent', async () => {
+  const progress = [];
+  const a = withTicketMutationLock('guild', 'ticket1', async () => {
+    progress.push('a-start');
+    await new Promise(resolve => setTimeout(resolve, 30));
+    progress.push('a-end');
+  });
+  const b = withTicketMutationLock('guild', 'ticket1', async () => {
+    progress.push('b-start');
+    progress.push('b-end');
+  });
+  await Promise.all([a, b]);
+  assert.deepEqual(progress, ['a-start', 'a-end', 'b-start', 'b-end']);
+  assert.equal(await withTicketMutationLock('guild', 'ticket2', async () => 'ok'), 'ok');
 });
 
 test('ticket deletion requires transcript archival before channel deletion', async () => {
