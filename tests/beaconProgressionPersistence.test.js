@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { getServerProgression, rerollDailyQuest, mutateServerProgression,
   registerFoundingServers, getFoundingBadge, contributorRanking, utcWeekKey,
-  getGlobalProgressionLeaderboard,
+  getGlobalProgressionLeaderboard, withGuildLock,
 } from '../src/services/serverProgressionService.js';
 import { renderProgressionRankPng } from '../src/utils/progressionRankCard.js';
 
@@ -188,4 +188,24 @@ test('large leaderboard requests have bounded concurrent database reads',async()
  const board=await getGlobalProgressionLeaderboard(client);
  assert.equal(board.length,ids.length);
  assert.ok(peak>1&&peak<=8,'parallel reads must be bounded to a batch of eight');
+});
+
+test('PostgreSQL lock slot handoff never exceeds the configured reserve under a burst',async()=>{
+ const client=mockClient();
+ let active=0,peak=0;
+ client.db.db={
+  isAvailable:()=>true,
+  pool:{
+   options:{max:4},
+   connect:async()=>{
+    active++;peak=Math.max(active,peak);
+    await Promise.resolve();
+    return {query:async()=>({rows:[]}),release:()=>{active--;}};
+   },
+  },
+ };
+ await Promise.all(Array.from({length:25},(_,i)=>
+  withGuildLock('burst-'+i,async()=>{await Promise.resolve();},client)));
+ assert.ok(peak<=2,'max four total connections should allow at most two advisory holders');
+ assert.equal(active,0);
 });
