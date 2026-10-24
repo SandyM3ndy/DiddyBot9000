@@ -782,6 +782,16 @@ export async function deleteTicket(channel, deleter) {
         ErrorTypes.CONFIGURATION);
     }
 
+    // A public log channel must never receive private ticket contents.
+    const everyone = channel.guild.roles.everyone;
+    const publicAccess = archiveChannel?.permissionsFor?.(everyone)?.has(PermissionFlagsBits.ViewChannel);
+    if (publicAccess !== false) {
+      ticketUserError('Transcript archive channel is not private',
+        'The configured transcript channel is visible to @everyone (or its privacy cannot be verified). Restrict View Channel access before archiving tickets.',
+        ErrorTypes.PERMISSION);
+    }
+
+
     // Do not destroy a support conversation until an archive has been generated
     // and Discord confirms that a copy was uploaded to the configured channel.
     const transcript = await generateTicketTranscript(channel);
