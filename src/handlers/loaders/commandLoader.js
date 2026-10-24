@@ -31,6 +31,8 @@ const HIDDEN_COMMANDS = new Set([
     'welcome',
     'jointocreate',
     'reactroles',
+    // Removed from the public bot in v1.1. Sources are kept for rollback.
+    'broadcast', 'shorten', 'generatepassword', 'firstmsg', 'randomuser',
 ]);
 
 // Legacy handlers remain loaded for old text-prefix usage, but their

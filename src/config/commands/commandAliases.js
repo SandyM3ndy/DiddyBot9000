@@ -4,21 +4,8 @@
  */
 
 export const commandAliases = {
-    'bal': 'balance',
-    'money': 'balance',
-    'cash': 'balance',
 
-    'dep': 'deposit',
-    'with': 'withdraw',
-    'work': 'work',
-    'daily': 'daily',
-    'gamble': 'gamble',
-    'bet': 'gamble',
-    'rob': 'rob',
     'crime': 'crime',
-    'pay': 'pay',
-    'give': 'pay',
-    'send': 'pay',
 
     'ping': 'ping',
     'stats': 'botinfo',
@@ -36,11 +23,6 @@ export const commandAliases = {
     'untimeout': 'untimeout',
     'unmute': 'untimeout',
 
-    'shop': 'shop',
-    'buy': 'buy',
-    'inventory': 'inventory',
-    'inv': 'inventory',
-    'items': 'inventory',
 
     'user': 'userinfo',
     'avatar': 'userinfo',
@@ -68,14 +50,12 @@ export const commandAliases = {
     'vadmin': 'verification',
     'av': 'autoverify',
 
-    'welcome': 'welcome',
     'greet': 'greet',
     'goodbye': 'goodbye',
     'autorole': 'autorole',
 
     'calc': 'calculate',
     'math': 'calculate',
-    'weather': 'weather',
     'todo': 'todo',
     'report': 'report',
     'userinfo': 'userinfo',
@@ -86,11 +66,7 @@ export const commandAliases = {
     'ss': 'serverstats',
     'sstats': 'serverstats',
 
-    'rr': 'reactroles',
-    'reactionroles': 'reactroles',
 
-    'jtc': 'jointocreate',
-    'jointocreate': 'jointocreate',
 
     'np': 'nowplaying',
     'now': 'nowplaying',
