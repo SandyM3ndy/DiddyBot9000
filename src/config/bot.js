@@ -12,7 +12,7 @@ export const BEACON_FOOTER = `Beacon • ${BEACON_MOTTO}`;
 export function formatBeaconFooter(context = '') {
   const text = String(context || '').trim();
   if (!text) return BEACON_FOOTER;
-  if (/\\bBeacon\\b/i.test(text)) return text.slice(0, 2048);
+  if (text.toLowerCase().includes('beacon')) return text.slice(0, 2048);
   const suffix = ' • Beacon';
   return text.slice(0, 2048 - suffix.length) + suffix;
 }
