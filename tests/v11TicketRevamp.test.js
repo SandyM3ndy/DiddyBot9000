@@ -75,6 +75,6 @@ test('ticket deletion requires transcript archival before channel deletion', asy
   const begin = source.indexOf('export async function deleteTicket(');
   const block = source.slice(begin, source.indexOf('export async function unclaimTicket(', begin));
   assert.ok(block.indexOf('archiveChannel.send') < block.indexOf('await channel.delete('));
-  assert.match(block, /not been deleted/);
+  assert.match(block, /not been deleted/i);
   assert.match(block, /ticketTranscriptChannelId/);
 });
