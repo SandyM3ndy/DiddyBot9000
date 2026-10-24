@@ -15,12 +15,14 @@ export default {
       .setMinValue(1)
       .setMaxValue(100)
       .setRequired(true))
+    .addBooleanOption(option => option.setName('private').setDescription('Hide the cleanup receipt (default: public)'))
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
   category: 'moderation',
   abuseProtection: { maxAttempts: 5, windowMs: 60_000 },
 
   async execute(interaction, config, client) {
-    if (!(await InteractionHelper.safeDefer(interaction, { flags: MessageFlags.Ephemeral }))) return;
+    const privateView = interaction.options?.getBoolean?.('private') === true;
+    if (!(await InteractionHelper.safeDefer(interaction, privateView ? { flags: MessageFlags.Ephemeral } : {}))) return;
     const amount = interaction.options.getInteger('amount');
     const channel = interaction.channel;
     if (!Number.isInteger(amount) || amount < 1 || amount > 100) {
@@ -44,10 +46,12 @@ export default {
     let deletedCount;
     let skippedCount;
     try {
-      const fetched = await channel.messages.fetch({ limit: amount });
-      const deleted = await channel.bulkDelete(fetched, true);
+      const ownReply = privateView ? null : await interaction.fetchReply().catch(() => null);
+      const fetched = await channel.messages.fetch({ limit: Math.min(100, amount + (ownReply ? 1 : 0)) });
+      const toDelete = fetched.filter(message => message.id !== ownReply?.id).first(amount);
+      const deleted = await channel.bulkDelete(toDelete, true);
       deletedCount = deleted.size;
-      skippedCount = Math.max(0, fetched.size - deletedCount);
+      skippedCount = Math.max(0, toDelete.length - deletedCount);
     } catch (error) {
       logger.warn('Purge message deletion failed', { guildId: interaction.guildId, channelId: channel.id, error: error?.message });
       return InteractionHelper.safeEditReply(interaction, {
@@ -76,7 +80,7 @@ export default {
       embeds: [successEmbed('🧹 Messages Purged',
         `Deleted **${deletedCount}** message(s) in ${channel}.`
         + (skippedCount ? `\n⚠️ **${skippedCount}** message(s) could not be bulk-deleted (possibly older than 14 days).` : '')
-        + '\n\nOnly you can see this confirmation.')],
+        + (privateView ? '\n\nThis confirmation is private.' : '\n\nThis cleanup receipt is visible to the channel.'))],
     });
   },
 };
