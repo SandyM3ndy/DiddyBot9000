@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { getServerProgression, rerollDailyQuest, mutateServerProgression,
   registerFoundingServers, getFoundingBadge, contributorRanking, utcWeekKey,
+  getGlobalProgressionLeaderboard,
 } from '../src/services/serverProgressionService.js';
 import { renderProgressionRankPng } from '../src/utils/progressionRankCard.js';
 
@@ -157,4 +158,34 @@ test('a single-connection PostgreSQL pool fails fast rather than hanging forever
  const client=mockClient();
  client.db.db={isAvailable:()=>true,pool:{options:{max:1},connect:async()=>{throw Error('should not connect');}}};
  await assert.rejects(()=>getServerProgression(client,'111111111111111111'),/at least two PostgreSQL connections/);
+});
+
+test('global rankings are deterministic on tied XP and never show excluded servers',async()=>{
+ const a='111111111111111111',b='222222222222222222',c='333333333333333333';
+ const store=new Map(),client=mockClient(store,[a,b,c]);
+ for(const [id,excluded] of [[a,false],[b,false],[c,true]]){
+  await mutateServerProgression(client,id,data=>{
+   data.xp=5000;data.leaderboardExcluded=excluded;return {changed:true};
+  });
+ }
+ const board=await getGlobalProgressionLeaderboard(mockClient(store,[a,b,c]));
+ assert.deepEqual(board.map(x=>x.guildId),[a,b]);
+ assert.deepEqual(board.map(x=>x.xp),[5000,5000]);
+});
+test('large leaderboard requests have bounded concurrent database reads',async()=>{
+ const ids=Array.from({length:31},(_,i)=>String(BigInt('111111111111111111')+BigInt(i)));
+ const store=new Map(),client=mockClient(store,ids);
+ for(const id of ids)store.set('guild:'+id+':progression',{xp:10,level:1});
+ let current=0,peak=0;
+ const original=client.db.get;
+ client.db.get=async(key,def)=>{
+  current++;peak=Math.max(peak,current);
+  await Promise.resolve();
+  const value=await original(key,def);
+  current--;
+  return value;
+ };
+ const board=await getGlobalProgressionLeaderboard(client);
+ assert.equal(board.length,ids.length);
+ assert.ok(peak>1&&peak<=8,'parallel reads must be bounded to a batch of eight');
 });
