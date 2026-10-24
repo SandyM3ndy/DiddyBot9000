@@ -78,7 +78,7 @@ export default async (client) => {
   // without acknowledging it, producing "Beacon did not respond" in Discord.
   // Fail startup loudly instead of silently running with broken ticket controls.
   const requiredButtons = [
-    'ticket_info','ticket_transcript','ticket_claim','ticket_close','rr_dashboard_create',
+    'ticket_info', 'ticket_transcript', 'ticket_claim', 'ticket_close', 'rr_dashboard_create',
     'ticket_queue_view','rr_studio_edit','error_rescue',
     'dashboard_undo_confirm','dashboard_undo_cancel',
   ];
