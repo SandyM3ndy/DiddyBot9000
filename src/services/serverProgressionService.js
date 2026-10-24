@@ -347,6 +347,87 @@ export function previewDailyQuests(guildId, day, level = 1, memberCount = 1) {
   return pickDailyQuests(guildId, day, level, memberCount).map(quest => ({ ...quest }));
 }
 
+
+const WEEKLY_POOL=[
+{id:'warmup',title:'🌱 Weekly Warmup',description:'Send 20 eligible messages this week.',metric:'messages',target:20,reward:250,minMembers:1},
+{id:'explorer',title:'🤖 Beacon Explorer',description:'Use 10 eligible commands this week.',metric:'commands',target:10,reward:300,minMembers:1},
+{id:'streak',title:'📅 Consistent Crew',description:'Qualifying activity on 3 different days.',metric:'activeDays',target:3,reward:500,minMembers:1},
+{id:'team',title:'🔥 Community Spirit',description:'Have 3 unique participants this week.',metric:'uniqueMembers',target:3,reward:400,minMembers:3},
+{id:'dailies',title:'🏆 Dedicated Community',description:'Complete 10 daily quests this week.',metric:'dailyQuests',target:10,reward:900,minMembers:1},
+{id:'legend',title:'👑 Weekly Legends',description:'Earn 2,000 activity XP this week.',metric:'activityXp',target:2000,reward:1200,minMembers:5},
+];
+export const FOUNDING_CAP=25;
+const FOUNDERS_KEY='beacon:founders:v1';
+export function getWeeklyCatalog(){return WEEKLY_POOL.map(q=>({...q}));}
+export function utcWeekKey(date=new Date()){
+ const d=new Date(Date.UTC(date.getUTCFullYear(),date.getUTCMonth(),date.getUTCDate()));
+ d.setUTCDate(d.getUTCDate()-((d.getUTCDay()+6)%7));
+ return d.toISOString().slice(0,10);
+}
+function pickWeekly(guildId,week,members){
+ const pool=WEEKLY_POOL.filter(q=>members>=q.minMembers);
+ let seed=hashSeed(guildId+':'+week+':weekly');
+ for(let i=pool.length-1;i>0;i--){
+  seed=(Math.imul(seed,1664525)+1013904223)>>>0;
+  const j=seed%(i+1);[pool[i],pool[j]]=[pool[j],pool[i]];
+ }
+ return pool.slice(0,Math.min(3,pool.length)).map(q=>({...q,progress:0,completed:false}));
+}
+function ensureExtras(data,guildId,members=1,now=new Date()){
+ const day=dateKey(now),week=utcWeekKey(now);
+ data.dailyHistory=Array.isArray(data.dailyHistory)?data.dailyHistory:[];
+ data.weeklyHistory=Array.isArray(data.weeklyHistory)?data.weeklyHistory:[];
+ data.contributors ||= {day,week,daily:{},weekly:{},lifetime:{}};
+ const c=data.contributors;c.daily ||= {};c.weekly ||= {};c.lifetime ||= {};
+ if(c.day!==day){
+  if(c.day && Object.keys(c.daily).length)data.dailyHistory.push({
+   day:c.day,contributors:Object.keys(c.daily).length,
+   actions:Object.values(c.daily).reduce((sum,v)=>sum+(v.messages||0)+(v.commands||0),0)
+  });
+  c.day=day;c.daily={};
+ }
+ if(c.week!==week){c.week=week;c.weekly={};}
+ if(!data.weekly || data.weekly.week!==week){
+  if(data.weekly?.week)data.weeklyHistory.push({...data.weekly,recordedAt:new Date().toISOString()});
+  data.weekly={week,quests:pickWeekly(guildId,week,members),days:[],uniqueMembers:[]};
+ }
+ data.dailyRerollDay ||= null;data.joinDay ||= day;data.joinIds ||= [];
+ if(data.joinDay!==day){data.joinDay=day;data.joinIds=[];}
+ return data;
+}
+function updateWeekly(data,metric,userId,dailyCompleted,baseXp,now=new Date()){
+ const w=data.weekly;if(!w)return [];
+ const day=dateKey(now),m={messages:0,commands:0,activeDays:0,uniqueMembers:0,dailyQuests:dailyCompleted,activityXp:baseXp};
+ if(metric==='message')m.messages=1;
+ if(metric==='command')m.commands=1;
+ if(metric==='message'||metric==='command'){
+  if(!w.days.includes(day))w.days.push(day);
+  if(userId&&!w.uniqueMembers.includes(userId))w.uniqueMembers.push(userId);
+ }
+ m.activeDays=w.days.length;m.uniqueMembers=w.uniqueMembers.length;
+ const done=[];
+ for(const q of w.quests){
+  if(q.completed)continue;
+  q.progress=Math.min(q.target,['activeDays','uniqueMembers'].includes(q.metric)?m[q.metric]:q.progress+(m[q.metric]||0));
+  if(q.progress>=q.target){q.completed=true;data.xp+=q.reward;done.push(q);}
+ }
+ return done;
+}
+function addContribution(data,userId,metric){
+ if(!userId||!['message','command'].includes(metric))return;
+ for(const board of [data.contributors.daily,data.contributors.weekly,data.contributors.lifetime]){
+  board[userId] ||= {messages:0,commands:0};
+  board[userId][metric==='message'?'messages':'commands']+=1;
+ }
+}
+export function contributorRanking(data,period='weekly',limit=10){
+ const board=data.contributors?.[period]||{};
+ return Object.entries(board).map(([userId,stats])=>({
+  userId,messages:stats.messages||0,commands:stats.commands||0,
+  actions:(stats.messages||0)+(stats.commands||0)
+ })).sort((a,b)=>b.actions-a.actions||a.userId.localeCompare(b.userId)).slice(0,limit);
+}
+
 function defaultProgression() {
   return {
     xp: 0,
@@ -357,6 +438,7 @@ function defaultProgression() {
     dailyQuests: [],
     updatedAt: new Date().toISOString(),
     leaderboardExcluded: false,
+    weekly: null,weeklyHistory:[],dailyHistory:[],contributors:null,dailyRerollDay:null,joinDay:null,joinIds:[],
   };
 }
 
@@ -421,7 +503,8 @@ async function load(client, guildId) {
   const key = `${KEY_PREFIX}${guildId}${KEY_SUFFIX}`;
   const raw = await client.db.get(key, defaultProgression());
   const memberCount = client.guilds?.cache?.get(guildId)?.memberCount ?? 1;
-  return ensureDailyQuests(normalizeProgression(raw), guildId, new Date(), memberCount);
+  const now=new Date();
+  return ensureExtras(ensureDailyQuests(normalizeProgression(raw),guildId,now,memberCount),guildId,memberCount,now);
 }
 
 async function save(client, guildId, data) {
