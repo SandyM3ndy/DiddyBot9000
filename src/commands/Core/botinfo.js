@@ -24,7 +24,7 @@ export default {
 
     const embed = createEmbed({
       title: '✦ Beacon • About',
-      description: '**Your community. Better protected.**\nAn all-in-one assistant for moderation, support, security and server tools.',
+      description: '**Your community\'s all-in-one Discord assistant.**\nModeration, support, security, daily quests and global server rankings — together in Beacon.',
       color: 'primary',
       thumbnail: client.user?.displayAvatarURL?.({ size: 256 }),
       fields: [
@@ -35,10 +35,10 @@ export default {
         { name: '⏱️ Uptime', value: displayUptime(Math.floor(process.uptime())), inline: true },
         { name: '🧠 RAM', value: Math.round(memory.rss / 1024 / 1024) + ' MB', inline: true },
         { name: '🛡️ Anti-Nuke', value: isAntiNukeAIConfigured() ? 'AI assisted • ' + getAntiNukeAIModel() : 'Local adaptive protection', inline: false },
-        { name: '🧰 Quick Start', value: '/help • Browse commands\n/dashboard • Configure your server\n/diagnose • Check setup', inline: false },
+        { name: '🧰 Quick Start', value: '/help • Browse commands\n/progression overview • Quests and global rankings\n/dashboard • Configure your server\n/diagnose • Check setup', inline: false },
         { name: '⚙️ Runtime', value: 'Node ' + process.version + ' • discord.js ' + discordVersion, inline: false },
       ],
-      footer: 'Beacon • Built for Discord communities',
+      footer: 'Beacon • Your community\'s all-in-one Discord assistant.',
     });
     return InteractionHelper.safeReply(interaction, { embeds: [embed] });
   },
