@@ -171,6 +171,7 @@ export async function createTicket(guild, member, categoryId, reason = 'No reaso
     const channel = await guild.channels.create({
       name: channelName,
       type: ChannelType.GuildText,
+      topic: 'beacon-ticket:' + member.id + ':' + ticketNumber,
       parent: category?.id,
       permissionOverwrites: [
         {

@@ -53,10 +53,12 @@ export default {
             { name: '🤝 Claimed Tickets', value: String(stats.claimedCount), inline: true },
             { name: '⌛ Open & Unclaimed', value: String(stats.unclaimedOpenCount), inline: true },
             { name: '⏱️ Avg. Claim Time', value: formatTicketCloseTime(stats.avgClaimTimeMs), inline: true },
+            { name: '💬 Avg. First Reply', value: formatTicketCloseTime(stats.avgFirstResponseMs), inline: true },
+            { name: '📩 Awaiting Staff Reply', value: String(stats.unansweredOpenCount), inline: true },
             { name: '⭐ Feedback', value: stats.feedbackCount > 0 ?
               String(stats.avgRating) + '/5 (' + stats.feedbackCount + ' ratings)' : 'No feedback yet', inline: true },
           ],
-          footer: 'Beacon • Private support metrics • Claim time is not first response time',
+          footer: 'Beacon • First reply measured only when a staff message is recorded',
         })],
       });
     } catch {

@@ -146,7 +146,8 @@ export async function listOpenSupportQueue(guildId) {
 export function summarizeGuildTickets(tickets) {
     let openCount = 0, closedCount = 0, totalCloseMs = 0, closeSamples = 0;
     let claimedCount = 0, unclaimedOpenCount = 0, totalClaimMs = 0, claimSamples = 0;
-    let feedbackCount = 0, ratingSum = 0;
+    let feedbackCount = 0, ratingSum = 0, responseSamples = 0, totalResponseMs = 0;
+    let respondedCount = 0, unansweredOpenCount = 0;
     const claimers = new Map();
 
     for (const ticket of tickets || []) {
@@ -162,6 +163,16 @@ export function summarizeGuildTickets(tickets) {
             }
         }
 
+        if (ticket.firstResponseAt) {
+            respondedCount++;
+            const responseMs = new Date(ticket.firstResponseAt) - new Date(ticket.createdAt);
+            if (ticket.createdAt && Number.isFinite(responseMs) && responseMs >= 0) {
+                totalResponseMs += responseMs;
+                responseSamples++;
+            }
+        } else if (ticket.status === 'open') {
+            unansweredOpenCount++;
+        }
         if (ticket.claimedBy) {
             claimedCount++;
             claimers.set(ticket.claimedBy, (claimers.get(ticket.claimedBy) || 0) + 1);
@@ -181,6 +192,8 @@ export function summarizeGuildTickets(tickets) {
 
     return {
         openCount, closedCount, claimedCount, unclaimedOpenCount,
+        respondedCount, unansweredOpenCount,
+        avgFirstResponseMs: responseSamples ? Math.round(totalResponseMs / responseSamples) : null,
         avgCloseTimeMs: closeSamples ? Math.round(totalCloseMs / closeSamples) : null,
         avgClaimTimeMs: claimSamples ? Math.round(totalClaimMs / claimSamples) : null,
         feedbackCount,

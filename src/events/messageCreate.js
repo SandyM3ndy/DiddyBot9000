@@ -1,4 +1,4 @@
-import { Events } from 'discord.js';
+import { Events, PermissionFlagsBits } from 'discord.js';
 import { createSpamTracker } from '../utils/autoModSpamTracker.js';
 
 const spamTracker = createSpamTracker();
@@ -36,11 +36,36 @@ export default {
       if (!autoModTriggered) {
         await recordMessageActivity(client, message).catch(() => {});
       }
-      if (message.channel?.name?.startsWith('ticket-') || message.channel?.name?.match(/^[^ ]+ ticket-\d+/)) {
-        const ticket = await getTicketData(message.guild.id, message.channel.id).catch(() => null);
+      // Detect new tickets by a permanent channel topic marker, not just their
+      // editable channel names. Keep the legacy prefix for existing installations.
+      const channel = message.channel;
+      const isTicket = channel?.topic?.startsWith('beacon-ticket:') ||
+        channel?.name?.startsWith('ticket-') ||
+        /^[^ ]+ ticket-\\d+/.test(channel?.name || '');
+      if (isTicket) {
+        const ticket = await getTicketData(message.guild.id, channel.id).catch(() => null);
         if (ticket?.status === 'open') {
-          ticket.lastActivityAt = new Date().toISOString();
-          await saveTicketData(message.guild.id, message.channel.id, ticket).catch(() => {});
+          const timestamp = new Date().toISOString();
+          const member = message.member;
+          const isStaff = message.author.id !== ticket.userId && Boolean(
+            (guildConfig?.ticketStaffRoleId && member?.roles?.cache?.has(guildConfig.ticketStaffRoleId)) ||
+            member?.permissions?.has(PermissionFlagsBits.ManageChannels) ||
+            message.guild.ownerId === message.author.id
+          );
+          const firstResponse = isStaff && !ticket.firstResponseAt;
+          if (firstResponse) {
+            ticket.firstResponseAt = timestamp;
+            ticket.firstResponderId = message.author.id;
+          }
+          // Avoid a database write for every chat message during busy ticket
+          // conversations. Record first staff response immediately.
+          const last = new Date(ticket.lastActivityAt || 0).getTime();
+          if (firstResponse || !Number.isFinite(last) || Date.now() - last >= 60_000) {
+            ticket.lastActivityAt = timestamp;
+            await saveTicketData(message.guild.id, channel.id, ticket).catch(error =>
+              logger.warn('Ticket activity update failed', { channelId: channel.id, error: error?.message })
+            );
+          }
         }
       }
 
