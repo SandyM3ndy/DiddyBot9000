@@ -2,7 +2,7 @@
 const COLLECTOR_MANAGED_PREFIXES = [
   'config_select',
   'config_wizard',
-  'dashboard_', 'progress_panel',
+  'dashboard_', 'progress_panel', 'progress_reroll',
   // These panels own their own ephemeral component collectors.
   'rr_edit_', 'rr_delete_', 'rr_repost_', 'rr_opts_', 'rr_add_', 'rr_remove_',
   'cases_', 'jtc_', 'log_dash_', 'ticket_cfg_', 'greet_', 'welcome_', 'commands_',
