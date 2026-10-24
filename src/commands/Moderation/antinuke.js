@@ -4,7 +4,7 @@ import {
   EmbedBuilder,
   MessageFlags,
 } from 'discord.js';
-import { getColor } from '../../config/bot.js';
+import { getColor, formatBeaconFooter } from '../../config/bot.js';
 import { logger } from '../../utils/logger.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 import {
@@ -114,7 +114,7 @@ export default {
           .setTitle('🛡️ Beacon • Security Incident Timeline')
           .setDescription(rows.length ? rows.join('\n\n').slice(0,3900)
             : 'No recorded incidents. New detections will appear here after Anti-Nuke evaluates them.')
-          .setFooter({ text: 'Private to server managers • Detection is not proof of wrongdoing' })
+          .setFooter({ text: formatBeaconFooter('Private to server managers • Detection is not proof of wrongdoing') })
           .setTimestamp();
         return InteractionHelper.safeEditReply(interaction, { embeds: [embed], allowedMentions: { parse: [] } });
       }
