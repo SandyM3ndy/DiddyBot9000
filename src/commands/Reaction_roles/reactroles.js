@@ -933,7 +933,7 @@ async function handleRemoveRole(selectInteraction, rootInteraction, panelData, p
                     embeds: [
                         new EmbedBuilder()
                             .setTitle('Reaction Roles Dashboard')
-                            .setDescription('No panels remain. Use `/reactroles setup` to create one.')
+                            .setDescription('No panels remain. Use **/dashboard → Reaction Roles → Create First Panel** to create one.')
                             .setColor(getColor('info')),
                     ],
                     components: [],
@@ -945,7 +945,7 @@ async function handleRemoveRole(selectInteraction, rootInteraction, panelData, p
                     embeds: [
                         new EmbedBuilder()
                             .setTitle('Reaction Roles Dashboard')
-                            .setDescription('Panel deleted. Run `/reactroles dashboard` to manage another panel.')
+                            .setDescription('Panel deleted. Open **/dashboard → Reaction Roles** to manage another panel.')
                             .setColor(getColor('success')),
                     ],
                     components: [],
@@ -1074,7 +1074,7 @@ async function handleDeletePanel(btnInteraction, rootInteraction, panelData, pan
             embeds: [
                 new EmbedBuilder()
                     .setTitle('Reaction Roles Dashboard')
-                    .setDescription('No panels remain. Use `/reactroles setup` to create one.')
+                    .setDescription('No panels remain. Use **/dashboard → Reaction Roles → Create First Panel** to create one.')
                     .setColor(getColor('info')),
             ],
             components: [],
@@ -1085,7 +1085,7 @@ async function handleDeletePanel(btnInteraction, rootInteraction, panelData, pan
             embeds: [
                 new EmbedBuilder()
                     .setTitle('Reaction Roles Dashboard')
-                    .setDescription('Panel deleted. Run `/reactroles dashboard` to manage another panel.')
+                    .setDescription('Panel deleted. Open **/dashboard → Reaction Roles** to manage another panel.')
                     .setColor(getColor('success')),
             ],
             components: [],
