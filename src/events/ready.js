@@ -7,6 +7,7 @@ import { initRiffyAfterReady } from "../services/music/riffySetup.js";
 import { loadLockdownStates } from "../services/lockdownService.js";
 import { loadAllPersistedAntiNukeConfigs } from "../services/antinukeService.js";
 import { clearGuildScopedCommands } from "../handlers/loaders/commandLoader.js";
+import { startTicketSlaMonitor } from '../services/ticketSlaService.js';
 
 export default {
   name: Events.ClientReady,
@@ -23,6 +24,7 @@ export default {
 
       await loadLockdownStates(client);
       await loadAllPersistedAntiNukeConfigs(client);
+      startTicketSlaMonitor(client);
       // Keep commands global-only and remove old guild-scoped copies that caused duplicates.
       await clearGuildScopedCommands(client);
 

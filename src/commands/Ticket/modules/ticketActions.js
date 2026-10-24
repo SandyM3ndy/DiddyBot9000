@@ -4,6 +4,8 @@ import { createEmbed } from '../../../utils/embeds.js';
 import { getTicketData, listTicketsForUser, listOpenSupportQueue } from '../../../utils/database/tickets.js';
 import { getTicketPermissionContext } from '../../../utils/ticket/ticketPermissions.js';
 import { reopenTicket, unclaimTicket, generateTicketTranscript } from '../../../services/ticket.js';
+import { evaluateTicketSla, getTicketSlaMinutes } from '../../../services/ticketSlaService.js';
+import { getGuildConfig } from '../../../services/config/guildConfig.js';
 
 const privateReply = (interaction, content) =>
   InteractionHelper.safeReply(interaction, { content, flags: MessageFlags.Ephemeral });
@@ -59,14 +61,16 @@ export async function showTicketQueue(interaction, _config, client) {
       return InteractionHelper.safeEditReply(interaction, { content: '🔒 Only ticket staff and server managers can view the queue.' });
     }
     const queue = await listOpenSupportQueue(interaction.guildId);
+    const config = await getGuildConfig(client || interaction.client, interaction.guildId);
     const open = queue.filter(t => !t.claimedBy);
+    const late = queue.filter(t => evaluateTicketSla(t, config).overdue);
     return InteractionHelper.safeEditReply(interaction, {
       embeds: [createEmbed({
         title: '📥 Beacon • Support Queue',
-        description: '**' + queue.length + ' open** • **' + open.length + ' unclaimed**\nTickets appear in priority order, then oldest first.',
+        description: '**' + queue.length + ' open** • **' + open.length + ' unclaimed** • **' + late.length + ' past first-response target**\nSLA: ' + (getTicketSlaMinutes(config) ? getTicketSlaMinutes(config) + ' minutes' : 'Off') + '. Priority order, then oldest first.',
         color: open.some(t => t.priority === 'urgent') ? 'warning' : 'primary',
         fields: queue.slice(0, 12).map(t => ({
-          name: (t.priority === 'urgent' ? '🔴' : t.priority === 'high' ? '🟠' : '🔹') +
+          name: (evaluateTicketSla(t, config).overdue ? '⏰' : t.priority === 'urgent' ? '🔴' : t.priority === 'high' ? '🟠' : '🔹') +
             ' ' + (t.ticketNumber ? '#' + t.ticketNumber : 'Ticket') +
             ' • ' + String(t.priority || 'normal').toUpperCase(),
           value: '<#' + t.id + '> • ' + (t.claimedBy ? 'Claimed by <@' + t.claimedBy + '>' : '**Unclaimed**') +
