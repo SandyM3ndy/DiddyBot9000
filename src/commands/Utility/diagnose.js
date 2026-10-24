@@ -41,7 +41,7 @@ export default {
         title: '🩺 Beacon • Server Diagnostics',
         description: ('**Server Health: ' + health.score + '/100 — ' + health.grade + '**' +
           '\n*Advisory score based on checked settings, not a guarantee of security or uptime.*' +
-          '\n\\n' + desc).slice(0, 4000),
+          '\n\n' + desc).slice(0, 4000),
         fields: [
           { name: '📊 Checks', value: health.checked + ' checked • ' + summary, inline: false },
           { name: '🛠️ Recommended next actions', value: (health.actions.length

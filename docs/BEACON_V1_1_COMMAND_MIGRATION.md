@@ -85,3 +85,57 @@ GitHub Docker publishing does **not** automatically confirm the host has deploye
 11. Confirm Railway (or the actual host) is running the latest commit, not merely that GitHub published a Docker image.
 
 **Not yet certified:** multi-replica DB locking, real-world Discord component behavior, and hosting deployment are separate live validation gates. V1.1 is not officially released.
+
+
+## Dashboard 2.0, case manager, response targets and security history
+
+This development batch extends the existing commands instead of creating unnecessary new top-level slash commands.
+
+### Dashboard 2.0
+
+- Use **/dashboard** to open the main private server settings overview.
+- Use **/dashboard find:** to search the menu for a feature, such as "reaction", "ticket" or "logging".
+- **Back to Main Dashboard** on nested screens opens a fresh session; this avoids expired collector interactions.
+- Setup health, permission guidance and guided configuration remain available through the main dashboard.
+
+### Ticket response targets
+
+- **/ticket sla** displays the first-staff-reply target (default: 60 minutes).
+- **/ticket sla minutes:30** sets a 30-minute first-response target; choose **0** to disable the alert.
+- Staff queue displays overdue first replies separately from priority.
+- A five-minute monitor sends a **one-time** overdue notice per unanswered open ticket to the configured ticket log channel; it mentions the configured support role when available.
+- Tickets with a recorded staff reply, a previous alert or a closed status are excluded.
+- The service relies on one running bot process for in-process overlap protection. Multi-replica deployments require distributed coordination to avoid duplicate alerts.
+
+### Anti-Nuke incident timeline
+
+- **/antinuke incidents** shows recent detections, outcomes and timings for Manage Server users.
+- Events persist across restarts (retained most recent 60 per server).
+- Outcomes distinguish detected, reverted, kicked and failed. A detection does not automatically imply that an intervention succeeded.
+
+### Case manager
+
+Use the existing **/cases** command with subcommands:
+
+- **/cases list** — filter and browse recent cases, inspect case details.
+- **/cases view id:** — view a case and its private review metadata.
+- **/cases status id: state:** — track open, reviewing, resolved or appealed statuses.
+- **/cases note id: text:** — add a private staff note.
+- **/cases evidence id: url:** — attach an HTTPS evidence reference.
+
+Staff updates require moderation privileges. Case review status is administrative metadata and **does not modify actual Discord bans, kicks, warnings or timeouts**. Existing moderation records receive default review metadata when opened.
+
+### Server health inside /diagnose
+
+**/diagnose** now provides an advisory 0–100 health score, checks configured bot permissions, setup health and transcript privacy, and prioritizes up to three concrete fixes. Unverified cache misses receive smaller deductions and are not treated as missing channels.
+
+### Production rollout
+
+- Confirm the hosting provider actually deployed the latest **main** build.
+- Test case permissions (viewer vs editor), staff notes, evidence, button navigation and audit channels.
+- Test ticket alerts with a short target in a private staging server; check only one alert is issued per ticket.
+- Test Anti-Nuke history across restart with controlled simulations.
+- Test Dashboard 2.0 search and nested back-navigation in Discord.
+- Validate /diagnose in both incomplete and properly configured test servers.
+
+The latest changes passed automated tests but **live production deployment and end-to-end testing remain required**.
