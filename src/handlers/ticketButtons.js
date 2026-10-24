@@ -7,7 +7,7 @@ import { logger } from '../utils/logger.js';
 import { InteractionHelper } from '../utils/interactionHelper.js';
 import { replyUserError, ErrorTypes, handleInteractionError, createError } from '../utils/errorHandler.js';
 import { getTicketPermissionContext } from '../utils/ticket/ticketPermissions.js';
-import { showMyTickets, showTicketInfo } from '../commands/Ticket/modules/ticketActions.js';
+import { showMyTickets, showTicketInfo, showTicketTranscript } from '../commands/Ticket/modules/ticketActions.js';
 
 function escapeHtml(text) {
   if (!text) return '';
@@ -157,6 +157,13 @@ const createTicketHandler = {
       }
     }
   }
+};
+
+const ticketTranscriptButtonHandler = {
+  name: 'ticket_transcript',
+  async execute(interaction, client) {
+    return showTicketTranscript(interaction, null, client);
+  },
 };
 
 const ticketInfoButtonHandler = {
@@ -539,6 +546,7 @@ export {
   createTicketModalHandler,
   myTicketsButtonHandler,
   ticketInfoButtonHandler,
+  ticketTranscriptButtonHandler,
   closeTicketModalHandler,
   closeTicketHandler, 
   claimTicketHandler, 

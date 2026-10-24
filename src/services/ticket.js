@@ -96,6 +96,8 @@ export function buildTicketControlRow({ claimedBy = null } = {}) {
       .setEmoji(claimedBy ? '🔓' : '🙋'),
     new ButtonBuilder().setCustomId('ticket_info')
       .setLabel('Info').setStyle(ButtonStyle.Secondary).setEmoji('📋'),
+    new ButtonBuilder().setCustomId('ticket_transcript')
+      .setLabel('Transcript').setStyle(ButtonStyle.Secondary).setEmoji('📜'),
     new ButtonBuilder().setCustomId('ticket_pin')
       .setLabel('Pin').setStyle(ButtonStyle.Secondary).setEmoji('📌'),
     new ButtonBuilder().setCustomId('ticket_close')

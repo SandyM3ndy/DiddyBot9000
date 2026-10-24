@@ -7,11 +7,11 @@ import claim from './claim.js';
 import close from './close.js';
 import priority from './priority.js';
 import stats from './ticketstats.js';
-import { showMyTickets, showTicketQueue, showTicketInfo, reopenTicketAction, unclaimTicketAction } from './modules/ticketActions.js';
+import { showMyTickets, showTicketQueue, showTicketInfo, showTicketTranscript, reopenTicketAction, unclaimTicketAction } from './modules/ticketActions.js';
 
 const actions = { add, remove, rename, claim, close, priority, stats,
   my: { execute: showMyTickets }, queue: { execute: showTicketQueue },
-  info: { execute: showTicketInfo }, reopen: { execute: reopenTicketAction },
+  info: { execute: showTicketInfo }, transcript: { execute: showTicketTranscript }, reopen: { execute: reopenTicketAction },
   unclaim: { execute: unclaimTicketAction },
 };
 export default {
@@ -37,6 +37,7 @@ export default {
     .addSubcommand(sub => sub.setName('my').setDescription('Show your private ticket history'))
     .addSubcommand(sub => sub.setName('queue').setDescription('Browse open support tickets (staff only)'))
     .addSubcommand(sub => sub.setName('info').setDescription('View status and assignment details for this ticket'))
+    .addSubcommand(sub => sub.setName('transcript').setDescription('Export a private copy of the ticket conversation'))
     .addSubcommand(sub => sub.setName('reopen').setDescription('Reopen a closed ticket (staff only)'))
     .addSubcommand(sub => sub.setName('unclaim').setDescription('Release your assignment and return the ticket to the queue')),
   category: 'Ticket',

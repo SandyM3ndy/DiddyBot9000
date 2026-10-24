@@ -1,6 +1,7 @@
 import createTicketHandler, {
   myTicketsButtonHandler,
   ticketInfoButtonHandler,
+  ticketTranscriptButtonHandler,
   closeTicketHandler,
   claimTicketHandler,
   priorityTicketHandler,

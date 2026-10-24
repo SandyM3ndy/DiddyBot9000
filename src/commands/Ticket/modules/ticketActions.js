@@ -3,7 +3,7 @@ import { InteractionHelper } from '../../../utils/interactionHelper.js';
 import { createEmbed } from '../../../utils/embeds.js';
 import { getTicketData, listTicketsForUser, listOpenSupportQueue } from '../../../utils/database/tickets.js';
 import { getTicketPermissionContext } from '../../../utils/ticket/ticketPermissions.js';
-import { reopenTicket, unclaimTicket } from '../../../services/ticket.js';
+import { reopenTicket, unclaimTicket, generateTicketTranscript } from '../../../services/ticket.js';
 
 const privateReply = (interaction, content) =>
   InteractionHelper.safeReply(interaction, { content, flags: MessageFlags.Ephemeral });
@@ -109,6 +109,29 @@ export async function showTicketInfo(interaction, _config, client) {
     });
   } catch {
     return InteractionHelper.safeEditReply(interaction, { content: '⚠️ Could not retrieve ticket details.' });
+  }
+}
+
+export async function showTicketTranscript(interaction, _config, client) {
+  if (!interaction.guildId) return privateReply(interaction, 'Use this inside a support ticket.');
+  if (!(await InteractionHelper.safeDefer(interaction, { flags: MessageFlags.Ephemeral }))) return;
+  try {
+    const ctx = await getTicketPermissionContext({ client: client || interaction.client, interaction });
+    if (!ctx.ticketData) return InteractionHelper.safeEditReply(interaction, { content: 'This channel is not a Beacon ticket.' });
+    if (!ctx.isTicketCreator && !hasStaffAccess(ctx, interaction)) {
+      return InteractionHelper.safeEditReply(interaction, { content: 'You do not have access to this transcript.' });
+    }
+    const { attachment, messageCount } = await generateTicketTranscript(interaction.channel);
+    return InteractionHelper.safeEditReply(interaction, {
+      content: '📜 **Your private ticket transcript** • ' + messageCount +
+        ' messages\nAttachment links may expire. Store this archive securely.',
+      files: [attachment],
+      allowedMentions: { parse: [] },
+    });
+  } catch (error) {
+    return InteractionHelper.safeEditReply(interaction, {
+      content: '⚠️ ' + (error.userMessage || 'Could not create the transcript. Check message history access and try again.'),
+    });
   }
 }
 
