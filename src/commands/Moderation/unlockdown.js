@@ -28,7 +28,8 @@ export default {
 
     if (!result.success) {
       return InteractionHelper.safeReply(interaction, {
-        embeds: [warningEmbed('Unlockdown Failed', 'The lockdown state could not be restored.')],
+        embeds: [warningEmbed('⚠️ Lockdown Partially Restored',
+          'Some role or channel permissions could not be restored. The original backup has been retained so you can retry /unlockdown safely. Check Beacon permission hierarchy and channel access before retrying.')],
         ephemeral: true,
       });
     }

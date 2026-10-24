@@ -250,29 +250,31 @@ export async function restoreLockdown(client, guild) {
   }
 
   const botMember = guild.members.me || await guild.members.fetchMe().catch(() => null);
+  const failedRoles = [];
+  const failedChannels = [];
 
   for (const roleState of state.roles ?? []) {
     const role = guild.roles.cache.get(roleState.id);
-    if (!role || !role.editable || role.managed || role.id === botMember?.roles?.highest?.id) {
+    if (!role || role.managed || role.id === botMember?.roles?.highest?.id) continue;
+    if (!role.editable) {
+      failedRoles.push(role.id);
+      logger.warn('Cannot restore role that is no longer editable', { guildId: guild.id, roleId: role.id });
       continue;
     }
-
     try {
       await role.setPermissions(BigInt(roleState.permissions), 'Restore after emergency server lockdown');
     } catch (error) {
-      logger.warn(`Could not restore role ${role.name}: ${error.message}`);
+      failedRoles.push(role.id);
+      logger.warn('Could not restore lockdown role', { guildId: guild.id, roleId: role.id, error: error.message });
     }
   }
 
   for (const channelState of state.channels ?? []) {
     const channel = guild.channels.cache.get(channelState.id);
-    if (!channel?.permissionOverwrites) {
-      continue;
-    }
-
+    if (!channel?.permissionOverwrites) continue;
     try {
       await channel.permissionOverwrites.set(
-        (channelState.overwrites ?? []).map((overwrite) => ({
+        (channelState.overwrites ?? []).map(overwrite => ({
           id: overwrite.id,
           type: overwrite.type,
           allow: overwrite.allow,
@@ -281,8 +283,16 @@ export async function restoreLockdown(client, guild) {
         'Restore after emergency server lockdown',
       );
     } catch (error) {
-      logger.warn(`Could not restore channel ${channel.name ?? channel.id}: ${error.message}`);
+      failedChannels.push(channel.id);
+      logger.warn('Could not restore lockdown channel', { guildId: guild.id, channelId: channel.id, error: error.message });
     }
+  }
+
+  if (failedRoles.length || failedChannels.length) {
+    // CRITICAL: keep the original snapshot and active state so the owner can
+    // retry. Clearing it here permanently lost the only rollback information.
+    client.lockdownStates?.set(guild.id, true);
+    return { success: false, reason: 'partial_restore', failedRoles, failedChannels };
   }
 
   await client.db.delete(stateKey(guild.id));
