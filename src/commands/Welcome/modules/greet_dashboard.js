@@ -59,17 +59,17 @@ function buildDashboardEmbed(cfg, guild) {
     const goodbyePreview = `\`${rawGoodbye.length > 55 ? rawGoodbye.substring(0, 55) + '…' : rawGoodbye}\``;
 
     return new EmbedBuilder()
-        .setTitle('👋 Greet System Dashboard')
+        .setTitle('👋 Beacon • Welcome & Goodbye Center')
         .setDescription(
-            `Manage welcome & goodbye settings for **${guild.name}**.\nUse the toggles to enable/disable each side, then select an option to edit.`,
+            `**${guild.name}**\nCreate a great first impression and a friendly goodbye. Use the controls below to edit either message.`,
         )
         .setColor(getColor('info'))
         .addFields(
             { name: 'Welcome Channel', value: welcomeChannel, inline: true },
-            { name: 'Welcome Status', value: cfg.enabled ? 'Enabled' : 'Disabled', inline: true },
+            { name: 'Welcome Status', value: cfg.enabled ? '🟢 Enabled' : '⚪ Disabled', inline: true },
             { name: 'Welcome Ping', value: cfg.welcomePing ? 'On' : 'Off', inline: true },
             { name: 'Goodbye Channel', value: goodbyeChannel, inline: true },
-            { name: 'Goodbye Status', value: cfg.goodbyeEnabled ? 'Enabled' : 'Disabled', inline: true },
+            { name: 'Goodbye Status', value: cfg.goodbyeEnabled ? '🟢 Enabled' : '⚪ Disabled', inline: true },
             { name: 'Goodbye Ping', value: cfg.goodbyePing ? 'On' : 'Off', inline: true },
             { name: 'Welcome Message', value: welcomePreview, inline: false },
             { name: 'Goodbye Message', value: goodbyePreview, inline: false },
@@ -81,7 +81,7 @@ function buildDashboardEmbed(cfg, guild) {
 function buildSelectMenu(guildId) {
     return new StringSelectMenuBuilder()
         .setCustomId(`greet_cfg_${guildId}`)
-        .setPlaceholder('Select a setting to configure...')
+        .setPlaceholder('👋 Choose a welcome or goodbye setting...')
         .addOptions(
             new StringSelectMenuOptionBuilder()
                 .setLabel('Welcome Channel')

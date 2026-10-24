@@ -25,7 +25,7 @@ export const CATEGORY_ICONS = {
 /** Commands that always stay available so server admins can recover access. */
 export const OWNER_ONLY_COMMANDS = new Set([
   'announcement', 'broadcast', 'giveexp', 'removeexp',
-  'removeleaderboard', 'restoreleaderboard', 'popularity', 'restart',
+  'removeleaderboard', 'restoreleaderboard', 'popularity', 'ownerstats', 'restart',
 ]);
 export const PROTECTED_COMMANDS = new Set(['dashboard', 'antinuke', ...OWNER_ONLY_COMMANDS]);
 export function isOwnerOnlyCommand(name) {

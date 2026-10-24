@@ -40,7 +40,7 @@ const HIDDEN_COMMANDS = new Set([
 export const LEGACY_SLASH_COMMANDS = new Set([
   'gcreate', 'gdelete', 'gend', 'greroll',
   'ticketadd', 'ticketremove', 'ticketrename', 'claim', 'close', 'priority', 'ticketstats',
-  'rank', 'levels', 'unixtime', 'warn', 'autoverify', 'lock', 'unlock',
+  'rank', 'levels', 'unixtime', 'warn', 'autoverify', 'lock', 'unlock', 'goodbye', 'popularity',
   'broadcast', 'shorten', 'generatepassword', 'firstmsg', 'randomuser',
 ]);
 
