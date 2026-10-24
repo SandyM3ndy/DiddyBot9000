@@ -1,4 +1,4 @@
-import { getColor, getDefaultApplicationQuestions, botConfig } from '../../../config/bot.js';
+import { getColor, getDefaultApplicationQuestions, botConfig, formatBeaconFooter } from '../../../config/bot.js';
 import {
     ActionRowBuilder,
     StringSelectMenuBuilder,
@@ -56,7 +56,7 @@ async function buildDashboardEmbed(settings, roles, guild, client) {
             : '`Not set`';
 
     return new EmbedBuilder()
-        .setTitle('Applications Dashboard')
+        .setTitle('📋 Beacon • Applications Dashboard')
         .setDescription(`Manage application settings for **${guild.name}**.\nSelect an option below to modify a setting.`)
         .setColor(getColor('info'))
         .addFields(
@@ -72,7 +72,7 @@ async function buildDashboardEmbed(settings, roles, guild, client) {
                 inline: false,
             },
         )
-        .setFooter({ text: 'Dashboard closes after 15 minutes of inactivity' })
+        .setFooter({ text: formatBeaconFooter('Dashboard closes after 15 minutes of inactivity') })
         .setTimestamp();
 }
 
@@ -210,7 +210,7 @@ async function showApplicationSelector(interaction, roles, settings, guildId, cl
         );
 
     const embed = new EmbedBuilder()
-        .setTitle('Select Application')
+        .setTitle('Beacon • Select Application')
         .setDescription('Choose which application role you want to configure.')
         .setColor(getColor('info'));
 
@@ -285,7 +285,7 @@ async function showApplicationDashboard(rootInteraction, selectedRole, settings,
         : '`None configured`';
 
     const embed = new EmbedBuilder()
-        .setTitle('📋 Application Dashboard')
+        .setTitle('📋 Beacon • Application Dashboard')
         .setDescription(`Configuration for **${selectedRole.name}**`)
         .setColor(isEnabled ? getColor('success') : getColor('error'))
         .addFields(
@@ -321,7 +321,7 @@ async function showApplicationDashboard(rootInteraction, selectedRole, settings,
                 inline: false 
             },
         )
-        .setFooter({ text: 'Dashboard closes after 10 minutes of inactivity' })
+        .setFooter({ text: formatBeaconFooter('Dashboard closes after 10 minutes of inactivity') })
         .setTimestamp();
 
     const configMenu = buildApplicationSelectMenu(guildId, selectedRole.roleId);
