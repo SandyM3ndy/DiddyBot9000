@@ -4,6 +4,8 @@ Discord replies should be public when they contain useful, shareable community i
 
 ## Public by default
 - /help and /help search (use **private:true** to hide it)
+- /verify (use **private:true** for a discreet verification result)
+- /purge successful cleanup receipt (use **private:true** for a quiet cleanup)
 - /status for regular users (owner-specific diagnostics remain private)
 - /support, /invite, /botinfo, /ping
 - /userinfo (use **private:true** to hide it)
@@ -18,7 +20,7 @@ Discord replies should be public when they contain useful, shareable community i
 - /ticket personal requests, transcripts, support queues and configuration
 - /warnings, /usernotes, /report file and sensitive application status
 - /todo personal and shared-list operations
-- /music status for internal service diagnostics
+- /music status is public: only service availability, voice-channel presence and queue totals are shown
 - /apply submit and /apply status (but /apply list is public)
 - /suggest and /poll send a **separate public post**; their command confirmation stays private to avoid a duplicate message
 - /embedbuilder editor and drafts stay private until publication
@@ -28,4 +30,4 @@ A public reply is not the same as granting permission to run a command. Existing
 There is no fixed percentage target: visibility is chosen based on the data in each response. Any new commands should use public replies only if their **entire** success payload is safe to share; error and permission denial details should remain private where possible.
 
 ## Deployment check
-After deploying the latest main build, test /help, /userinfo, /count leaderboard and /queue for public replies, then verify /dashboard, /ticket transcript, /cases and /todo list remain private.
+After deploying the latest main build, test /help, /userinfo, /verify, /purge, /music status, /count leaderboard and /queue for public replies. Check the **private:true** override for /verify and /purge; verify /dashboard, /ticket transcript, /cases and /todo list remain private.
