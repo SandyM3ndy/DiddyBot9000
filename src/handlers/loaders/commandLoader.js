@@ -10,7 +10,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const MAX_COMMANDS = 100;
 const COMMAND_COUNT_WARN_THRESHOLD = 90;
-export const REQUIRED_V11_COMMANDS = Object.freeze(['diagnose', 'roleaudit', 'ticketstats']);
+export const REQUIRED_V11_COMMANDS = Object.freeze(['diagnose', 'roleaudit', 'ticket', 'giveaway', 'time']);
 
 export function getMissingRequiredCommands(names) {
     const available = new Set(names);
@@ -31,6 +31,15 @@ const HIDDEN_COMMANDS = new Set([
     'welcome',
     'jointocreate',
     'reactroles',
+]);
+
+// Legacy handlers remain loaded for old text-prefix usage, but their
+// standalone slash names are replaced with the streamlined command groups.
+export const LEGACY_SLASH_COMMANDS = new Set([
+  'gcreate', 'gdelete', 'gend', 'greroll',
+  'ticketadd', 'ticketremove', 'ticketrename', 'claim', 'close', 'priority', 'ticketstats',
+  'rank', 'levels', 'unixtime', 'warn',
+  'broadcast', 'shorten', 'generatepassword', 'firstmsg', 'randomuser',
 ]);
 
 function getSubcommandInfo(commandData) {
@@ -83,6 +92,7 @@ export async function loadCommands(client) {
                 logger.warn(`Command at ${filePath} is missing required "data" or "execute" property.`);
                 continue;
             }
+            command.legacyOnly = LEGACY_SLASH_COMMANDS.has(command.data.name);
             command.ownerOnly = isOwnerOnlyCommand(command.data.name);
             command.category = command.ownerOnly ? 'BotOwner' : category;
             command.filePath = normalizedPath;
@@ -104,7 +114,7 @@ export async function loadCommands(client) {
     const commandsWithSubcommands = Array.from(client.commands.values()).filter(cmd => getSubcommandInfo(cmd.data.toJSON()).length > 0);
     const totalSubcommands = commandsWithSubcommands.reduce((total, cmd) => total + getSubcommandInfo(cmd.data.toJSON()).length, 0);
     const uniqueCommands = new Set();
-    for (const [name, command] of client.commands.entries()) if (command.data?.name) uniqueCommands.add(command.data.name);
+    for (const [name, command] of client.commands.entries()) if (command.data?.name && !command.legacyOnly) uniqueCommands.add(command.data.name);
     assertRequiredCommandsPresent(uniqueCommands, 'loaded');
     logger.info(`Loaded ${uniqueCommands.size} commands`);
     return client.commands;
@@ -115,6 +125,7 @@ function collectCommandPayloads(client) {
     let totalSubcommands = 0;
     const registeredNames = new Set();
     for (const command of client.commands.values()) {
+        if (command.legacyOnly) continue;
         if (!command.data || typeof command.data.toJSON !== 'function') {
             logger.warn(`Command missing data or toJSON method: ${command}`);
             continue;
@@ -211,7 +222,7 @@ async function registerGlobalCommands(client, clientId, commands, totalSubcomman
         throw new Error('Discord did not return a command list to confirm global registration.');
     }
     assertRequiredCommandsPresent(registered.map(command => command.name), 'Discord-registered');
-    logger.info(`Registered ${registered.length} global commands; confirmed /diagnose, /roleaudit and /ticketstats`);
+    logger.info(`Registered ${registered.length} global commands; confirmed required v1.1 features`);
     client._beaconHelpCommandCache = null;
     await clearGuildScopedCommands(client, clientId);
 }

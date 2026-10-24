@@ -50,7 +50,10 @@ function getCommandAccess(commandData) {
     const name = String(commandData?.name || '').toLowerCase();
 
     if (isOwnerOnlyCommand(name)) return 'Bot Owner Only';
-    if (name === 'ticketstats') return 'Manage Server, Manage Channels or Ticket Staff';
+    if (name === 'ticketstats' || name === 'ticket stats') return 'Manage Server, Manage Channels or Ticket Staff';
+    if (name.startsWith('ticket ')) return name.endsWith('close') ? 'Ticket creator, staff or Manage Channels' : 'Ticket Staff or Manage Channels';
+    if (name === 'giveaway' || name.startsWith('giveaway ')) return 'Manage Server';
+    if (name.startsWith('warnings ')) return 'Moderate Members';
     if (name === 'claim' || name === 'priority') return 'Manage Server or Ticket Staff';
     if (name === 'close') return 'Manage Server, Ticket Staff, or ticket creator';
 
@@ -62,7 +65,7 @@ function formatHelpField(cmd, registeredCommands) {
     const mention = registered?.id
         ? '</' + cmd.displayName + ':' + registered.id + '>'
         : '/' + cmd.displayName;
-    const access = getCommandAccess(cmd.commandData);
+    const access = getCommandAccess({ ...cmd.commandData, name: cmd.displayName });
     const description = String(cmd.description || 'No description')
         .replace(/^Bot Owner Only\s*[•-]\s*/i, '')
         .trim();
@@ -187,7 +190,7 @@ export async function createCategoryCommandsMenu(category, client, page = 1) {
     // Use the actual loaded registry, not every JavaScript file on disk.
     for (const command of client?.commands?.values() || []) {
         const commandData = normalizeCommandData(command);
-        if (!commandData?.name || command.category !== category) continue;
+        if (!commandData?.name || command.legacyOnly || command.category !== category) continue;
         if (commandData.name === 'help' || commandData.name === 'commandlist') continue;
         categoryCommands.push(...buildHelpEntries(command, categoryName));
     }
@@ -234,7 +237,7 @@ export async function createAllCommandsMenu(page = 1, client) {
 
     for (const command of client?.commands?.values() || []) {
         const commandData = normalizeCommandData(command);
-        if (!commandData?.name || commandData.name === 'help' || commandData.name === 'commandlist') continue;
+        if (!commandData?.name || command.legacyOnly || commandData.name === 'help' || commandData.name === 'commandlist') continue;
         const categoryName = formatCategoryName(command.category || 'Other');
         allCommands.push(...buildHelpEntries(command, categoryName));
     }

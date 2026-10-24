@@ -14,7 +14,7 @@ function mockClient() {
     command('dashboard', 'Core', 'Configure your server'),
     command('diagnose', 'Utility', 'Check your server'),
     command('roleaudit', 'Moderation', 'Review roles'),
-    command('ticketstats', 'Ticket', 'Support metrics'),
+    command('ticket', 'Ticket', 'Support metrics'),
     command('restart', 'BotOwner', 'Bot Owner Only • Safely restart Beacon', true),
   ]) commands.set(item.data.name, item);
   return { commands, user: { username: 'Beacon', displayAvatarURL: () => 'https://cdn.discordapp.com/embed/avatars/0.png' } };
@@ -50,6 +50,6 @@ test('all commands view includes administrator tools', async () => {
   const view = await createAllCommandsMenu(1, client);
   const content = JSON.stringify(view.embeds[0].toJSON());
   assert.match(content, /diagnose/);
-  assert.match(content, /ticketstats/);
+  assert.match(content, /ticket/);
   assert.match(content, /roleaudit/);
 });

@@ -8,7 +8,7 @@ import { formatCategoryName, getCategoryIcon } from '../../config/commands/comma
 const SUPPORT_URL = 'https://discord.gg/76N2EM6v6k';
 
 export function getHelpOverview(client) {
-  const commands = [...(client?.commands?.values() || [])].filter(command => command?.data?.name);
+  const commands = [...(client?.commands?.values() || [])].filter(command => command?.data?.name && !command.legacyOnly);
   const categories = new Map();
   for (const command of commands) {
     if (command.data.name === 'help') continue;
