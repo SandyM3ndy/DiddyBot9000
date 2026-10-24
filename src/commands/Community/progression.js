@@ -248,6 +248,106 @@ async function buildPanel(interaction, view, page, expired = false) {
   return { embeds: [embed], components, page: currentPage };
 }
 
+
+async function openQuestReroll(button){
+ if(button.guild?.ownerId!==button.user.id)
+  return button.reply({content:'🔒 Only the server owner can reroll quests.',flags:MessageFlags.Ephemeral});
+ const data=await getServerProgression(button.client,button.guildId);
+ const today=new Date().toISOString().slice(0,10);
+ if(data.dailyRerollDay===today)
+  return button.reply({content:'🎲 Your free reroll has already been used today. It resets at 00:00 UTC.',flags:MessageFlags.Ephemeral});
+ const available=data.dailyQuests.filter(q=>!q.completed);
+ if(!available.length)
+  return button.reply({content:'✅ No unfinished quests to reroll.',flags:MessageFlags.Ephemeral});
+ const base='progress_reroll:'+button.id+':';
+ const rows=[];
+ for(let i=0;i<available.length;i+=5)rows.push(new ActionRowBuilder().addComponents(
+  available.slice(i,i+5).map(q=>new ButtonBuilder().setCustomId(base+'select:'+q.id)
+   .setLabel(q.title.replace(/^[^\w]+/u,'').slice(0,75)).setStyle(ButtonStyle.Secondary))
+ ));
+ await button.reply({
+  embeds:[createEmbed({title:'🎲 Choose a Daily Quest to Replace',
+   description:'One free reroll per day, per server. This will **discard progress on the selected quest**, and the replacement starts at zero. Rewards already earned are safe.',
+   color:'info'})],components:rows,flags:MessageFlags.Ephemeral
+ });
+ const msg=await button.fetchReply().catch(()=>null);
+ if(!msg?.createMessageComponentCollector)return;
+ const collector=msg.createMessageComponentCollector({time:60_000,filter:i=>i.customId.startsWith(base)});
+ let selected=null;
+ collector.on('collect',async i=>{
+  if(i.user.id!==button.user.id) {
+   await i.reply({content:'This reroll belongs to the server owner.',flags:MessageFlags.Ephemeral}).catch(()=>{});
+   return;
+  }
+  const action=i.customId.slice(base.length);
+  if(action.startsWith('select:')){
+   selected=action.slice(7);
+   const quest=available.find(q=>q.id===selected);
+   if(!quest)return i.update({content:'That quest is no longer available.',embeds:[],components:[]});
+   await i.update({embeds:[createEmbed({
+    title:'Confirm Quest Reroll?',
+    description:'Replace **'+quest.title+'** ('+quest.progress+'/'+quest.target+') with another quest?\n\n⚠️ Progress will reset. You cannot undo this reroll.',
+    color:'warning',
+   })],components:[new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId(base+'confirm').setLabel('Yes, reroll').setStyle(ButtonStyle.Danger),
+    new ButtonBuilder().setCustomId(base+'cancel').setLabel('Cancel').setStyle(ButtonStyle.Secondary),
+   )]}).catch(()=>{});
+   return;
+  }
+  if(action==='cancel') {
+   await i.update({content:'Reroll cancelled. Your free reroll is still available.',embeds:[],components:[]}).catch(()=>{});
+   collector.stop('cancel');return;
+  }
+  if(action==='confirm' && selected){
+   await i.deferUpdate().catch(()=>{});
+   try{
+    const r=await rerollDailyQuest(i.client,i.guildId,selected);
+    const response=r.result?.changed
+     ? '✅ Replaced **'+r.result.previous+'** with **'+r.result.next.title+'**. Your daily reroll has been saved.'
+     : '⚠️ '+(r.result?.error||'Unable to reroll this quest.');
+    await i.editReply({content:response,embeds:[],components:[]}).catch(()=>{});
+   }catch(error){
+    await i.editReply({content:'❌ Database save failed. Your reroll was not confirmed. Try again.',embeds:[],components:[]}).catch(()=>{});
+   }
+   collector.stop('confirmed');
+  }
+ });
+ collector.on('end',async()=>{
+  await button.editReply({components:[]}).catch(()=>{});
+ });
+}
+
+async function sendRankCard(button){
+ await button.deferReply();
+ const [data,entries,founder]=await Promise.all([
+  getServerProgression(button.client,button.guildId),
+  getGlobalProgressionLeaderboard(button.client),
+  getFoundingBadge(button.client,button.guildId),
+ ]);
+ const idx=entries.findIndex(e=>e.guildId===button.guildId);
+ const png=renderProgressionRankPng({
+  name:button.guild.name,rank:idx<0?null:idx+1,
+  level:data.level,xp:data.xp,progress:getLevelProgress(data).percent,founder,
+ });
+ await button.editReply({
+  content:'🏆 **'+cleanName(button.guild.name)+'** — Beacon Server Rank Card',
+  files:[new AttachmentBuilder(png,{name:'beacon-rank.png'})],
+  allowedMentions:{parse:[]},
+ });
+}
+async function activateProgression(button){
+ if(button.guild.ownerId!==button.user.id)
+  return button.reply({content:'🔒 Only the server owner can enable progression.',flags:MessageFlags.Ephemeral});
+ await button.deferReply({flags:MessageFlags.Ephemeral});
+ try{
+  await patchGuildConfig(button.client,button.guildId,{serverProgression:{enabled:true}});
+  await mutateServerProgression(button.client,button.guildId,()=>({changed:true}));
+  await button.editReply({content:'🚀 **Beacon Progression enabled!** Your daily and weekly challenges are saved. Press Refresh on the progression panel to see them.'});
+ }catch(error){
+  await button.editReply({content:'❌ Could not enable progression. Please check the database or use /dashboard.'}).catch(()=>{});
+ }
+}
+
 export default {
   data: new SlashCommandBuilder()
     .setName('progression')
@@ -289,9 +389,15 @@ export default {
           flags: MessageFlags.Ephemeral }).catch(() => {});
         return;
       }
+      const action = button.customId.slice(prefix.length);
+      if(action==='reroll')return openQuestReroll(button);
+      if(action==='card')return sendRankCard(button).catch(async()=> {
+        if(button.deferred || button.replied)await button.editReply({content:'⚠️ Could not generate a rank card right now.'}).catch(()=>{});
+        else await button.reply({content:'⚠️ Could not generate a rank card.',flags:MessageFlags.Ephemeral}).catch(()=>{});
+      });
+      if(action==='activate')return activateProgression(button);
       const acknowledged = await button.deferUpdate().then(() => true).catch(() => false);
       if (!acknowledged) return;
-      const action = button.customId.slice(prefix.length);
       if (action === 'next') page += 1;
       else if (action === 'prev') page = Math.max(0, page - 1);
       else if (action !== 'refresh' && VIEWS.some(item => item.id === action)) {
