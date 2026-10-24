@@ -17,6 +17,7 @@ import { logTicketEvent } from '../utils/ticket/ticketLogging.js';
 import { createError, ErrorTypes } from '../utils/errorHandler.js';
 import { ensureTypedServiceError, wrapServiceBoundary } from '../utils/serviceErrorBoundary.js';
 import { PRIORITY_MAP } from '../utils/helpers.js';
+import { buildTicketTranscriptHtml } from '../utils/ticket/ticketTranscriptHtml.js';
 const TICKET_DELETE_DELAY_MS = 3000;
 const TICKET_DELETE_DELAY_SECONDS = Math.floor(TICKET_DELETE_DELAY_MS / 1000);
 const TICKET_SERVICE = 'ticketService';
@@ -617,249 +618,114 @@ export async function reopenTicket(channel, reopener) {
   }
 }
 
-function escapeHtml(text) {
-  if (!text) return '';
-  return String(text)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
+const MAX_ARCHIVE_MESSAGES = 3000;
+const MAX_ARCHIVE_BYTES = 7_500_000;
 
-async function generateTranscript(channel) {
-  try {
-    logger.debug('Generating transcript for channel', {
-      channelId: channel.id,
-      channelName: channel.name
-    });
-
-    const messages = [];
-    let before = undefined;
-    let batch;
-    do {
-      batch = await channel.messages.fetch({ limit: 100, ...(before ? { before } : {}) });
-      if (batch.size === 0) break;
-      messages.push(...batch.values());
-      before = batch.last()?.id;
-    } while (batch.size === 100);
-
-    messages.sort((a, b) => a.createdTimestamp - b.createdTimestamp);
-
-    const escape = (str) =>
-      String(str ?? '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
-
-    const rows = messages.map((msg) => {
-      const ts = new Date(msg.createdTimestamp).toISOString().replace('T', ' ').slice(0, 19);
-      const author = escape(msg.author?.tag ?? msg.author?.username ?? 'Unknown');
-      const content = escape(msg.content || (msg.embeds.length ? '[embed]' : '[attachment]'));
-      return `<tr><td class="ts">${ts}</td><td class="author">${author}</td><td class="msg">${content}</td></tr>`;
-    }).join('\n');
-
-    const html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Transcript – #${escape(channel.name)}</title>
-<style>
-body{font-family:sans-serif;background:#36393f;color:#dcddde;margin:0;padding:16px}
-h1{color:#fff;font-size:1.2rem;margin-bottom:8px}
-table{width:100%;border-collapse:collapse;font-size:0.85rem}
-th{background:#2f3136;color:#8e9297;padding:6px 8px;text-align:left;border-bottom:2px solid #202225}
-td{padding:4px 8px;border-bottom:1px solid #40444b;vertical-align:top}
-.ts{color:#72767d;white-space:nowrap;width:160px}
-.author{color:#7289da;white-space:nowrap;width:160px}
-.msg{word-break:break-word}
-</style>
-</head>
-<body>
-<h1>📜 Transcript – #${escape(channel.name)}</h1>
-<p style="color:#72767d">${messages.length} message(s) exported on ${new Date().toUTCString()}</p>
-<table>
-<thead><tr><th>Timestamp (UTC)</th><th>Author</th><th>Message</th></tr></thead>
-<tbody>
-${rows}
-</tbody>
-</table>
-</body>
-</html>`;
-
-    const buffer = Buffer.from(html, 'utf8');
-    const attachment = new AttachmentBuilder(buffer, { name: `ticket-${channel.id}.html` });
-
-    logger.info('✅ Successfully generated transcript', {
-      channelId: channel.id,
-      channelName: channel.name,
-      messageCount: messages.length,
-      size: buffer.length
-    });
-
-    return attachment;
-  } catch (error) {
-    logger.error('❌ Failed to generate transcript:', {
-      channelId: channel.id,
-      channelName: channel.name,
-      errorMessage: error.message,
-      errorName: error.name,
-      errorStack: error.stack
-    });
-    return null;
+/** Make a complete transcript or stop rather than silently archive only part of a ticket. */
+export async function generateTicketTranscript(channel) {
+  const messages = [];
+  let before;
+  while (true) {
+    const batch = await channel.messages.fetch({ limit: 100, ...(before ? { before } : {}) });
+    if (!batch.size) break;
+    messages.push(...batch.values());
+    if (messages.length > MAX_ARCHIVE_MESSAGES) {
+      ticketUserError('Transcript exceeds archive limit',
+        'This ticket is too large for automatic archival. Export it manually before deleting.',
+        ErrorTypes.VALIDATION, { channelId: channel.id });
+    }
+    before = batch.last()?.id;
+    if (batch.size < 100) break;
   }
+  const html = buildTicketTranscriptHtml({
+    channelName: channel.name,
+    guildName: channel.guild.name,
+    messages,
+  });
+  const buffer = Buffer.from(html, 'utf8');
+  if (buffer.byteLength > MAX_ARCHIVE_BYTES) {
+    ticketUserError('Transcript exceeds upload limit',
+      'This ticket archive exceeds the safe upload size. Export it manually before deleting.',
+      ErrorTypes.VALIDATION, { channelId: channel.id });
+  }
+  return { attachment: new AttachmentBuilder(buffer, { name: 'ticket-' + channel.id + '.html' }),
+    messageCount: messages.length };
 }
 
 export async function deleteTicket(channel, deleter) {
   try {
     const ticketData = requireTicket(await getTicketData(channel.guild.id, channel.id), channel);
-    
-    const deleteEmbed = createEmbed({
-      title: 'Ticket Deleted',
-      description: `🗑️ This ticket will be permanently deleted in ${TICKET_DELETE_DELAY_SECONDS} seconds.`,
-      color: '#e74c3c',
-      footer: { text: `Ticket ID: ${ticketData.id}` }
-    });
-    
-    await channel.send({ embeds: [deleteEmbed] });
-    
+    if (ticketData.status !== 'closed') {
+      ticketUserError('Ticket must be closed first',
+        'Close the ticket before permanently deleting it.', ErrorTypes.VALIDATION);
+    }
+
+    const config = await getGuildConfig(channel.client, channel.guild.id);
+    if (!config.ticketTranscriptChannelId) {
+      ticketUserError('Ticket transcript channel is not configured',
+        'To protect support conversations, configure a private transcript channel in /dashboard before deleting tickets.',
+        ErrorTypes.CONFIGURATION);
+    }
+    const archiveChannel = channel.guild.channels.cache.get(config.ticketTranscriptChannelId)
+      || await channel.guild.channels.fetch(config.ticketTranscriptChannelId).catch(() => null);
+    if (!archiveChannel?.isSendable?.() || archiveChannel.guildId !== channel.guild.id || archiveChannel.id === channel.id) {
+      ticketUserError('Ticket transcript destination unavailable',
+        'The configured transcript channel is missing or unavailable. Repair it in /dashboard, then retry.',
+        ErrorTypes.CONFIGURATION);
+    }
+
+    // Do not destroy a support conversation until an archive has been generated
+    // and Discord confirms that a copy was uploaded to the configured channel.
+    const transcript = await generateTicketTranscript(channel);
+    try {
+      await archiveChannel.send({
+        embeds: [buildStandardLogEmbed({
+          color: 0x5865F2,
+          title: '📜 Beacon • Archived Support Ticket',
+          description: [
+            formatLogLine('Ticket', ticketData.id),
+            formatLogLine('Requester', '<@' + ticketData.userId + '>'),
+            formatLogLine('Closed by', ticketData.closedBy ? '<@' + ticketData.closedBy + '>' : 'Unknown'),
+            formatLogLine('Messages', String(transcript.messageCount)),
+            formatLogLine('Archived', '<t:' + Math.floor(Date.now()/1000) + ':F>'),
+          ].join('\n'),
+          timestamp: true,
+        })],
+        files: [transcript.attachment],
+        allowedMentions: { parse: [] },
+      });
+    } catch (archiveError) {
+      logger.error('Ticket archive upload failed: deletion cancelled', { guildId: channel.guild.id,
+        channelId: channel.id, error: archiveError?.message });
+      ticketUserError('Transcript delivery failed',
+        'Beacon could not safely save this transcript. The ticket has NOT been deleted. Check archive-channel permissions and retry.',
+        ErrorTypes.CONFIGURATION);
+    }
+
+    await channel.delete('Ticket archived and permanently removed by ' + deleter.id);
+    // Purge stored metadata only after the channel has actually been deleted.
+    try {
+      await deleteTicketData(channel.guild.id, channel.id);
+    } catch (storageError) {
+      logger.error('Deleted ticket channel but could not purge its metadata', {
+        guildId: channel.guild.id, channelId: channel.id, error: storageError?.message,
+      });
+    }
+
     await logTicketEvent({
       client: channel.client,
       guildId: channel.guild.id,
       event: {
-        type: 'delete',
-        ticketId: channel.id,
-        ticketNumber: ticketData.id,
-        userId: ticketData.userId,
-        executorId: deleter.id,
-        metadata: {
-          deletedAt: new Date().toISOString()
-        }
-      }
+        type: 'delete', ticketId: channel.id, ticketNumber: ticketData.ticketNumber || ticketData.id,
+        userId: ticketData.userId, executorId: deleter.id,
+        metadata: { archivedAt: new Date().toISOString(), messageCount: transcript.messageCount },
+      },
     });
-
-    setTimeout(async () => {
-      try {
-        logger.debug('Starting ticket deletion process', {
-          channelId: channel.id,
-          ticketId: ticketData.id
-        });
-
-        let attachment = null;
-        try {
-          attachment = await generateTranscript(channel);
-          if (attachment) {
-            logger.info('Transcript generated successfully, attempting to send', {
-              channelId: channel.id,
-              ticketNumber: ticketData.id
-            });
-          } else {
-            logger.warn('Transcript generation returned null', {
-              channelId: channel.id,
-              ticketNumber: ticketData.id
-            });
-          }
-        } catch (transcriptError) {
-          logger.error('Error during transcript generation', {
-            channelId: channel.id,
-            ticketNumber: ticketData.id,
-            error: transcriptError.message
-          });
-        }
-
-        if (attachment) {
-          try {
-            const guildConfig = await getGuildConfig(channel.client, channel.guild.id);
-            if (!guildConfig.ticketTranscriptChannelId) {
-              logger.warn('No transcript channel configured, skipping transcript send', {
-                channelId: channel.id,
-                ticketNumber: ticketData.id
-              });
-            } else {
-              const transcriptChannel = await channel.client.channels.fetch(guildConfig.ticketTranscriptChannelId).catch(() => null);
-              
-              if (!transcriptChannel) {
-                logger.error('Could not fetch transcript channel', {
-                  channelId: channel.id,
-                  transcriptChannelId: guildConfig.ticketTranscriptChannelId
-                });
-              } else if (!transcriptChannel.isSendable()) {
-                logger.error('Transcript channel exists but is not sendable', {
-                  channelId: channel.id,
-                  transcriptChannelId: transcriptChannel.id
-                });
-              } else {
-                
-                const transcriptEmbed = buildStandardLogEmbed({
-                  color: 0x3498db,
-                  title: 'Ticket Transcript',
-                  description: [
-                    formatLogLine('Ticket', `#${ticketData.id}`),
-                    formatLogLine('Channel', `#${channel.name}`),
-                    formatLogLine('Generated', `<t:${Math.floor(Date.now() / 1000)}:F>`),
-                  ].join('\n'),
-                  footer: deleter?.username
-                    ? { text: `Deleted by ${deleter.username}`, iconURL: deleter.displayAvatarURL?.() }
-                    : undefined,
-                  timestamp: true,
-                });
-
-                await transcriptChannel.send({
-                  embeds: [transcriptEmbed],
-                  files: [attachment]
-                });
-
-                logger.info('✅ Transcript sent successfully', {
-                  channelId: channel.id,
-                  ticketNumber: ticketData.id,
-                  transcriptChannelId: transcriptChannel.id
-                });
-              }
-            }
-          } catch (sendError) {
-            logger.error('Failed to send transcript to channel:', {
-              channelId: channel.id,
-              ticketNumber: ticketData.id,
-              error: sendError.message
-            });
-          }
-        }
-
-        try {
-          await channel.delete('Ticket deleted permanently');
-          logger.info('✅ Channel deleted', {
-            channelId: channel.id,
-            channelName: channel.name,
-            ticketNumber: ticketData.id
-          });
-        } catch (deleteError) {
-          logger.error('❌ Failed to delete ticket channel:', {
-            channelId: channel.id,
-            channelName: channel.name,
-            ticketNumber: ticketData.id,
-            errorMessage: deleteError.message,
-            errorCode: deleteError.code,
-            errorName: deleteError.name
-          });
-        }
-      } catch (error) {
-        logger.error('❌ Unexpected error during ticket deletion:', {
-          channelId: channel.id,
-          channelName: channel?.name,
-          ticketNumber: ticketData?.id,
-          errorMessage: error.message,
-          errorName: error.name,
-          errorStack: error.stack
-        });
-      }
-    }, TICKET_DELETE_DELAY_MS);
-    
-    return ticketData;
-    
+    return { ...ticketData, archivedMessageCount: transcript.messageCount };
   } catch (error) {
-    rethrowTicketError(error, 'deleteTicket', 'Failed to delete ticket. Please try again in a moment.', { guildId: channel?.guild?.id, channelId: channel?.id, deleterId: deleter?.id });
+    rethrowTicketError(error, 'deleteTicket',
+      'Could not safely archive and delete the ticket. The channel has been retained if possible.',
+      { guildId: channel?.guild?.id, channelId: channel?.id, deleterId: deleter?.id });
   }
 }
 
