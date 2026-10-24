@@ -69,7 +69,7 @@ export async function updateCaseReview({ client, guild, caseId, editorId, operat
       client, guild, event: {
         action: 'Case Updated', caseId,
         executor: '<@' + editorId + '> (' + editorId + ')',
-        target: current.target || 'Unknown', reason: operation + ': ' + text.slice(0, 200),
+        target: current.target || 'Unknown', reason: operation + ' updated (details kept in private case history)',
         metadata: { moderatorId: editorId, source: 'Case Manager' },
       },
     }).catch(error => logger.warn('Case audit notification unavailable', { guildId, error: error?.message }));

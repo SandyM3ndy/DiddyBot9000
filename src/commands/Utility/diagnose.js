@@ -40,12 +40,12 @@ export default {
       embeds: [createEmbed({
         title: '🩺 Beacon • Server Diagnostics',
         description: ('**Server Health: ' + health.score + '/100 — ' + health.grade + '**' +
-          '\\n*Advisory score based on checked settings, not a guarantee of security or uptime.*' +
-          '\\n\\n' + desc).slice(0, 4000),
+          '\n*Advisory score based on checked settings, not a guarantee of security or uptime.*' +
+          '\n\\n' + desc).slice(0, 4000),
         fields: [
           { name: '📊 Checks', value: health.checked + ' checked • ' + summary, inline: false },
           { name: '🛠️ Recommended next actions', value: (health.actions.length
-              ? health.actions.map((a, i) => (i + 1) + '. ' + a).join('\\n')
+              ? health.actions.map((a, i) => (i + 1) + '. ' + a).join('\n')
               : 'No confirmed issues in the checks performed. Uncached resources may need manual verification.').slice(0,1024),
             inline: false },
         ],
