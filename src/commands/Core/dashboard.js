@@ -275,7 +275,7 @@ function buildFavouriteShortcuts(guildId, ids = []) {
     );
 }
 
-function buildDashboardRows(config,guildId,ids=[]){
+export function buildDashboardRows(config,guildId,ids=[]){
     const rows=[buildButtonRow(config,guildId),buildSettingsSelect(guildId),buildDashboardHubMenu(guildId)];
     const favourites=buildFavouriteShortcuts(guildId,ids);
     if(favourites)rows.push(favourites);
