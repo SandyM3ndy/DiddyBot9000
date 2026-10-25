@@ -178,6 +178,6 @@ export async function respondSandTrade(interaction){
  await notifyTradeServers(client,result.offer);
  return reply(interaction,sub==='accept'?
   '✅ **Trade complete!** '+title(offer.offeredItem)+' ↔ '+title(offer.requestedItem)+
-  ' were swapped atomically between the two server inventories. Equipped items were safely unequipped.':
+  ' were swapped atomically between both server inventories. Equipped items were safely unequipped.\n🛡️ Both PostgreSQL inventories and recovery vaults committed: source revision **'+result.saveRevisions.from+'**, destination revision **'+result.saveRevisions.to+'**.':
   '✅ Trade **'+(sub==='cancel'?'cancelled':'declined')+'**. Neither inventory was changed.');
 }
