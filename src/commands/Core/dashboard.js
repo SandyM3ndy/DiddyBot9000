@@ -24,7 +24,7 @@ import { DASHBOARD_FAVOURITES, getDashboardFavourites, formatDashboardFavourites
     updateDashboardSettingWithUndo, getDashboardUndo, undoLastDashboardSetting,
 } from '../../services/dashboardExperienceService.js';
 import { logger } from '../../utils/logger.js';
-import { botConfig, getCommandPrefix, BEACON_MOTTO, BEACON_TEAM_NAME } from '../../config/bot.js';
+import { botConfig, getCommandPrefix, BEACON_MOTTO, BEACON_TEAM_NAME, BEACON_VERSION_LABEL } from '../../config/bot.js';
 import { buildDashboardHubMenu, buildDashboardHubPanel } from '../../utils/dashboardHub.js';
 import ticketDashboard from '../Ticket/modules/ticket_dashboard.js';
 import commandsDashboard from './modules/commands_dashboard.js';
@@ -124,7 +124,7 @@ export function buildDashboardEmbed(config, guild) {
           (next || 'Open the menu below to finish setup.');
 
     return createEmbed({
-        title: '🏠 Beacon • Main Control Center',
+        title: '🏠 Beacon ' + BEACON_VERSION_LABEL + ' • Main Control Center',
         description: [
             '**' + guild.name + '**',
             '**' + BEACON_MOTTO + '**',
