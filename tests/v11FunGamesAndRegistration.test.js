@@ -82,3 +82,29 @@ test('maintained slash commands are not still silently hidden by the loader',asy
   }
   assert.equal(typeof loadCommands,'function');
 });
+
+test('players cannot hijack another member\'s game or publish permission denials',async()=>{
+  const replies=[];
+  const intr={
+    id:'333333333333333333',user:{id:'222222222222222222'},
+    deferred:false,replied:false,
+    reply:async data=>{replies.push(data);},
+    update:async()=>{throw new Error('Unauthorized update occurred');},
+  };
+  await handlers[1].execute(intr,null,['paper',player]);
+  assert.equal(replies.length,1);
+  assert.ok((replies[0].flags & 64)!==0);
+  assert.match(replies[0].content,/belongs to someone else/);
+  await handlers[0].execute(intr,null,[player]);
+  assert.equal(replies.length,2);
+});
+
+test('8-ball Ask Again recreates original question even after process restart',async()=>{
+  const first=build8BallPayload('Is today the day?',player,()=>0);
+  const replies=[];
+  const intr={user:{id:player},message:{embeds:[first.embeds[0].toJSON()]},
+    update:async payload=>{replies.push(payload);}};
+  await handlers[0].execute(intr,null,[player]);
+  assert.equal(replies.length,1);
+  assert.equal(replies[0].embeds[0].toJSON().fields[0].value,'Is today the day?');
+});
