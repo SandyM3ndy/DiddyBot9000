@@ -4,6 +4,7 @@ import { InteractionHelper } from '../../utils/interactionHelper.js';
 import { createEmbed } from '../../utils/embeds.js';
 import { createSelectMenu } from '../../utils/components.js';
 import { formatCategoryName, getCategoryIcon } from '../../config/commands/commandCategories.js';
+import { searchBeaconCommandsByIntent } from '../../utils/helpSearch.js';
 
 const SUPPORT_URL = 'https://discord.gg/76N2EM6v6k';
 
@@ -70,17 +71,7 @@ export async function createInitialHelpMenu(client) {
 }
 
 export function searchBeaconCommands(client, query) {
-  const needle = String(query || '').trim().toLowerCase();
-  if (!needle) return [];
-  return [...(client?.commands?.values() || [])]
-    .filter(command => command?.data?.name && !command.legacyOnly)
-    .map(command => ({
-      name: command.data.name,
-      category: formatCategoryName(command.category || 'Core'),
-      description: command.data.description || 'No description provided',
-    }))
-    .filter(command => [command.name, command.category, command.description].some(s => s.toLowerCase().includes(needle)))
-    .sort((a, b) => a.name.localeCompare(b.name));
+  return searchBeaconCommandsByIntent(client?.commands?.values?.() || [], query);
 }
 
 export default {
@@ -103,16 +94,16 @@ export default {
         const embed = createEmbed({
           title: '🔎 Beacon • Command Search',
           description: matched.length
-            ? '**' + matched.length + ' match(es)** for "' + query + '"\n' +
+            ? '**' + matched.length + ' match(es)** for "' + query.replace(/@/g,'@\\u200b') + '"\n' +
               (matched.length > items.length ? 'Showing the first 15. Try a more specific search.' : 'Select a command from the list below.')
             : 'No command matched "' + query + '". Try a category such as tickets, music or moderation.',
           color: 'primary',
           fields: items.map(x => ({
-            name: '/' + x.name + ' • ' + x.category,
-            value: x.description,
+            name: ('/' + x.name + ' • ' + x.category).slice(0,256),
+            value: (x.description + (x.ownerOnly ? '\\n👑 Bot Owner Only' : '')).slice(0,1024),
             inline: false,
           })),
-          footer: 'Beacon • Command Center • Search all public commands',
+          footer: 'Beacon • Command Center • Search installed commands',
         });
         return await InteractionHelper.safeEditReply(interaction, { embeds: [embed], components: [] });
       }
