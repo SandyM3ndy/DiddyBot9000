@@ -23,9 +23,11 @@ test('streamlined command groups include every migrated operation', () => {
   }
 });
 test('old slash names are retained only as prefix command handlers', () => {
-  for (const name of ['gcreate', 'gdelete', 'gend', 'greroll', 'ticketadd', 'ticketstats', 'rank', 'levels', 'unixtime', 'warn', 'flip', 'roll', 'calculate', 'baseconvert', 'countdown']) {
+  for (const name of ['gcreate', 'gdelete', 'gend', 'greroll', 'ticketadd', 'ticketstats', 'levels', 'unixtime', 'warn', 'flip', 'roll', 'calculate', 'baseconvert', 'countdown']) {
     assert.ok(LEGACY_SLASH_COMMANDS.has(name), name);
   }
   assert.ok(REQUIRED_V11_COMMANDS.includes('giveaway'));
   assert.ok(REQUIRED_V11_COMMANDS.includes('ticket'));
+  assert.equal(LEGACY_SLASH_COMMANDS.has('rank'),false,'/rank card must be registered, not retired');
+  assert.ok(REQUIRED_V11_COMMANDS.includes('rank'));
 });
