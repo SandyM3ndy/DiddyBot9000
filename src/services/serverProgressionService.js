@@ -378,14 +378,37 @@ export function previewDailyQuests(guildId, day, level = 1, memberCount = 1) {
 }
 
 
+// Weekly rewards complement sustained activity instead of deciding world #1.
+// v2 raises minimum effort and cuts max 3-quest payout from 2,600 to 680 XP.
+export const WEEKLY_BALANCE_VERSION=2;
 const WEEKLY_POOL=[
-{id:'warmup',title:'🌱 Weekly Warmup',description:'Send 20 eligible messages this week.',metric:'messages',target:20,reward:250,minMembers:1},
-{id:'explorer',title:'🤖 Beacon Explorer',description:'Use 10 eligible commands this week.',metric:'commands',target:10,reward:300,minMembers:1},
-{id:'streak',title:'📅 Consistent Crew',description:'Qualifying activity on 3 different days.',metric:'activeDays',target:3,reward:500,minMembers:1},
-{id:'team',title:'🔥 Community Spirit',description:'Have 3 unique participants this week.',metric:'uniqueMembers',target:3,reward:400,minMembers:3},
-{id:'dailies',title:'🏆 Dedicated Community',description:'Complete 10 daily quests this week.',metric:'dailyQuests',target:10,reward:900,minMembers:1},
-{id:'legend',title:'👑 Weekly Legends',description:'Earn 2,000 activity XP this week.',metric:'activityXp',target:2000,reward:1200,minMembers:5},
+{id:'warmup',title:'🌱 Weekly Warmup',description:'Send 100 eligible messages this week.',metric:'messages',target:100,reward:100,minMembers:1},
+{id:'explorer',title:'🤖 Beacon Explorer',description:'Use 50 eligible commands this week.',metric:'commands',target:50,reward:120,minMembers:1},
+{id:'streak',title:'📅 Consistent Crew',description:'Qualifying activity on 5 different days.',metric:'activeDays',target:5,reward:150,minMembers:1},
+{id:'team',title:'🔥 Community Spirit',description:'Have 8 unique participants this week.',metric:'uniqueMembers',target:8,reward:160,minMembers:8},
+{id:'dailies',title:'🏆 Dedicated Community',description:'Complete 15 daily quests this week.',metric:'dailyQuests',target:15,reward:220,minMembers:1},
+{id:'legend',title:'👑 Weekly Legends',description:'Earn 3,000 eligible activity XP this week.',metric:'activityXp',target:3000,reward:300,minMembers:5},
 ];
+// Preserve completed quests and XP actually paid; only unfinished quests
+// are migrated to the current balance policy without losing their progress.
+function rebalanceExistingWeekly(weekly){
+ if(!weekly||weekly.balanceVersion===WEEKLY_BALANCE_VERSION)return weekly;
+ const byId=new Map(WEEKLY_POOL.map(q=>[q.id,q]));
+ for(const q of weekly.quests||[]){
+  if(q.completed)continue;
+  const fresh=byId.get(q.id);
+  if(!fresh)continue;
+  q.title=fresh.title;
+  q.description=fresh.description;
+  q.target=fresh.target;
+  q.reward=fresh.reward;
+  q.minMembers=fresh.minMembers;
+  q.progress=Math.max(0,Math.min(q.target,Number(q.progress)||0));
+ }
+ weekly.balanceVersion=WEEKLY_BALANCE_VERSION;
+ return weekly;
+}
+
 export const FOUNDING_CAP=25;
 const FOUNDERS_KEY='beacon:founders:v1';
 export function getWeeklyCatalog(){return WEEKLY_POOL.map(q=>({...q}));}
@@ -423,8 +446,9 @@ function ensureExtras(data,guildId,members=1,now=new Date()){
  if(c.week!==week){c.week=week;c.weekly={};}
  if(!data.weekly || data.weekly.week!==week){
   if(data.weekly?.week)data.weeklyHistory.push({...data.weekly,recordedAt:new Date().toISOString()});
-  data.weekly={week,quests:pickWeekly(guildId,week,members),days:[],uniqueMembers:[]};
+  data.weekly={week,balanceVersion:WEEKLY_BALANCE_VERSION,quests:pickWeekly(guildId,week,members),days:[],uniqueMembers:[]};
  }
+ rebalanceExistingWeekly(data.weekly);
  data.dailyRerollDay ||= null;data.joinDay ||= day;data.joinIds ||= [];
  if(data.joinDay!==day){data.joinDay=day;data.joinIds=[];}
  return data;
@@ -572,6 +596,7 @@ async function load(client, guildId, { persistRollover = false } = {}) {
   if (persistRollover && (
     !raw || raw.lastQuestDay !== data.lastQuestDay ||
     raw.weekly?.week !== data.weekly?.week ||
+    raw.weekly?.balanceVersion !== data.weekly?.balanceVersion ||
     raw.contributors?.day !== data.contributors?.day ||
     raw.contributors?.week !== data.contributors?.week ||
     raw.joinDay !== data.joinDay
