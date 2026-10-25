@@ -43,7 +43,7 @@ test('public flagship commands and website copy use the official motto, not camp
   for(const path of paths){
     const code=await readFile(path,'utf8');
     const escaped=code.replace(/\\'/g,"'");
-    assert.ok(escaped.includes(BEACON_MOTTO),path+' should contain official motto');
+    assert.ok(escaped.includes(BEACON_MOTTO) || code.includes('BEACON_MOTTO'),path+' should use the official motto or its shared constant');
     assert.doesNotMatch(code,/Your community\. Better protected\./,path);
   }
 });
