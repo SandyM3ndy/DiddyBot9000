@@ -7,7 +7,6 @@ import { reconcileTicketPanels, reconcileVerificationPanels, reconcileReactionRo
 import { initRiffyAfterReady } from "../services/music/riffySetup.js";
 import { loadLockdownStates } from "../services/lockdownService.js";
 import { loadAllPersistedAntiNukeConfigs } from "../services/antinukeService.js";
-import { clearGuildScopedCommands } from "../handlers/loaders/commandLoader.js";
 import { startTicketSlaMonitor } from '../services/ticketSlaService.js';
 import { startSandCoinsMaintenance } from '../services/sandCoinsMaintenance.js';
 
@@ -32,9 +31,8 @@ export default {
       await loadAllPersistedAntiNukeConfigs(client);
       startTicketSlaMonitor(client);
       startSandCoinsMaintenance(client);
-      // Keep commands global-only and remove old guild-scoped copies that caused duplicates.
-      await clearGuildScopedCommands(client);
-
+      // Global command sync runs once after login, not during the ready event.
+      // Never race it with a second guild command cleanup.
 
       if (client.config?.features?.music) {
         initRiffyAfterReady(client);
