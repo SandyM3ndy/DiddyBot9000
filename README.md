@@ -35,76 +35,32 @@ Beacon offers a complete suite of tools for Discord server management and commun
 - **Shareable Rank Cards** — Show off a server's level, XP and rank
 - **Contributor Recognition** — Optional public member contribution rankings with privacy controls
 
-<table>
-<tr>
-<td width="50%" valign="top">
+### 🛡️ Moderation, security and accountability
+- **Moderation cases** — Warnings, timeouts, bans, staff notes and auditable case history
+- **Anti-Nuke and role audits** — Review dangerous permissions and protect server configuration
+- **Permission-aware controls** — Staff-only views for privileged operations and sensitive records
 
-### Moderation & Administration
-- **Mass Actions** - Bulk ban/kick capabilities
-- **User Notes** - Keep detailed moderation records
-- **Case Management** - View and track all mod actions
+### 🎫 Support and community feedback
+- **Ticket Command Center** — Private support queue, assignment, priority and response metrics
+- **Transcripts** — Support conversation archives with staff-only access controls
+- **Suggestions** — Community ideas with persisted Under Review, Planned, Accepted and Declined decisions
+- **Polls and reports** — Gather feedback and route reports to server staff
 
-### Economy System
-- **Shop & Inventory** - Buy and manage items
-- **Community Economy** - Earn and exchange in-server currency
-- **Pay System** - Transfer money between users
+### ⚙️ Server configuration and automation
+- **Beacon Dashboard** — Server settings, up to four personal favourites and guarded single-setting Undo
+- **Reaction Role Studio** — Preview self-assignable role panels and inspect Discord role security
+- **Verification and welcome** — Configure member entry, auto-roles and welcome/goodbye messages
+- **Join to Create** — Automatically managed temporary voice channels
+- **Server statistics** — Channel-based counters for community activity
 
-### Fun & Entertainment
-- **Random Facts** - Learn something new
-- **Wanted Poster** - Create fun wanted images
-- **Text Reversal** - Reverse any text
+### 🎉 Giveaways, music and everyday tools
+- **Giveaways** — Create, end and reroll eligible giveaways
+- **Music** — Playback, queues and interactive controls when a working Lavalink node is connected
+- **Useful commands** — `/serverinfo`, `/firstmsg`, `/calculate`, `/todo`, `/search` and more
+- **Error Rescue** — Actionable recovery instructions and a support link when an operation fails
 
-### Advanced Ticket System
-- **Claim & Priority** - Staff ticket management
-- **Ticket Limits** - Prevent spam
-- **Transcript System** - Save ticket history
+**New here?** Start with `/help` → **Start Here**, then open `/dashboard`. Features that depend on optional permissions or external music providers may need extra configuration.
 
-### Server Stats
-- **Member Counter** - Live member count channels
-- **Voice Counters** - Track voice stats
-- **Dynamic Updates** - Real-time channel updates
-
-### Reaction Roles
-- **Role Assignment** - Self-assignable roles
-- **Emoji Selection** - Reaction-based system
-- **Multi-role Support** - Multiple role options
-
-</td>
-<td width="50%" valign="top">
-
-### Leveling & XP System
-- **XP Tracking** - Automatic message-based XP
-- **Level Roles** - Auto-assign roles by level
-- **Custom Configuration** - Personalize leveling
-
-### Giveaways & Events
-- **Multiple Winners** - Support multi-winner giveaways
-- **Auto Picking** - Automatic winner selection
-- **Reroll System** - Pick new winners if needed
-
-### Birthday System
-- **Birthday Tracking** - Never miss a birthday
-- **Auto Announcements** - Celebrate automatically
-- **Timezone Support** - Accurate worldwide tracking
-
-### Utility Tools
-- **Report System** - Report issues to staff
-- **Todo Lists** - Personal task management
-- **First Message** - Jump to channel's first message
-
-### Welcome System
-- **Welcome Messages** - Greet new members
-- **Auto Roles** - Assign roles on join
-- **Custom Embeds** - Personalized messages
-  
-### Music
-- **24/7 Mode** - Play music 24/7
-- **Interative Button System** - Manage music through buttons
-- **Streaming sources** - Playback availability depends on configured Lavalink nodes and supported source plugins
-  
-</td>
-</tr>
-</table>
 
 <a name="quick-setup"></a>
 ## Quick Setup (Recommended for non-coders)
@@ -113,9 +69,12 @@ Beacon offers a complete suite of tools for Discord server management and commun
 1. Invite Beacon using the bot's `/invite` command in an existing server, or contact the [support server](https://discord.gg/76N2EM6v6k).
 2. Open `/dashboard` for server configuration.
 3. Use `/progression overview` and select **Enable Progression** (server owner only).
-4. Open `/progression quests`, `/progression weekly` and `/progression leaderboard` to explore.
+4. Open `/ticket panel` to configure support tickets, or `/reactroles studio` for self-assignable roles.
+5. Use `/diagnose` to check server setup and permissions. Explore `/progression quests` and `/progression weekly` when progression is enabled.
 
 Progression is free and optional. Nothing resets your existing Server XP when you enable or disable it.
+
+For a guided walkthrough, use `/help` → **Start Here**. Commands and admin-only actions require appropriate Discord permissions.
 
 ## Docker Deployment (Recommended)
 
@@ -150,7 +109,7 @@ This starts the bot and PostgreSQL. The compose file sets `POSTGRES_SSL=false` a
 
 Music uses [Lavalink v4](https://github.com/lavalink-devs/Lavalink) via [Riffy](https://github.com/riffy-rb/riffy), similar to [Musicify](https://github.com/codebymitch/Musicify).
 
-1. By default, the bot loads multiple public v4 SSL nodes from [`lavalink/nodes.json`](lavalink/nodes.json) (sourced from [lavalink.darrennathanael.com](https://lavalink.darrennathanael.com/SSL/Lavalink-SSL/)). Edit that file to add or remove nodes.
+1. By default, the bot loads the public Lavalink nodes listed in [`lavalink/nodes.json`](lavalink/nodes.json). Availability is provided by third parties and can change; edit the file to replace offline nodes.
 2. To self-host Lavalink instead, run `docker compose --profile local-lavalink up -d` and set single-node env vars in `.env`:
    ```env
    LAVALINK_HOST=lavalink
@@ -158,7 +117,7 @@ Music uses [Lavalink v4](https://github.com/lavalink-devs/Lavalink) via [Riffy](
    LAVALINK_PASSWORD=youshallnotpass
    LAVALINK_SECURE=false
    ```
-   Remove or rename `lavalink/nodes.json` so the bot falls back to those env vars.
+   Explicit `LAVALINK_HOST` configuration takes precedence over nodes in `lavalink/nodes.json`.
 3. Override nodes inline with `LAVALINK_NODES` (JSON array) or point at another file with `LAVALINK_NODES_FILE`.
 4. Use `/play <song>` from a voice channel, or `/join` to connect without playing. Prefix shortcuts: `join`, `np`, `leave`, `pause`, `resume`, `skip`, `stop`, `volume <0-100>`, or `music <subcommand>`. Use `/nowplaying` and `/queue` for status; `/music` for loop, shuffle, seek, and other controls.
 
@@ -302,4 +261,4 @@ Beacon is released under the MIT License. See [LICENSE](LICENSE) for details.
 
 Thank you for choosing Beacon for your Discord server! We're constantly working to improve and add new features based on community feedback.
 
-*Last updated: May 2026*
+*Last updated: October 2026*
