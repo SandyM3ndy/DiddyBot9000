@@ -67,13 +67,28 @@ test('global wallet can purchase for another guild atomically; server owns inven
 test('limited editions are globally capped, and exhausted stock does not spend coins',async()=>{
  const {db,values}=mockDatabase();
  const limited=SAND_CATALOG.find(item=>item.id==='royal');
- assert.equal(limited.limit,5);
+ assert.equal(limited.limit,3);
  values.set(walletKey(u),{balance:5000,lifetime:5000});
- values.set('beacon:sandcoins:v1:stock:royal',5);
+ const key='beacon:sandcoins:v1:stock:royal';
+ // Existing purchases remain recorded: shrinking the cap must not erase or
+ // reissue an item, nor produce negative remaining stock.
+ for(const [used,remaining] of [[0,3],[1,2],[2,1],[3,0],[5,0]]){
+  values.set(key,used);
+  assert.deepEqual(await getSandLimitedStock({db},'royal'),{total:3,remaining});
+ }
+ // A real third sale makes Royal Sands globally sold out.
+ values.set(key,3);
  const result=await buySandDecoration({db},{userId:u,guildId:g1,itemId:'royal',purchaseId:'777777777777777777'});
  assert.equal(result.error,'SOLD_OUT');
  assert.equal((await getSandWallet({db},u)).balance,5000);
  assert.equal((await getSandLimitedStock({db},'royal')).remaining,0);
+ assert.equal(values.get(key),3);
+ // Existing four/five-owner inventories are never modified by cap reduction.
+ values.set(key,5);
+ assert.deepEqual(await getSandLimitedStock({db},'royal'),{total:3,remaining:0});
+ const existing=await buySandDecoration({db},{userId:u,guildId:g2,itemId:'royal',purchaseId:'777777777777777778'});
+ assert.equal(existing.error,'SOLD_OUT');
+ assert.equal(values.get(key),5);
 });
 
 test('rank card image changes visually when server-owned cosmetics are equipped',()=>{
