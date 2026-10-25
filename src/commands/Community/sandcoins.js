@@ -6,6 +6,7 @@ import { resolveLogChannel } from '../../services/loggingService.js';
 import {
  SAND_CATALOG,SAND_SLOTS,getSandWallet,getSandServer,getSandCatalogItem,
  getSandAppearance,buySandDecoration,equipSandDecoration,deliverSandPurchaseLogs,getSandLimitedStock,
+ getSandGlobalLeaderboard,setSandLeaderboardHidden,
 } from '../../services/sandCoinsService.js';
 import { logger } from '../../utils/logger.js';
 
@@ -46,6 +47,9 @@ export default {
   .setDescription('Earn global Sand Coins from quests and customise server rank cards')
   .setDMPermission(false)
   .addSubcommand(s=>s.setName('wallet').setDescription('See your global Sand Coins balance and quest earnings'))
+  .addSubcommand(s=>s.setName('leaderboard').setDescription('See the all-time global Sand Coin earners'))
+  .addSubcommand(s=>s.setName('privacy').setDescription('Hide or show your identity on global coin rankings')
+   .addBooleanOption(o=>o.setName('hidden').setDescription('Hide yourself from the public ranking').setRequired(true)))
   .addSubcommand(s=>s.setName('shop').setDescription('Browse rank-card decorations for this server'))
   .addSubcommand(s=>s.setName('inventory').setDescription('See rank-card cosmetics owned by this server'))
   .addSubcommand(s=>s.setName('buy').setDescription('Use your coins to buy a rank-card item for THIS server')
@@ -61,11 +65,28 @@ export default {
   if(!interaction.guild)return InteractionHelper.safeReply(interaction,{
    content:'Open Sand Coins from a server using Beacon.',flags:MessageFlags.Ephemeral});
   const sub=interaction.options.getSubcommand();
-  if(!(await InteractionHelper.safeDefer(interaction,{flags:MessageFlags.Ephemeral})))return;
+  if(!(await InteractionHelper.safeDefer(interaction,sub==='leaderboard'?{}:{flags:MessageFlags.Ephemeral})))return;
   try{
    if(['equip','unequip'].includes(sub)&&!isManager(interaction))
     return InteractionHelper.safeEditReply(interaction,{
      content:'🔒 Only the server owner or members with **Manage Server** can change the public rank-card appearance.'});
+   if(sub==='leaderboard'){
+    const players=await getSandGlobalLeaderboard(interaction.client,10);
+    return InteractionHelper.safeEditReply(interaction,{embeds:[createEmbed({
+     title:'🏆 Beacon • Global Sand Coin Rankings',
+     description:players.length?players.map((p,i)=>(['🥇','🥈','🥉'][i]||'🪙')+
+      ' **#'+(i+1)+'** <@'+p.userId+'> • **'+format(p.earned)+'** lifetime earned').join('\n'):
+      'No ranked Sand Coins earners yet. Help your server complete its quests!',
+     color:'primary',footer:'Ranked by lifetime Sand Coins earned • /sandcoins privacy to opt out',
+    })],allowedMentions:{parse:[]}});
+   }
+   if(sub==='privacy'){
+    const hidden=interaction.options.getBoolean('hidden',true);
+    await setSandLeaderboardHidden(interaction.client,interaction.user.id,hidden);
+    return InteractionHelper.safeEditReply(interaction,{content:hidden?
+     '🔒 Your name is now hidden from global Sand Coins rankings; your wallet and earnings are unchanged.':
+     '✅ Your name is visible on the global Sand Coins rankings again.'});
+   }
    if(sub==='wallet'){
     const w=await getSandWallet(interaction.client,interaction.user.id);
     return InteractionHelper.safeEditReply(interaction,{embeds:[createEmbed({
