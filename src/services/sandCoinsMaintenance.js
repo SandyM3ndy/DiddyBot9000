@@ -6,13 +6,24 @@ let started=false;
 export async function maintainSandCoins(client){
  if(!client?.db?.isAvailable?.())return;
  for(const guild of client.guilds?.cache?.values?.()||[]){
+  // Backups are essential; failing rewards/logs cannot prevent protection.
+  let state;
   try{
-   await settlePendingSandPayouts(client,guild.id);
-   const state=await getSandServer(client,guild.id);
-   if(state.pendingLogs.length)await deliverSandPurchaseLogs(client,guild.id);
-   if(state.pendingTradeLogs.length)await deliverSandTradeLogs(client,guild.id);
+   state=await getSandServer(client,guild.id);
   }catch(error){
-   logger.warn('Sand Coins pending work retained',{guildId:guild.id,error:error.message});
+   logger.error('Sand Coins inventory integrity check failed; records untouched',
+    {guildId:guild.id,error:error.message});
+   continue;
+  }
+  try{await settlePendingSandPayouts(client,guild.id);}
+  catch(error){logger.warn('Pending quest payouts retained',{guildId:guild.id,error:error.message});}
+  if(state.pendingLogs.length){
+   try{await deliverSandPurchaseLogs(client,guild.id);}
+   catch(error){logger.warn('Purchase audits retained',{guildId:guild.id,error:error.message});}
+  }
+  if(state.pendingTradeLogs.length){
+   try{await deliverSandTradeLogs(client,guild.id);}
+   catch(error){logger.warn('Trade audits retained',{guildId:guild.id,error:error.message});}
   }
  }
 }
