@@ -714,30 +714,37 @@ async function recordActivity(client, guildId, metric, options = {}) {
       return { data, completed, weeklyCompleted, pendingSand:[...data.sandPendingPayouts], level: data.level, leveledUp: data.level > previousLevel, previousLevel, levelPerks: getLevelPerks(data.level) };
     },client);
 
-    // A saved payout intent survives a restart. Atomic wallet claims guarantee
-    // that replaying a pending event never credits a user twice.
-    if(result?.pendingSand?.length){
-      const settled=[];
-      for(const payout of result.pendingSand.slice(0,150)){
-        try {
-          await grantQuestSandCoins(client,payout);
-          settled.push(payout.key);
-        }catch(error){
-          logger.warn('Sand Coins payout retained for retry',{guildId,error:error.message});
-        }
-      }
-      if(settled.length)await withGuildLock(guildId,async()=>{
-        const latest=await load(client,guildId);
-        const paid=new Set(settled);
-        latest.sandPendingPayouts=(latest.sandPendingPayouts||[]).filter(p=>!paid.has(p.key));
-        await save(client,guildId,latest);
-      },client);
-    }
+    // Payout intent is saved alongside quest XP. Wallet claims are idempotent.
+    if(result?.pendingSand?.length)await settlePendingSandPayouts(client,guildId,result.pendingSand);
     return result;
   } catch (error) {
     logger.debug('Server progression update failed', { guildId, error: error.message });
     return null;
   }
+}
+
+/** Replay durable quest payout intents after crashes or transient database errors. */
+export async function settlePendingSandPayouts(client,guildId,provided=null){
+ const pending=provided||await withGuildLock(guildId,async()=>{
+  const data=await load(client,guildId);
+  return (data.sandPendingPayouts||[]).slice(0,150);
+ },client);
+ if(!pending.length)return {settled:0,pending:0};
+ const settled=[];
+ for(const payout of pending.slice(0,150)){
+  try{
+   await grantQuestSandCoins(client,payout);
+   settled.push(payout.key);
+  }catch(error){
+   logger.warn('Sand Coins payout remains queued',{guildId,error:error.message});
+  }
+ }
+ if(settled.length)await withGuildLock(guildId,async()=>{
+  const latest=await load(client,guildId),paid=new Set(settled);
+  latest.sandPendingPayouts=(latest.sandPendingPayouts||[]).filter(p=>!paid.has(p.key));
+  await save(client,guildId,latest);
+ },client);
+ return {settled:settled.length,pending:pending.length-settled.length};
 }
 
 export async function isServerProgressionEnabled(client, guildId) {
@@ -791,7 +798,7 @@ export async function recordMessageActivity(client, message, config = null) {
 
 export async function recordCommandActivity(client, interaction, config = null) {
   if (!interaction?.guild || interaction.user?.bot) return null;
-  if (['progression', 'rank', 'levels', 'giveexp', 'removeexp', 'removeleaderboard', 'restoreleaderboard'].includes(interaction.commandName)) return null;
+  if (['progression', 'sandcoins', 'rank', 'levels', 'giveexp', 'removeexp', 'removeleaderboard', 'restoreleaderboard'].includes(interaction.commandName)) return null;
 
   const effectiveConfig = config || await (async () => {
     const { getGuildConfig } = await import('./config/guildConfig.js');
