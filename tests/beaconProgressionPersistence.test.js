@@ -34,6 +34,62 @@ test('founder badge registry persists and does not duplicate after a simulated r
  assert.deepEqual(await getFoundingBadge(second,founders[0].guildId),founders[0]);
  assert.equal((await second.db.get('beacon:founders:v1')).entries.length,2);
 });
+
+test('leaderboard exclusion recycles the exact Founder number to the next oldest eligible server',async()=>{
+ const ids=Array.from({length:27},(_,i)=>String(BigInt('111111111111111111')+BigInt(i)));
+ const store=new Map();
+ const client=mockClient(store,ids);
+ const initial=await registerFoundingServers(client);
+ assert.equal(initial.length,25);
+ assert.deepEqual(initial.map(e=>e.number),Array.from({length:25},(_,i)=>i+1));
+ const removed=initial[2],oldestWaiting=ids[25];
+ assert.equal(removed.guildId,ids[2]);
+ const xpBefore=8123;
+ store.set('guild:'+removed.guildId+':progression',{xp:xpBefore,leaderboardExcluded:true});
+ const changed=await registerFoundingServers(client);
+ assert.equal(changed.length,25);
+ assert.equal(changed.filter(x=>x.number===removed.number).length,1);
+ assert.equal(changed.find(x=>x.number===removed.number).guildId,oldestWaiting);
+ assert.equal(changed.some(x=>x.guildId===removed.guildId),false);
+ assert.equal(await getFoundingBadge(client,removed.guildId),null);
+ assert.equal((await getFoundingBadge(client,oldestWaiting)).number,removed.number);
+ assert.equal(store.get('guild:'+removed.guildId+':progression').xp,xpBefore);
+ // Restart and repeated re-registration cannot duplicate a badge or promote
+ // a banned server again, even with a spare Founder number.
+ const restarted=mockClient(store,ids);
+ const again=await registerFoundingServers(restarted);
+ assert.deepEqual(again,changed);
+ assert.equal(new Set(again.map(x=>x.number)).size,25);
+ assert.equal(new Set(again.map(x=>x.guildId)).size,25);
+});
+
+test('previously excluded test servers lose Founder badge and empty slots remain available',async()=>{
+ const ids=Array.from({length:3},(_,i)=>String(BigInt('222222222222222222')+BigInt(i)));
+ const store=new Map(),client=mockClient(store,ids);
+ const assigned=await registerFoundingServers(client);
+ assert.equal(assigned.length,3);
+ store.set('guild:'+ids[0]+':progression',{xp:1999,leaderboardExcluded:true});
+ const reassigned=await registerFoundingServers(client);
+ assert.equal(reassigned.some(x=>x.guildId===ids[0]),false);
+ assert.deepEqual(reassigned.map(x=>x.number),[2,3]);
+ // Its Founder badge is hidden immediately after the exclusion flag is saved,
+ // even before the registry reallocation pass.
+ assert.equal(await getFoundingBadge(client,ids[0]),null);
+ const again=await registerFoundingServers(mockClient(store,ids));
+ assert.deepEqual(again,reassigned);
+});
+
+test('Founder registry refuses to claim reassignment if persistent save failed',async()=>{
+ const ids=['111111111111111111','222222222222222222','333333333333333333'];
+ const store=new Map(),client=mockClient(store,ids);
+ await registerFoundingServers(client);
+ store.set('guild:'+ids[0]+':progression',{xp:0,leaderboardExcluded:true});
+ const original=structuredClone(store.get('beacon:founders:v1'));
+ client.db.set=async()=>false;
+ await assert.rejects(()=>registerFoundingServers(client),/Founding registry storage rejected the write/);
+ assert.deepEqual(store.get('beacon:founders:v1'),original);
+ assert.equal(await getFoundingBadge(client,ids[0]),null);
+});
 test('daily reroll changes one quest once and survives a simulated restart',async()=>{
  const store=new Map(),guildId='111111111111111111';
  const first=mockClient(store);
