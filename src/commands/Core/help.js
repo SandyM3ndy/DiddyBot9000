@@ -7,6 +7,7 @@ import { formatCategoryName, getCategoryIcon } from '../../config/commands/comma
 import { searchBeaconCommandsByIntent } from '../../utils/helpSearch.js';
 import { getRegisteredCommands } from '../../handlers/help/helpSelectMenus.js';
 import { BEACON_TEAM_NAME } from '../../config/bot.js';
+import { getBeaconInviteUrl } from './invite.js';
 
 const SUPPORT_URL = 'https://discord.gg/76N2EM6v6k';
 
@@ -48,7 +49,7 @@ export async function createInitialHelpMenu(client) {
       { name: '📚 Commands', value: String(commands), inline: true },
       { name: '🗂️ Categories', value: String(categories.size), inline: true },
       { name: '🛡️ Security', value: 'Moderation & Anti-Nuke', inline: true },
-      { name: '🚀 Get started', value: '**/progression overview** — Explore quests, rankings and server XP\n**/dashboard** — Configure your community\n**/diagnose** — Check setup and permissions', inline: false },
+      { name: '🚀 Get started', value: '**/progression overview** — Explore quests, rankings and server XP\n**/dashboard** — Configure your community (including Welcome & Goodbye)\n**/diagnose** — Check setup and permissions', inline: false },
       { name: '🎯 Community Progression', value: '**/progression quests** — Daily challenges\n**/progression weekly** — Weekly goals\n**/progression leaderboard** — Global server rankings\n**/sandcoins wallet** — Global quest earnings\n**/sandcoins shop** — Server rank-card decorations', inline: false },
       { name: '🧰 Administration', value: '**/roleaudit** — Review powerful server roles\n**/ticketstats** — Track your support workload', inline: false },
       { name: '👑 Developer tools', value: 'The **Bot Owner** category contains commands reserved for Beacon’s creator. Server owners and moderators can manage their own communities normally.', inline: false },
@@ -66,7 +67,15 @@ export async function createInitialHelpMenu(client) {
     .setLabel('Start Here')
     .setEmoji('🚀')
     .setStyle(ButtonStyle.Primary);
-  const components = [new ActionRowBuilder().addComponents(startButton, supportButton)];
+  const actions=[startButton,supportButton];
+  // The former /invite action now lives in the Help Center and /botinfo.
+  const clientId=client?.user?.id || client?.config?.bot?.clientId;
+  if (/^\d{17,20}$/.test(String(clientId || ''))) {
+    actions.push(new ButtonBuilder()
+      .setLabel('Invite Beacon').setEmoji('🚀')
+      .setURL(getBeaconInviteUrl(clientId)).setStyle(ButtonStyle.Link));
+  }
+  const components = [new ActionRowBuilder().addComponents(...actions)];
   if (options.length) {
     components.push(createSelectMenu('help-category-select', '📚 Select a command category...', options));
   }

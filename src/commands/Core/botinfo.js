@@ -1,9 +1,10 @@
-import { SlashCommandBuilder, version as discordVersion } from 'discord.js';
+import { SlashCommandBuilder, version as discordVersion, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { createEmbed } from '../../utils/embeds.js';
 import { BEACON_TEAM_NAME, BEACON_TEAM_THANKS } from '../../config/bot.js';
 import { getRegisteredCommandCount } from '../../utils/commandCounts.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 import { isAntiNukeAIConfigured, getAntiNukeAIModel } from '../../services/aiSecurityService.js';
+import { getBeaconInviteUrl } from './invite.js';
 
 function displayUptime(seconds) {
   const days = Math.floor(seconds / 86400);
@@ -42,6 +43,15 @@ export default {
       ],
       footer: 'Beacon • Your community\'s all-in-one Discord assistant.',
     });
-    return InteractionHelper.safeReply(interaction, { embeds: [embed] });
+    const actions=[];
+    const clientId=client.user?.id || client.config?.bot?.clientId;
+    if (/^\d{17,20}$/.test(String(clientId || ''))) {
+      actions.push(new ButtonBuilder().setLabel('Invite Beacon').setEmoji('🚀')
+        .setURL(getBeaconInviteUrl(clientId)).setStyle(ButtonStyle.Link));
+    }
+    return InteractionHelper.safeReply(interaction, {
+      embeds: [embed],
+      components: actions.length ? [new ActionRowBuilder().addComponents(...actions)] : [],
+    });
   },
 };

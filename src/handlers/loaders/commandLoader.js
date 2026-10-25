@@ -34,9 +34,11 @@ const HIDDEN_COMMANDS = new Set([
     'logging',
     'welcome',
     'jointocreate',
-    // Owner/internal or superseded commands remain hidden. The maintained
-    // /reactroles studio and /firstmsg are public because help advertises them.
+    // Owner/internal or superseded commands remain hidden.
+    // /reactroles stays available as a standalone studio.
     'broadcast', 'shorten', 'generatepassword', 'randomuser',
+    // Replaced by /help + /botinfo and /dashboard → Welcome & Goodbye.
+    'invite', 'greet',
 ]);
 
 // Legacy handlers remain loaded for old text-prefix usage, but their
@@ -46,6 +48,9 @@ export const LEGACY_SLASH_COMMANDS = new Set([
   'ticketadd', 'ticketremove', 'ticketrename', 'claim', 'close', 'priority', 'ticketstats',
   'rank', 'levels', 'unixtime', 'warn', 'autoverify', 'lock', 'unlock', 'goodbye', 'popularity',
   'broadcast', 'shorten', 'generatepassword', 'randomuser',
+  // Standalone slash names replaced by /random, /math, and /time.
+  // Retained as internal implementations and prefix handlers, not slash commands.
+  'flip', 'roll', 'calculate', 'baseconvert', 'countdown',
 ]);
 
 function getSubcommandInfo(commandData) {

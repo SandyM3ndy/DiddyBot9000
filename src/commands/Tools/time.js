@@ -4,16 +4,23 @@ import { logger } from '../../utils/logger.js';
 import { replyUserError, ErrorTypes } from '../../utils/errorHandler.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 import unixCommand from './unixtime.js';
+import countdownCommand from './countdown.js';
 export default {
     data: new SlashCommandBuilder()
         .setName('time')
-        .setDescription('View current world times and Unix timestamps')
+        .setDescription('Check time, Unix timestamps, or run a countdown')
         .addSubcommand(sub => sub.setName('now').setDescription('Show the current time in a timezone')
             .addStringOption(o => o.setName('timezone').setDescription('Timezone, e.g. Australia/Brisbane or UTC')))
-        .addSubcommand(sub => sub.setName('unix').setDescription('Show Unix timestamps in seconds and milliseconds')),
+        .addSubcommand(sub => sub.setName('unix').setDescription('Show Unix timestamps in seconds and milliseconds'))
+        .addSubcommand(sub => sub.setName('countdown').setDescription('Start a timer with pause and cancel buttons')
+            .addIntegerOption(o => o.setName('minutes').setDescription('Minutes (0-1440)').setMinValue(0).setMaxValue(1440))
+            .addIntegerOption(o => o.setName('seconds').setDescription('Seconds (0-59)').setMinValue(0).setMaxValue(59))
+            .addStringOption(o => o.setName('title').setDescription('Optional countdown name').setMaxLength(100))),
 
     async execute(interaction) {
-        if (interaction.options.getSubcommand() === 'unix') return unixCommand.execute(interaction);
+        const subcommand=interaction.options.getSubcommand();
+        if (subcommand === 'unix') return unixCommand.execute(interaction);
+        if (subcommand === 'countdown') return countdownCommand.execute(interaction);
         await InteractionHelper.safeExecute(
             interaction,
             async () => {

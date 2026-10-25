@@ -6,12 +6,16 @@ import ticket from '../src/commands/Ticket/ticket.js';
 import time from '../src/commands/Tools/time.js';
 import progression from '../src/commands/Community/progression.js';
 import warnings from '../src/commands/Moderation/warnings.js';
+import random from '../src/commands/Fun/random.js';
+import math from '../src/commands/Tools/math.js';
 
 test('streamlined command groups include every migrated operation', () => {
   for (const [command, expected] of [
     [giveaway, ['create', 'end', 'reroll', 'delete']],
     [ticket, ['add', 'remove', 'rename', 'claim', 'close', 'priority', 'stats', 'sla', 'panel', 'my', 'queue', 'info', 'transcript', 'reopen', 'unclaim']],
-    [time, ['now', 'unix']],
+    [time, ['now', 'unix', 'countdown']],
+    [random, ['coin', 'dice']],
+    [math, ['calculate', 'convert']],
     [progression, ['overview', 'quests', 'leaderboard', 'rank', 'milestones', 'weekly', 'contributors', 'privacy']],
     [warnings, ['list', 'add']],
   ]) {
@@ -19,7 +23,7 @@ test('streamlined command groups include every migrated operation', () => {
   }
 });
 test('old slash names are retained only as prefix command handlers', () => {
-  for (const name of ['gcreate', 'gdelete', 'gend', 'greroll', 'ticketadd', 'ticketstats', 'rank', 'levels', 'unixtime', 'warn']) {
+  for (const name of ['gcreate', 'gdelete', 'gend', 'greroll', 'ticketadd', 'ticketstats', 'rank', 'levels', 'unixtime', 'warn', 'flip', 'roll', 'calculate', 'baseconvert', 'countdown']) {
     assert.ok(LEGACY_SLASH_COMMANDS.has(name), name);
   }
   assert.ok(REQUIRED_V11_COMMANDS.includes('giveaway'));
