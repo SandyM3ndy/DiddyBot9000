@@ -1,6 +1,6 @@
 import { SlashCommandBuilder, version as discordVersion, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { createEmbed } from '../../utils/embeds.js';
-import { BEACON_TEAM_NAME, BEACON_TEAM_THANKS } from '../../config/bot.js';
+import { BEACON_TEAM_NAME, BEACON_TEAM_THANKS, BEACON_VERSION_LABEL } from '../../config/bot.js';
 import { getRegisteredCommandCount } from '../../utils/commandCounts.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 import { isAntiNukeAIConfigured, getAntiNukeAIModel } from '../../services/aiSecurityService.js';
@@ -25,11 +25,12 @@ export default {
     const memory = process.memoryUsage();
 
     const embed = createEmbed({
-      title: '✦ Beacon • About',
+      title: '✦ Beacon ' + BEACON_VERSION_LABEL + ' • About',
       description: '**Your community\'s all-in-one Discord assistant.**\nModeration, support, security, daily quests and global server rankings — together in Beacon.',
       color: 'primary',
       thumbnail: client.user?.displayAvatarURL?.({ size: 256 }),
       fields: [
+        { name: '🚀 Version', value: BEACON_VERSION_LABEL, inline: true },
         { name: '🌐 Servers', value: client.guilds.cache.size.toLocaleString(), inline: true },
         { name: '👥 Members (estimated)', value: client.guilds.cache.reduce((n, g) => n + (g.memberCount || 0), 0).toLocaleString(), inline: true },
         { name: '📚 Commands', value: String(getRegisteredCommandCount(client)), inline: true },
