@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { SAND_CATALOG,SAND_DAILY_LIMIT,SAND_WEEKLY_LIMIT,
  getSandWallet,getSandServer,getSandAppearance,getSandLimitedStock,
- grantQuestSandCoins,buySandDecoration,equipSandDecoration } from '../src/services/sandCoinsService.js';
+ grantQuestSandCoins,buySandDecoration,equipSandDecoration,deliverSandPurchaseLogs } from '../src/services/sandCoinsService.js';
 import { eligibleSandContributors,recordQuestContribution,queueSharedSandRewards } from '../src/services/sandQuestRewards.js';
 import { renderProgressionRankPng } from '../src/utils/progressionRankCard.js';
 import sandCommand from '../src/commands/Community/sandcoins.js';
@@ -99,4 +99,46 @@ test('command only contains sandboxed server shop and does not expose purchases 
  const names=sandCommand.data.toJSON().options.map(x=>x.name);
  assert.deepEqual(names,['wallet','shop','inventory','buy','equip','unequip']);
  assert.ok(SAND_CATALOG.every(item=>['background','border','tag'].includes(item.type)));
+});
+
+test('only members who advance quest progress count as eligible contributors',()=>{
+ const q={id:'unique',metric:'uniqueMembers',target:2,progress:1,completed:false};
+ const data={dailyQuests:[q],weekly:{quests:[]},
+  sandContributions:{daily:{},weekly:{}}};
+ recordQuestContribution(data,g1,'message',{userId:u},0,5,{unique:1});
+ assert.equal(data.sandContributions.daily.unique,undefined);
+ q.progress=2;
+ recordQuestContribution(data,g1,'message',{userId:u},0,5,{unique:1});
+ assert.equal(data.sandContributions.daily.unique[u],1);
+});
+
+test('purchase posts a server-specific audit log and clears the durable pending notification',async()=>{
+ const {db,values}=mockDatabase();
+ values.set(walletKey(u),{balance:1000,lifetime:1000});
+ const auditId='999999999999999999',delivered=[];
+ values.set('guild:'+g2+':config',{logging:{enabled:true,channels:{audit:auditId}}});
+ const channel={send:async payload=>{delivered.push(payload);return true;}};
+ const guild={id:g2,name:'Castle',channels:{cache:new Map([[auditId,channel]])}};
+ const client={db,guilds:{cache:new Map([[g2,guild]]),fetch:async()=>guild}};
+ await buySandDecoration(client,{userId:u,guildId:g2,itemId:'sunset',purchaseId:'888888888888888888'});
+ assert.equal((await getSandServer(client,g2)).pendingLogs.length,1);
+ const result=await deliverSandPurchaseLogs(client,g2);
+ assert.equal(result.delivered,1);
+ assert.equal(delivered.length,1);
+ assert.match(delivered[0].embeds[0].toJSON().description,/server/);
+ assert.equal((await getSandServer(client,g2)).pendingLogs.length,0);
+});
+
+test('failed audit delivery leaves the purchase notification queued for recovery',async()=>{
+ const {db,values}=mockDatabase();
+ values.set(walletKey(u),{balance:1000,lifetime:1000});
+ const auditId='999999999999999999';
+ values.set('guild:'+g2+':config',{logging:{enabled:true,channels:{audit:auditId}}});
+ const channel={send:async()=>{throw new Error('Discord unavailable')}};
+ const guild={id:g2,channels:{cache:new Map([[auditId,channel]])}};
+ const client={db,guilds:{cache:new Map([[g2,guild]]),fetch:async()=>guild}};
+ await buySandDecoration(client,{userId:u,guildId:g2,itemId:'sunset',purchaseId:'888888888888888888'});
+ const result=await deliverSandPurchaseLogs(client,g2);
+ assert.equal(result.delivered,0);
+ assert.equal((await getSandServer(client,g2)).pendingLogs.length,1);
 });
