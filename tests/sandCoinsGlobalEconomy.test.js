@@ -5,7 +5,8 @@ import { SAND_CATALOG,SAND_DAILY_LIMIT,SAND_WEEKLY_LIMIT,SAND_DAILY_STREAK_REWAR
  claimSandDaily,getSandDailyStatusFromWallet,
  getSandWallet,getSandServer,getSandAppearance,getSandLimitedStock,
  getSandGlobalLeaderboard,setSandLeaderboardHidden,
- grantQuestSandCoins,buySandDecoration,equipSandDecoration,deliverSandPurchaseLogs } from '../src/services/sandCoinsService.js';
+ grantQuestSandCoins,buySandDecoration,equipSandDecoration,deliverSandPurchaseLogs,
+ transferSandCoins,offerSandTrade,resolveSandTrade,getSandTrade,getSandServerTradeOffers,deliverSandTradeLogs } from '../src/services/sandCoinsService.js';
 import { eligibleSandContributors,recordQuestContribution,queueSharedSandRewards } from '../src/services/sandQuestRewards.js';
 import { renderProgressionRankPng } from '../src/utils/progressionRankCard.js';
 import sandCommand from '../src/commands/Community/sandcoins.js';
@@ -101,7 +102,10 @@ test('contributor eligibility limits payouts to meaningful quest participants',(
 test('command only contains sandboxed server shop and does not expose purchases as admin controls',()=>{
  assert.equal(sandCommand.data.toJSON().name,'sandcoins');
  const names=sandCommand.data.toJSON().options.map(x=>x.name);
- assert.deepEqual(names,['wallet','daily','leaderboard','privacy','shop','inventory','buy','equip','unequip']);
+ assert.deepEqual(names,['wallet','daily','leaderboard','privacy','shop','inventory','buy','equip','unequip','pay','trade']);
+ const group=sandCommand.data.toJSON().options.find(x=>x.name==='trade');
+ assert.equal(group.type,2);
+ assert.deepEqual(group.options.map(x=>x.name),['offer','inbox','status','accept','decline','cancel']);
  assert.equal(dailyCommand.data.toJSON().name,'daily');
  assert.ok(SAND_CATALOG.every(item=>['background','border','tag'].includes(item.type)));
 });
@@ -226,4 +230,129 @@ test('daily reward and daily streak status persist across DB client instances an
  assert.equal(next.amount,45);
  assert.equal((await getSandWallet(reopened,u)).balance,280);
  assert.equal(values.get(walletKey(u)).history.filter(h=>h.kind==='daily').length,2);
+});
+
+test('member payments are atomic, idempotent, non-minting and preserve lifetime earnings',async()=>{
+ const {db,values}=mockDatabase(),v='444444444444444444';
+ values.set(walletKey(u),{balance:800,lifetime:1000,dailyStreak:4,lastDailyClaimDate:'2026-10-25'});
+ values.set(walletKey(v),{balance:100,lifetime:150});
+ const client={db};
+ const first=await transferSandCoins(client,{fromId:u,toId:v,amount:300,transferId:'777777777777777777'});
+ assert.equal(first.fromBalance,500);assert.equal(first.toBalance,400);
+ const duplicate=await transferSandCoins(client,{fromId:u,toId:v,amount:300,transferId:'777777777777777777'});
+ assert.equal(duplicate.duplicate,true);
+ assert.equal((await getSandWallet(client,u)).balance,500);
+ assert.equal((await getSandWallet(client,v)).balance,400);
+ assert.equal((await getSandWallet(client,u)).lifetime,1000);
+ assert.equal((await getSandWallet(client,v)).lifetime,150);
+ assert.equal((await getSandWallet(client,u)).dailyStreak,4);
+ assert.equal(values.get(walletKey(u)).history.filter(h=>h.kind==='payment_sent').length,1);
+ assert.equal(values.get(walletKey(v)).history.filter(h=>h.kind==='payment_received').length,1);
+ const reused=await transferSandCoins(client,{fromId:u,toId:v,amount:250,transferId:'777777777777777777'});
+ assert.equal(reused.error,'TRANSFER_ID_REUSED');
+ const broke=await transferSandCoins(client,{fromId:u,toId:v,amount:600,transferId:'666666666666666666'});
+ assert.equal(broke.error,'INSUFFICIENT_FUNDS');
+ assert.equal((await getSandWallet(client,u)).balance,500);
+ await assert.rejects(transferSandCoins(client,{fromId:u,toId:u,amount:1,transferId:'666666666666666667'}),/yourself/);
+ await assert.rejects(transferSandCoins(client,{fromId:u,toId:v,amount:10001,transferId:'666666666666666668'}),/1–10,000/);
+});
+
+test('cross-server inventory swaps require owners of both guilds and only settle once',async()=>{
+ const {db,values}=mockDatabase();
+ const ownerA='444444444444444444',ownerB='555555555555555555',tradeId='777777777777777777';
+ values.set('beacon:sandcoins:v1:server:'+g1,
+  {inventory:['royal'],equipped:{tag:'royal'},purchases:[],pendingLogs:[]});
+ values.set('beacon:sandcoins:v1:server:'+g2,
+  {inventory:['galaxy'],equipped:{background:'galaxy'},purchases:[],pendingLogs:[]});
+ const client={db},now=new Date('2027-01-10T10:00:00Z');
+ const offered=await offerSandTrade(client,{tradeId,fromGuildId:g1,toGuildId:g2,fromOwnerId:ownerA,toOwnerId:ownerB,
+  offeredItem:'royal',requestedItem:'galaxy',now});
+ assert.equal(offered.offer.status,'pending');
+ assert.equal((await getSandServer(client,g1)).inventory.includes('royal'),true);
+ assert.equal((await getSandServer(client,g2)).inventory.includes('galaxy'),true);
+ assert.equal((await getSandServerTradeOffers(client,g2)).length,0); // historical offer not current
+ const denied=await resolveSandTrade(client,{tradeId,actorId:ownerA,actingGuildId:g1,
+  fromOwnerId:ownerA,toOwnerId:ownerB,decision:'accept',now});
+ assert.equal(denied.error,'OWNER_ONLY');
+ const transfer=await resolveSandTrade(client,{tradeId,actorId:ownerB,actingGuildId:g2,
+  fromOwnerId:ownerA,toOwnerId:ownerB,decision:'accept',now});
+ assert.equal(transfer.offer.status,'completed');
+ assert.deepEqual((await getSandServer(client,g1)).inventory,['galaxy']);
+ assert.deepEqual((await getSandServer(client,g2)).inventory,['royal']);
+ assert.equal((await getSandServer(client,g1)).equipped.tag,null);
+ assert.equal((await getSandServer(client,g2)).equipped.background,null);
+ assert.equal((await getSandTrade(client,tradeId)).status,'completed');
+ assert.equal((await getSandServer(client,g1)).pendingTradeLogs.length,2);
+ assert.equal((await getSandServer(client,g2)).pendingTradeLogs.length,2);
+ const duplicate=await resolveSandTrade(client,{tradeId,actorId:ownerB,actingGuildId:g2,
+  fromOwnerId:ownerA,toOwnerId:ownerB,decision:'accept',now});
+ assert.equal(duplicate.error,'TRADE_NOT_PENDING');
+ assert.deepEqual((await getSandServer(client,g1)).inventory,['galaxy']);
+});
+
+test('trade rejects expired offers, changed owners and inventory changes; cancellation preserves inventory',async()=>{
+ const client={db:mockDatabase().db};
+ const values=client.db.db.pool; // store inventory using purchase transactions instead
+ const ownerA='444444444444444444',ownerB='555555555555555555';
+ // Buy cosmetics into distinct servers with wallets fully funded.
+ const s=await client.db.get('beacon:sandcoins:v1:server:'+g1,null);
+ assert.equal(s,null);
+ const {db,values:store}=mockDatabase();client.db=db;
+ store.set('beacon:sandcoins:v1:server:'+g1,{inventory:['gold']});
+ store.set('beacon:sandcoins:v1:server:'+g2,{inventory:['emerald']});
+ const now=new Date('2027-01-10T10:00:00Z');
+ const base={fromGuildId:g1,toGuildId:g2,fromOwnerId:ownerA,toOwnerId:ownerB,
+  offeredItem:'gold',requestedItem:'emerald',now};
+ const first=await offerSandTrade(client,{...base,tradeId:'777777777777777777'});
+ assert.ok(first.offer);
+ const ownerChanged=await resolveSandTrade(client,{tradeId:first.offer.id,actorId:ownerB,actingGuildId:g2,
+  fromOwnerId:'666666666666666666',toOwnerId:ownerB,decision:'accept',now});
+ assert.equal(ownerChanged.error,'OWNERSHIP_CHANGED');
+ const expired=await resolveSandTrade(client,{tradeId:first.offer.id,actorId:ownerB,actingGuildId:g2,
+  fromOwnerId:ownerA,toOwnerId:ownerB,decision:'accept',now:new Date('2027-01-12T12:00:00Z')});
+ assert.equal(expired.error,'TRADE_EXPIRED');
+ const second=await offerSandTrade(client,{...base,tradeId:'777777777777777778'});
+ store.set('beacon:sandcoins:v1:server:'+g1,{...(await getSandServer(client,g1)),inventory:[]});
+ const vanished=await resolveSandTrade(client,{tradeId:second.offer.id,actorId:ownerB,actingGuildId:g2,
+  fromOwnerId:ownerA,toOwnerId:ownerB,decision:'accept',now});
+ assert.equal(vanished.error,'INVENTORY_CHANGED');
+ const cancelled=await resolveSandTrade(client,{tradeId:second.offer.id,actorId:ownerA,actingGuildId:g1,
+  fromOwnerId:ownerA,toOwnerId:ownerB,decision:'cancel',now});
+ assert.equal(cancelled.offer.status,'cancelled');
+ assert.equal((await getSandServer(client,g2)).inventory.includes('emerald'),true);
+});
+
+test('trade cannot introduce a duplicate inventory decoration or fake minting',async()=>{
+ const {db,values}=mockDatabase(),client={db};
+ const ownerA='444444444444444444',ownerB='555555555555555555';
+ values.set('beacon:sandcoins:v1:server:'+g1,{inventory:['royal']});
+ values.set('beacon:sandcoins:v1:server:'+g2,{inventory:['royal','gold']});
+ const result=await offerSandTrade(client,{tradeId:'777777777777777777',fromGuildId:g1,toGuildId:g2,
+  fromOwnerId:ownerA,toOwnerId:ownerB,offeredItem:'royal',requestedItem:'gold'});
+ assert.equal(result.error,'DUPLICATE_INVENTORY');
+ assert.equal((await getSandServer(client,g2)).inventory.filter(x=>x==='royal').length,1);
+});
+
+test('completed trades leave durable audit notifications for both guilds',async()=>{
+ const {db,values}=mockDatabase();
+ const ownerA='444444444444444444',ownerB='555555555555555555';
+ values.set('beacon:sandcoins:v1:server:'+g1,{inventory:['gold']});
+ values.set('beacon:sandcoins:v1:server:'+g2,{inventory:['emerald']});
+ const auditId='999999999999999999',log=[];
+ for(const guildId of [g1,g2])values.set('guild:'+guildId+':config',{logging:{enabled:true,channels:{audit:auditId}}});
+ const guilds=[g1,g2].map(id=>({id,channels:{cache:new Map([[auditId,{
+  send:async payload=>{log.push({id,payload});return true;}
+ }]])}}));
+ const client={db,guilds:{cache:new Map(guilds.map(g=>[g.id,g])),fetch:async id=>guilds.find(g=>g.id===id)}};
+ const now=new Date('2027-01-10T10:00:00Z');
+ const offered=await offerSandTrade(client,{tradeId:'777777777777777777',fromGuildId:g1,toGuildId:g2,
+  fromOwnerId:ownerA,toOwnerId:ownerB,offeredItem:'gold',requestedItem:'emerald',now});
+ await resolveSandTrade(client,{tradeId:offered.offer.id,actorId:ownerB,actingGuildId:g2,
+  fromOwnerId:ownerA,toOwnerId:ownerB,decision:'accept',now});
+ await deliverSandTradeLogs(client,g1);
+ await deliverSandTradeLogs(client,g2);
+ assert.equal(log.length,4);
+ assert.equal((await getSandServer(client,g1)).pendingTradeLogs.length,0);
+ assert.equal((await getSandServer(client,g2)).pendingTradeLogs.length,0);
+ assert.match(log[0].payload.embeds[0].toJSON().title,/Inventory Trade/);
 });
