@@ -340,9 +340,11 @@ export async function buySandDecoration(client,{userId,guildId,itemId,purchaseId
   server.inventory.push(itemId);
   server.purchases=[purchase,...server.purchases].slice(0,50);
   server.pendingLogs.push(purchase); // durable audit outbox
-  tx.put(wk,wallet);storeServer(tx,guildId,server,'purchase',String(purchaseId));tx.put(pk,{purchase,balance});
+  tx.put(wk,wallet);
+  const saved=storeServer(tx,guildId,server,'purchase',String(purchaseId));
+  tx.put(pk,{purchase,balance,saveRevision:saved.revision});
   if(stock)tx.put(stock,Number(tx.get(stock)||0)+1);
-  return {purchase,balance,duplicate:false};
+  return {purchase,balance,saveRevision:saved.revision,duplicate:false};
  });
 }
 export async function equipSandDecoration(client,{guildId,itemId,slot,actorId}){
@@ -354,8 +356,8 @@ export async function equipSandDecoration(client,{guildId,itemId,slot,actorId}){
   const server=verifiedServer(tx,guildId);
   if(itemId!==null&&!server.inventory.includes(itemId))return {error:'NOT_OWNED'};
   server.equipped[slot]=itemId;
-  storeServer(tx,guildId,server,itemId===null?'unequip':'equip',actorId);
-  return {appearance:getSandAppearance(server)};
+  const saved=storeServer(tx,guildId,server,itemId===null?'unequip':'equip',actorId);
+  return {appearance:getSandAppearance(server),saveRevision:saved.revision};
  });
 }
 
@@ -485,10 +487,10 @@ export async function resolveSandTrade(client,{tradeId,actorId,actingGuildId,fro
     otherGuildId:state===from?offer.toGuildId:offer.fromGuildId,at:ended.closedAt},...state.tradeHistory].slice(0,30);
    addTradeNotification(state,offer,status,actorId);
   }
-  storeServer(tx,offer.fromGuildId,from,'trade_'+status,tradeId);
-  storeServer(tx,offer.toGuildId,to,'trade_'+status,tradeId);
+  const saveFrom=storeServer(tx,offer.fromGuildId,from,'trade_'+status,tradeId);
+  const saveTo=storeServer(tx,offer.toGuildId,to,'trade_'+status,tradeId);
   tx.put(k,ended);
-  return {offer:ended};
+  return {offer:ended,saveRevisions:{from:saveFrom.revision,to:saveTo.revision}};
  });
 }
 /** Durable, per-server audit outbox for trade offers and their resolutions. */
