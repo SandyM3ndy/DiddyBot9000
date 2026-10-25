@@ -202,7 +202,7 @@ function readInventoryVault(raw,guildId){
  for(const entry of raw.snapshots){
   if(!Number.isSafeInteger(entry.revision)||entry.revision<1||
       !Number.isFinite(Date.parse(entry.at))||
-      inventoryHash(readServer(entry.server))!==entry.checksum)
+      (readServer(entry.server),inventoryHash(entry.server))!==entry.checksum)
    throw new Error('Sand Coins inventory vault checksum failure; refusing unsafe restoration');
  }
  return raw;
@@ -223,7 +223,7 @@ function verifiedServer(tx,guildId){
   return initialServer();
  }
  const server=readServer(current);
- if(vault&&inventoryHash(server)!==vault.checksum)
+ if(vault&&inventoryHash(current)!==vault.checksum)
   throw new Error('Sand Coins inventory/vault disagreement: writes blocked pending manual review');
  return server;
 }
