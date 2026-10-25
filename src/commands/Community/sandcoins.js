@@ -150,7 +150,7 @@ export async function buildSandShopPanel(client,guildId,guildName,category='all'
     '\nChoose a category above and use its **Preview** buttons to see real rank cards.'+
     '\n**'+items.length+' item'+(items.length===1?'':'s')+'** in this view • No coins spent on previews.'+
     '\n\nPurchases are owned by **'+short(guildName)+'** as server inventory.'+
-    '\nUse /sandcoins wallet privately to see your balance.',
+    '\nCheck balances privately with /sandcoins wallet.',
    fields:items.map((item,index)=>({
     name:(server.inventory.includes(item.id)?'✅ ':'▫️ ')+item.name+
      (item.limited?' • Limited Edition':''),
