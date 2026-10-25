@@ -131,7 +131,7 @@ async function atomic(client,keys,fn){
    state.set(key,r.rows[0]?.value??null);
   }
   const dirty=new Map();
-  const ctx={get:key=>state.get(key),put:(key,value)=>{
+  const ctx={get:key=>dirty.has(key)?dirty.get(key):state.get(key),put:(key,value)=>{
    if(!state.has(key))throw new Error('Unlocked Sand Coins key');
    dirty.set(key,value);
   }};
@@ -257,12 +257,7 @@ export async function getSandInventoryBackupStatus(client,guildId){
  return atomic(client,[sk,vk],async tx=>{
   const server=verifiedServer(tx,guildId);
   if(!tx.get(vk))storeServer(tx,guildId,server,'legacy_inventory_protected');
-  const vault=readInventoryVault(tx.get(vk)||{
-   // The context only reads locked PRE-transaction values, not dirty writes.
-   schema:1,guildId,revision:1,checksum:inventoryHash(server),
-   snapshots:[{revision:1,at:new Date().toISOString(),reason:'legacy_inventory_protected',
-    checksum:inventoryHash(server),server}],
-  },guildId);
+  const vault=readInventoryVault(tx.get(vk),guildId);
   return {protected:true,revision:vault.revision,copies:vault.snapshots.length,
    savedAt:vault.snapshots[0].at,items:server.inventory.length};
  });
@@ -313,7 +308,13 @@ export async function buySandDecoration(client,{userId,guildId,itemId,purchaseId
  const wk=walletKey(userId),sk=serverKey(guildId),pk=PREFIX+'purchase:'+purchaseId;
  const stock=item.limit?stockKey(itemId):null;
  return atomic(client,[wk,sk,vaultKey(guildId),pk,...(stock?[stock]:[])],async tx=>{
-  if(tx.get(pk))return {duplicate:true,...tx.get(pk)};
+  if(tx.get(pk)){
+   const prior=tx.get(pk);
+   if(prior.purchase?.userId!==userId||prior.purchase?.guildId!==guildId||
+       prior.purchase?.itemId!==itemId)
+    return {error:'PURCHASE_ID_REUSED'};
+   return {duplicate:true,...prior};
+  }
   const wallet=withWindow(readWallet(tx.get(wk)),new Date()),server=verifiedServer(tx,guildId);
   if(server.inventory.includes(itemId))return {error:'ALREADY_OWNED'};
   if(stock && Number(tx.get(stock)||0)>=item.limit)return {error:'SOLD_OUT'};
