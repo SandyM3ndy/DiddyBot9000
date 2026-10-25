@@ -7,6 +7,7 @@ import handler,{ handleRankCardButton } from '../src/interactions/buttons/rankCa
 import {
  isRankCardId,rankCardSaveKey,loadLiveRankCard,buildRankCardDisplay,
  rankCardButtons,saveRankCardSnapshot,readRankCardSnapshot,
+ rankCardLikesKey,getRankCardLikes,toggleRankCardLike,
 } from '../src/services/rankCardGalleryService.js';
 
 const target='222222222222222222',viewer='333333333333333333',
@@ -102,7 +103,12 @@ test('rank-card image and cosmetics page use the target server style, not the vi
  assert.ok(details.fields.some(f=>f.value.includes('Galaxy Night')));
  assert.deepEqual(cosmetics.files,[]);
  assert.deepEqual(cosmetics.attachments,[]);
- assert.equal(rankCardButtons(target,post,'saved',true)[0].toJSON().components.at(-1).disabled,false);
+ assert.equal(rankCardButtons(target,post,'saved',true)[0].toJSON().components.find(
+  x=>x.custom_id.startsWith('rank_card:saved:')).disabled,false);
+ const buttons=rankCardButtons(target,post,'live',false,42)[0].toJSON().components;
+ assert.equal(buttons.length,5);
+ assert.match(buttons.at(-1).label,/Like 42/);
+ assert.equal(buttons.at(-1).custom_id,'rank_card:like:'+target+':'+post);
 });
 test('saved rank cards are durable across a new client instance and never mutate server inventories',async()=>{
  const {client,values}=mockClient(),card=await loadLiveRankCard(client,target);
@@ -159,6 +165,63 @@ test('public buttons can save, view a saved version and survive disabled progres
  await handleRankCardButton(live.interaction,client,live.args);
  assert.match(live.seen.find(x=>x.type==='follow').payload.content,/no longer available/);
 });
+test('likes are persistent per posted card and a second click removes them',async()=>{
+ const {client,values}=mockClient();
+ const a='666666666666666660',b='666666666666666661';
+ assert.deepEqual(await getRankCardLikes(client,a),{count:0,liked:false});
+ assert.deepEqual(await toggleRankCardLike(client,a,post),{count:1,liked:true});
+ assert.deepEqual(await toggleRankCardLike(client,a,other),{count:2,liked:true});
+ assert.deepEqual(await getRankCardLikes({db:client.db},a,post),{count:2,liked:true},
+  'likes must survive client restarts');
+ assert.deepEqual(await getRankCardLikes(client,b),{count:0,liked:false},
+  'likes belong to each distinct posted rank card');
+ assert.deepEqual(await toggleRankCardLike(client,a,post),{count:1,liked:false});
+ assert.deepEqual(await getRankCardLikes(client,a,post),{count:1,liked:false});
+ assert.deepEqual(values.get(rankCardLikesKey(a)).users,[other]);
+});
+
+test('simultaneous users cannot overwrite likes, and a failed DB save does not claim success',async()=>{
+ const {client}=mockClient(),id='666666666666666663';
+ const users=Array.from({length:30},(_,i)=>String(BigInt('777777777777777770')+BigInt(i)));
+ const states=await Promise.all(users.map(user=>toggleRankCardLike(client,id,user)));
+ assert.equal(states.at(-1).count,30);
+ assert.equal((await getRankCardLikes(client,id)).count,30);
+ const original=client.db.set;
+ client.db.set=async(key,value)=>key===rankCardLikesKey(id)?false:original(key,value);
+ await assert.rejects(toggleRankCardLike(client,id,'888888888888888888'),/RANK_CARD_LIKE_SAVE_FAILED/);
+ assert.equal((await getRankCardLikes(client,id)).count,30);
+});
+
+test('like button updates the public count without consuming coins or modifying cosmetics',async()=>{
+ const {client,values}=mockClient();
+ const a=fakeButton(client,'like',other,'666666666666666670');
+ a.interaction.message.embeds=[{title:'🏆 Beacon • Server Rank Card'}];
+ await handleRankCardButton(a.interaction,client,a.args);
+ assert.equal(a.seen[0],'deferred');
+ const edit=a.seen.find(x=>x.type==='edit');
+ assert.ok(edit);
+ assert.equal(edit.payload.components[0].toJSON().components.at(-1).label,'Like 1');
+ const b=fakeButton(client,'like',other,'666666666666666670');
+ b.interaction.message.embeds=[{title:'🏆 Beacon • Server Rank Card'}];
+ await handleRankCardButton(b.interaction,client,b.args);
+ assert.equal(b.seen.find(x=>x.type==='edit').payload.components[0].toJSON().components.at(-1).label,'Like 0');
+ assert.equal(values.get(rankCardLikesKey('666666666666666670')).users.length,0);
+ assert.equal(values.get('beacon:sandcoins:v1:server:'+target).equipped.tag,'royal');
+});
+
+test('reassigned Founder numbers are updated on saved cards, not removed for surviving holders',async()=>{
+ const {client,values}=mockClient();
+ const card=await loadLiveRankCard(client,target);
+ values.set('beacon:founders:v1',{version:1,entries:[{guildId:target,number:7}]});
+ card.founder={number:7};
+ const msg='666666666666666676';
+ await saveRankCardSnapshot(client,msg,card,post);
+ values.set('beacon:founders:v1',{version:1,entries:[{guildId:target,number:6}]});
+ const current=await readRankCardSnapshot(client,msg,target);
+ assert.equal(current.card.founder.number,6);
+ assert.equal(current.card.appearance.tag,'royal');
+});
+
 test('rank-card controls register globally, immediately acknowledge and never use collectors',async()=>{
  const source=await readFile(new URL('../src/interactions/buttons/rankCardGallery.js',import.meta.url),'utf8');
  const loader=await readFile(new URL('../src/handlers/loaders/interactions.js',import.meta.url),'utf8');
