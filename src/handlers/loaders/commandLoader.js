@@ -10,10 +10,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const MAX_COMMANDS = 100;
 const COMMAND_COUNT_WARN_THRESHOLD = 90;
-export const REQUIRED_V11_COMMANDS = Object.freeze(['diagnose', 'roleaudit', 'ticket', 'giveaway', 'time', 'sandcoins']);
-// /sandcoins uses immediate per-guild registration. The wallets and stock are
-// still shared globally, via the existing Sand Coins database service.
-export const REQUIRED_GLOBAL_COMMANDS = Object.freeze(REQUIRED_V11_COMMANDS.filter(name => name !== 'sandcoins'));
+export const REQUIRED_V11_COMMANDS = Object.freeze(['diagnose', 'roleaudit', 'ticket', 'giveaway', 'time', 'sandcoins', 'daily']);
+// Economy commands appear immediately in every guild; account state stays global.
+const GUILD_ECONOMY_COMMANDS = Object.freeze(['sandcoins','daily']);
+export const REQUIRED_GLOBAL_COMMANDS = Object.freeze(REQUIRED_V11_COMMANDS.filter(name => !GUILD_ECONOMY_COMMANDS.includes(name)));
 
 export function getMissingRequiredCommands(names) {
     const available = new Set(names);
@@ -188,54 +188,53 @@ function prepareCommandsForRegistration(commands) {
 }
 
 /**
- * Register only /sandcoins in a guild. A single-command POST is an upsert:
- * it becomes available immediately and never bulk-overwrites other commands.
- * This fixes servers where Discord isn't showing the global command.
+ * Per-guild upserts are available immediately, avoiding propagation delays
+ * seen with the global Sand Coins command. Each POST changes ONE definition;
+ * the currency, balance, and streak still live in a global account wallet.
  */
-export async function registerSandCoinsGuildCommand(client, guildId, options = {}) {
-    const clientId = options.clientId || client.config?.bot?.clientId;
-    if (!clientId) throw new Error('CLIENT_ID is required for Sand Coins guild registration');
-    if (!guildId) throw new Error('Guild ID is required for Sand Coins guild registration');
-    if (!client.rest?.post) throw new Error('Discord REST client is unavailable for Sand Coins guild registration');
-    const command = client.commands?.get('sandcoins');
-    if (!command?.data?.toJSON) throw new Error('Sand Coins command was not loaded');
-
-    // DM and install contexts are only meaningful for global commands.
-    // Keep the guild payload unrestricted by default; server administrators
-    // retain control through Discord's Integrations command permissions.
-    const { dm_permission, contexts, integration_types, ...guildPayload } = command.data.toJSON();
-    validateCommands([guildPayload]);
-    const route = `/applications/${clientId}/guilds/${guildId}/commands`;
-    const result = await client.rest.post(route, { body: guildPayload });
-    if (!result || result.name !== 'sandcoins' || !result.id || (result.guild_id && result.guild_id !== guildId)) {
-        throw new Error(`Discord did not confirm /sandcoins registration for guild ${guildId}`);
-    }
-    logger.info(`Verified immediate /sandcoins guild registration in ${guildId}`);
-    return result;
+async function upsertEconomyGuildCommand(client,guildId,commandName,options={}){
+ const clientId=options.clientId||client.config?.bot?.clientId;
+ if(!clientId)throw new Error('CLIENT_ID is required for economy guild registration');
+ if(!guildId)throw new Error('Guild ID is required for economy guild registration');
+ if(!client.rest?.post)throw new Error('Discord REST client unavailable for economy guild registration');
+ const command=client.commands?.get(commandName);
+ if(!command?.data?.toJSON)throw new Error('Missing economy command /'+commandName);
+ const {dm_permission,contexts,integration_types,...payload}=command.data.toJSON();
+ validateCommands([payload]);
+ const route=`/applications/${clientId}/guilds/${guildId}/commands`;
+ const result=await client.rest.post(route,{body:payload});
+ if(!result||result.name!==commandName||!result.id||(result.guild_id&&result.guild_id!==guildId))
+  throw new Error('Discord did not confirm /'+commandName+' in guild '+guildId);
+ logger.info('Verified immediate /'+commandName+' guild registration in '+guildId);
+ return result;
 }
-
-// Legacy entry point: don't bulk-overwrite the guild's entire command list.
-export async function registerGuildCommands(client, guildId, options = {}) {
-    await registerSandCoinsGuildCommand(client, guildId, options);
-    return 1;
+export function registerSandCoinsGuildCommand(client,guildId,options={}){
+ return upsertEconomyGuildCommand(client,guildId,'sandcoins',options);
 }
-
-export async function registerSandCoinsAllGuilds(client, options = {}) {
-    const guilds = [...(client.guilds?.cache?.values() || [])];
-    let registered = 0;
-    const failed = [];
-    for (const guild of guilds) {
-        try {
-            await registerSandCoinsGuildCommand(client, guild.id, options);
-            registered++;
-        } catch (error) {
-            failed.push(guild.id);
-            logger.error(`Sand Coins registration failed for guild ${guild.id}: ${error.message}`);
-        }
-    }
-    logger.info(`Sand Coins guild sync: ${registered}/${guilds.length} registered` +
-        (failed.length ? ` (failed: ${failed.join(', ')})` : ''));
-    return { registered, total: guilds.length, failed };
+export function registerDailyGuildCommand(client,guildId,options={}){
+ return upsertEconomyGuildCommand(client,guildId,'daily',options);
+}
+export async function registerGuildCommands(client,guildId,options={}){
+ for(const name of GUILD_ECONOMY_COMMANDS)
+  await upsertEconomyGuildCommand(client,guildId,name,options);
+ return GUILD_ECONOMY_COMMANDS.length;
+}
+export async function registerSandCoinsAllGuilds(client,options={}){
+ const guilds=[...(client.guilds?.cache?.values()||[])];
+ let registered=0;
+ const failed=[];
+ for(const guild of guilds){
+  try{
+   await registerGuildCommands(client,guild.id,options);
+   registered++;
+  }catch(error){
+   failed.push(guild.id);
+   logger.error('Economy command registration failed for guild '+guild.id+': '+error.message);
+  }
+ }
+ logger.info('Sand Coins + Daily guild sync: '+registered+'/'+guilds.length+' registered'+
+  (failed.length?' (failed: '+failed.join(', ')+')':''));
+ return {registered,total:guilds.length,failed};
 }
 
 export async function clearGuildScopedCommands(client, clientId = client.config?.bot?.clientId) {
@@ -276,21 +275,20 @@ export async function registerCommands(client, options = {}) {
         const { commands } = collectCommandPayloads(client);
         assertRequiredCommandsPresent(commands.map(command => command.name), 'loaded');
 
-        // The one-time migration flag is only for old guild duplicates. It must
-        // run BEFORE /sandcoins sync, never after (which would delete Sand Coins).
+        // The one-time legacy guild cleanup must run BEFORE economy command sync.
         if (process.env.BEACON_CLEAN_LEGACY_GUILD_COMMANDS === 'true') {
             logger.warn('Explicit legacy guild command cleanup enabled');
             await clearGuildScopedCommands(client, clientId);
         }
 
-        // Guild registrations appear immediately. Do these before removing the
-        // old global Sand Coins command, so there's no gap in availability.
+        // Guild registrations appear immediately; keep both commands as global
+        // fallbacks if any guild rejects its registration.
         const sync = await registerSandCoinsAllGuilds(client, { clientId });
         // If ANY guild failed, retain the global command as a safety fallback.
         const globalCommands = sync.failed.length || sync.total === 0
             ? commands
-            : commands.filter(command => command.name !== 'sandcoins');
-        if (sync.failed.length) logger.warn('Keeping global /sandcoins fallback because some guild registrations failed');
+            : commands.filter(command => !GUILD_ECONOMY_COMMANDS.includes(command.name));
+        if (sync.failed.length) logger.warn('Keeping global economy command fallbacks because some guild registrations failed');
         const totalSubcommands = globalCommands.reduce((sum, command) => sum + getSubcommandInfo(command).length, 0);
         await registerGlobalCommands(client, clientId, globalCommands, totalSubcommands);
     } catch (error) {
