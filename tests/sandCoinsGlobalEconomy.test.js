@@ -270,7 +270,7 @@ test('cross-server inventory swaps require owners of both guilds and only settle
  assert.equal(offered.offer.status,'pending');
  assert.equal((await getSandServer(client,g1)).inventory.includes('royal'),true);
  assert.equal((await getSandServer(client,g2)).inventory.includes('galaxy'),true);
- assert.equal((await getSandServerTradeOffers(client,g2)).length,0); // historical offer not current
+ assert.equal((await getSandServerTradeOffers(client,g2)).length,1); // pending offer visible to target owner
  const denied=await resolveSandTrade(client,{tradeId,actorId:ownerA,actingGuildId:g1,
   fromOwnerId:ownerA,toOwnerId:ownerB,decision:'accept',now});
  assert.equal(denied.error,'OWNER_ONLY');
@@ -292,7 +292,6 @@ test('cross-server inventory swaps require owners of both guilds and only settle
 
 test('trade rejects expired offers, changed owners and inventory changes; cancellation preserves inventory',async()=>{
  const client={db:mockDatabase().db};
- const values=client.db.db.pool; // store inventory using purchase transactions instead
  const ownerA='444444444444444444',ownerB='555555555555555555';
  // Buy cosmetics into distinct servers with wallets fully funded.
  const s=await client.db.get('beacon:sandcoins:v1:server:'+g1,null);
