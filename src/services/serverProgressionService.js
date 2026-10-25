@@ -857,6 +857,7 @@ export async function getServerProgression(client, guildId) {
 }
 
 export async function getGlobalProgressionLeaderboard(client) {
+  const { getGuildConfig } = await import('./config/guildConfig.js');
   const keys = await client.db.list('guild:');
   const entries = [];
 
@@ -870,6 +871,13 @@ export async function getGlobalProgressionLeaderboard(client) {
       const guildId = key.slice(KEY_PREFIX.length, -KEY_SUFFIX.length);
       const guild = client.guilds.cache.get(guildId);
       if (!guild) return null;
+
+      // Progression is opt-in. A server with progression disabled must never
+      // appear on world rankings, even if it has saved XP from an earlier run.
+      // Do not mutate XP or leaderboardExcluded: re-enabling restores its rank.
+      const config = await getGuildConfig(client, guildId);
+      if (!isEnabled(config)) return null;
+
       const raw = await client.db.get(key, null);
       if (!raw) return null;
       const data = normalizeProgression(raw);
