@@ -36,6 +36,10 @@ Beacon offers a complete suite of tools for Discord server management and commun
 - **Founding Community Badges** — Permanent recognition for Beacon's earliest communities
 - **Shareable Rank Cards** — Show off a server's level, XP and rank
 - **Contributor Recognition** — Optional public member contribution rankings with privacy controls
+- **Global Sand Coins (SC)** — Members earn a virtual currency when they meaningfully contribute to completed daily or weekly shared quests; rewards are limited globally across all Beacon servers
+- **Server Rank-Card Shop** — Members can buy backgrounds, frames and limited titles with coins earned anywhere, adding them to the current server's inventory
+- **Administrator-Equipped Decorations** — Server owners and members with Manage Server equip purchased designs; cosmetics change rank-card PNGs, never server XP
+- **Purchase Audit Logs** — Successful purchases notify the server's configured audit channel, with a durable retry queue if Discord delivery temporarily fails
 
 ### 🛡️ Moderation, security and accountability
 - **Moderation cases** — Warnings, timeouts, bans, staff notes and auditable case history
@@ -73,6 +77,7 @@ Beacon offers a complete suite of tools for Discord server management and commun
 3. Use `/progression overview` and select **Enable Progression** (server owner only).
 4. Open `/ticket panel` to configure support tickets, or `/reactroles studio` for self-assignable roles.
 5. Use `/diagnose` to check server setup and permissions. Explore `/progression quests` and `/progression weekly` when progression is enabled.
+6. Configure an audit channel in `/dashboard` to enable Sand Coins shop purchases, then use `/sandcoins shop` and `/sandcoins inventory`.
 
 Progression is free and optional. Nothing resets your existing Server XP when you enable or disable it.
 
