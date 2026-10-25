@@ -4,6 +4,7 @@ import {
 } from 'discord.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 import { createEmbed } from '../../utils/embeds.js';
+import { BEACON_TEAM_NAME } from '../../config/bot.js';
 
 // Do not request Administrator for ordinary installations. This default
 // provides the permissions needed for ticket, moderation and role modules;
@@ -52,14 +53,16 @@ export default {
       title: '🚀 Bring Beacon to Your Community',
       description: [
         '**Your community\'s all-in-one Discord assistant.**',
-        'Compete on the global leaderboard, complete daily and weekly quests,',
-        'unlock achievements and share your server rank.',
+        'Manage moderation, tickets, security, welcome messages and reaction roles',
+        'from **/dashboard**, your main Control Center.',
         '',
-        'Beacon also includes moderation, reaction roles, tickets, logging and more.',
+        'Bring members together with optional quests and global server rankings.',
         '',
         '🔒 **Transparent installation:** Beacon does not request Administrator permission.',
         'Discord will show the specific permissions requested before you approve.',
         'You can adjust Beacon’s permissions in your server later.',
+        '',
+        '💜 Thanks for considering Beacon for your community. — ' + BEACON_TEAM_NAME,
       ].join('\n'),
       color: 'primary',
       thumbnail: interaction.client.user.displayAvatarURL({ size: 512 }),
