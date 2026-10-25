@@ -131,7 +131,7 @@ test('weekly challenge rebalance is difficult enough to avoid instant #1 from th
   ['warmup','explorer','streak','team','dailies','legend'].map(id=>byId.get(id).target),
   [100,50,5,8,15,3000],
  );
- assert.ok(list.every(q=>q.reward>=100&&q.reward<=300));
+ assert.ok(list.every(q=>q.reward>=150&&q.reward<=400));
  assert.equal(byId.get('team').minMembers,8,'unattainable multi-user quests cannot be assigned to small servers');
 });
 
