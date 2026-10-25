@@ -29,8 +29,8 @@ async function verifyAuditChannel(interaction){
  const botMember=interaction.guild?.members.me||
    await interaction.guild?.members.fetchMe?.().catch(()=>null);
  if(!channel?.send||!botMember||!channel?.permissionsFor?.(botMember)?.has([
-  PermissionFlagsBits.SendMessages,PermissionFlagsBits.EmbedLinks
- ]))return {error:'Beacon cannot send purchase logs to the configured audit channel. Give it **Send Messages** and **Embed Links** permissions, then try again.'};
+  PermissionFlagsBits.ViewChannel,PermissionFlagsBits.SendMessages,PermissionFlagsBits.EmbedLinks
+ ]))return {error:'Beacon cannot send purchase logs to the configured audit channel. Give it **View Channel**, **Send Messages**, and **Embed Links** permissions, then try again.'};
  return {channel};
 }
 function ownedDescription(server){
@@ -195,6 +195,7 @@ export default {
     if(result.error)return InteractionHelper.safeEditReply(interaction,{content:
      result.error==='ALREADY_OWNED'?'✅ This server already owns **'+name(item)+'**. Ask a manager to equip it with /sandcoins equip.':
      result.error==='SOLD_OUT'?'⚠️ This limited edition has sold out globally. No coins were spent.':
+     result.error==='PURCHASE_ID_REUSED'?'⚠️ This purchase request was already used for another item. No coins were spent.':
      '🪙 Not enough Sand Coins. This costs **'+format(item.price)+'** and your balance is **'+format(result.balance)+'**.'});
     const sent=await deliverSandPurchaseLogs(interaction.client,interaction.guildId).catch(e=>{
      logger.warn('Sand Coins purchase log pending',{guildId:interaction.guildId,error:e.message});
@@ -206,6 +207,7 @@ export default {
      fields:[
       {name:'Paid',value:format(item.price),inline:true},
       {name:'Your Remaining Coins',value:format(result.balance),inline:true},
+      {name:'🛡️ Inventory Save',value:'Committed to PostgreSQL + recovery vault (revision **'+result.saveRevision+'**).'},
       {name:'Next Step',value:'The owner or a member with **Manage Server** can equip it using /sandcoins equip.'},
       {name:'Purchase Log',value:sent?.error||sent?.pending?'Queued for delivery to the server audit channel.':'Posted in the server audit channel.'},
      ],color:'success',
@@ -217,16 +219,20 @@ export default {
      guildId:interaction.guildId,itemId,slot:item.type,actorId:interaction.user.id,
     });
     if(result.error)return InteractionHelper.safeEditReply(interaction,{content:'🔒 This decoration is not in your server inventory. Members can purchase it via /sandcoins shop.'});
-    return InteractionHelper.safeEditReply(interaction,{content:'✅ Equipped **'+name(item)+'** in the **'+item.type+'** slot for this server\'s rank card.'});
+    return InteractionHelper.safeEditReply(interaction,{content:'✅ Equipped **'+name(item)+'** in the **'+item.type+'** slot for this server\'s rank card. 🛡️ Saved as inventory revision **'+result.saveRevision+'**.'});
    }
    if(sub==='unequip'){
     const slot=interaction.options.getString('slot',true);
-    await equipSandDecoration(interaction.client,{guildId:interaction.guildId,itemId:null,slot,actorId:interaction.user.id});
-    return InteractionHelper.safeEditReply(interaction,{content:'✅ Removed the **'+slot+'** decoration from this server\'s rank card. The purchased item stays in its inventory.'});
+    const saved=await equipSandDecoration(interaction.client,{guildId:interaction.guildId,itemId:null,slot,actorId:interaction.user.id});
+    return InteractionHelper.safeEditReply(interaction,{content:'✅ Removed the **'+slot+'** decoration from this server\'s rank card. The purchased item stays in its inventory. 🛡️ Saved revision **'+saved.saveRevision+'**.'});
    }
   }catch(err){
    logger.error('Sand Coins command failed',{guildId:interaction.guildId,sub,error:err.message});
-   return InteractionHelper.safeEditReply(interaction,{content:'⚠️ Sand Coins could not complete this action. No new purchase was confirmed. Try again or contact Beacon support.'});
+   if(/inventory\/vault disagreement|vault checksum|inventory is malformed|inventory contains duplicate|vault metadata invalid|vault snapshot invalid/.test(err.message))
+    return InteractionHelper.safeEditReply(interaction,{content:
+     '🛡️ **Inventory Safety Lock** — Beacon detected a mismatch in saved data and stopped this action to protect your items. No inventory overwrite was performed. Contact Beacon support with this server ID: `'+interaction.guildId+'`.'});
+   return InteractionHelper.safeEditReply(interaction,{content:
+    '⚠️ Sand Coins could not verify this action. Check your wallet or inventory before retrying, then contact Beacon support if needed.'});
   }
  },
 };
