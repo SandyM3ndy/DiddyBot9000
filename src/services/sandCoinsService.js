@@ -104,7 +104,7 @@ export async function setSandLeaderboardHidden(client,userId,hidden){
 }
 export async function getSandGlobalLeaderboard(client,limit=10){
  const keys=(await client.db.list(PREFIX+'wallet:')).filter(key=>
-  key.startsWith(PREFIX+'wallet:') && /^\\d{17,20}$/.test(key.slice((PREFIX+'wallet:').length)));
+  key.startsWith(PREFIX+'wallet:') && /^\d{17,20}$/.test(key.slice((PREFIX+'wallet:').length)));
  const rows=[];
  for(let i=0;i<keys.length;i+=8){
   const part=keys.slice(i,i+8);
