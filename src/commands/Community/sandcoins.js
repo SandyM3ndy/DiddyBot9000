@@ -109,6 +109,7 @@ export default {
     const {server:state,backup:health}=await getSandInventoryProtectedSnapshot(interaction.client,guild.id);
     const exported={format:'beacon-sandcoins-inventory-v1',serverId:guild.id,
      exportedAt:new Date().toISOString(),revision:health.revision,
+     verifiedRecoveries:health.recoveryCount,
      items:[...state.inventory],equipped:{...state.equipped},
      purchases:state.purchases,tradeHistory:state.tradeHistory,
      note:'Reference export only. Never import/replay purchases or traded items without reconciling global trade history.'};
@@ -117,7 +118,7 @@ export default {
     return InteractionHelper.safeEditReply(interaction,{
      content:'🛡️ **Inventory export saved!** Revision **'+health.revision+
        '** • **'+health.copies+'** verified PostgreSQL recovery snapshots. '+
-       'Keep this owner-only file private. Restoration requires careful review to prevent duplicate items.',
+       'Keep this file private and store it outside Railway. Full database-loss recovery requires an external backup and careful trade-history review.',
      files:[file],allowedMentions:{parse:[]},
     });
    }
@@ -164,7 +165,8 @@ export default {
       '**'+saved.items+' items** • revision **'+saved.revision+'** • **'+
       saved.copies+'** verified recovery snapshot(s)\nLast saved: <t:'+
       Math.floor(Date.parse(saved.savedAt)/1000)+':R>\n'+
-      'Only the server owner can export a private copy with /sandcoins backup.'});
+      'Only the server owner can export a private copy with /sandcoins backup.'+
+      (saved.recoveryCount?'\nVerified recoveries: **'+saved.recoveryCount+'**':'')});
      return InteractionHelper.safeEditReply(interaction,{embeds:[createEmbed({
       title:'🎨 '+short(interaction.guild.name)+' • Rank-Card Inventory',
       description:'These items belong to **this server** and persist across bot restarts. '+

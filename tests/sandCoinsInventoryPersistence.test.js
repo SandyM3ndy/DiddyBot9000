@@ -97,7 +97,10 @@ test('a missing live inventory is recovered from the latest verified snapshot, n
  assert.deepEqual(recovered.inventory,['gold']);
  assert.equal(recovered.equipped.border,'gold');
  assert.deepEqual(values.get(k(serverA)).inventory,recovered.inventory);
- assert.equal((await getSandInventoryBackupStatus(client(db),serverA)).revision,before.revision);
+ const health=await getSandInventoryBackupStatus(client(db),serverA);
+ assert.equal(health.revision,before.revision);
+ assert.equal(health.recoveryCount,1);
+ assert.ok(Number.isFinite(Date.parse(health.lastRecoveredAt)));
  assert.equal((await db.get(wallet(user))).balance,4350);
 });
 
