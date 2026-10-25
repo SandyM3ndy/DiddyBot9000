@@ -81,7 +81,7 @@ export default async (client) => {
     'ticket_info', 'ticket_transcript', 'ticket_claim', 'ticket_close', 'rr_dashboard_create',
     'ticket_queue_view','rr_studio_edit','error_rescue',
     'dashboard_undo_confirm','dashboard_undo_cancel',
-    'sand_shop_preview','sand_shop_back',
+    'sand_shop_preview','sand_shop_category','sand_shop_back',
   ];
   const missing = requiredButtons.filter(name => !client.buttons?.has(name));
   if (missing.length) {

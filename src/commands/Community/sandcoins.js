@@ -49,25 +49,45 @@ function ownedDescription(server){
  });
  return fields;
 }
+/** Browsing categories are presentation only; item IDs, prices and ownership are untouched. */
+export const SAND_SHOP_CATEGORIES=Object.freeze([
+ {id:'all',label:'Overview',emoji:'🛒',heading:'All Cosmetics'},
+ {id:'border',label:'Frames',emoji:'🖼️',heading:'Frames'},
+ {id:'tag',label:'Name Tags',emoji:'🏷️',heading:'Name Tags'},
+ {id:'background',label:'Backgrounds',emoji:'🌄',heading:'Backgrounds'},
+]);
+export function normalizeSandShopCategory(category){
+ return SAND_SHOP_CATEGORIES.some(entry=>entry.id===category)?category:'all';
+}
+function sandShopItems(category){
+ const key=normalizeSandShopCategory(category);
+ return key==='all'?SAND_CATALOG:SAND_CATALOG.filter(item=>item.type===key);
+}
 /**
- * Stable global component IDs: no collectors or session-specific messages.
- * Preview buttons keep working after bot restarts and tolerate rapid clicks.
+ * Stable global component IDs survive restarts and repeated rapid presses.
+ * Overview remains usable; per-category previews show ONLY that type.
  */
-export function buildSandShopPreviewButtons(){
- const rows=[];
- for(let start=0;start<SAND_CATALOG.length;start+=4){
-  rows.push(new ActionRowBuilder().addComponents(
-   SAND_CATALOG.slice(start,start+4).map(item=>new ButtonBuilder()
-    .setCustomId('sand_shop_preview:'+item.id)
+export function buildSandShopPreviewButtons(category='all'){
+ const selected=normalizeSandShopCategory(category);
+ const rows=[new ActionRowBuilder().addComponents(
+  SAND_SHOP_CATEGORIES.map(option=>new ButtonBuilder()
+   .setCustomId('sand_shop_category:'+option.id)
+   .setLabel(option.label)
+   .setEmoji(option.emoji)
+   .setStyle(option.id===selected?ButtonStyle.Primary:ButtonStyle.Secondary))
+ )];
+ const items=sandShopItems(selected);
+ for(let start=0;start<items.length;start+=4)
+  rows.push(new ActionRowBuilder().addComponents(items.slice(start,start+4).map(item=>
+   new ButtonBuilder()
+    .setCustomId('sand_shop_preview:'+selected+':'+item.id)
     .setLabel('Preview '+item.name)
-    .setStyle(ButtonStyle.Secondary))
-  ));
- }
+    .setStyle(ButtonStyle.Secondary))));
  rows.push(new ActionRowBuilder().addComponents(new ButtonBuilder()
   .setCustomId('sand_shop_back')
   .setLabel('Shop Overview')
   .setEmoji('🛒')
-  .setStyle(ButtonStyle.Primary)));
+  .setStyle(ButtonStyle.Secondary)));
  return rows;
 }
 
@@ -75,7 +95,7 @@ export function buildSandShopPreviewButtons(){
 // million-pixel rank card repeatedly when members click preview buttons quickly.
 const PREVIEW_CACHE_MAX=64;
 const previewPngCache=new Map();
-export function buildSandShopItemPreview(itemId,server,serverName){
+export function buildSandShopItemPreview(itemId,server,serverName,category='all'){
  const item=getSandCatalogItem(itemId);
  if(!item)throw new Error('Shop preview item unavailable');
  const equipped=getSandAppearance(server);
@@ -107,35 +127,40 @@ export function buildSandShopItemPreview(itemId,server,serverName){
    {name:'Preview Only',value:'No coins spent • No inventory or equipped items changed',inline:false},
   ],
   color:'primary',
-  footer:'Beacon • Sand Coins Shop • Select another preview or Shop Overview',
+  footer:'Beacon • Sand Coins Shop • Choose another cosmetic or category',
  });
  embed.setImage('attachment://'+imageName);
  return {embeds:[embed],files:[new AttachmentBuilder(png,{name:imageName})],
-  attachments:[],components:buildSandShopPreviewButtons()};
+  attachments:[],components:buildSandShopPreviewButtons(category)};
 }
 
-/** Public shop listing: never leak the invoking member's private wallet. */
-export async function buildSandShopPanel(client,guildId,guildName){
+/** Public browsing hides user balances. Inventory ownership is server-wide. */
+export async function buildSandShopPanel(client,guildId,guildName,category='all'){
+ const selected=normalizeSandShopCategory(category);
+ const items=sandShopItems(selected);
  const [server,...stocks]=await Promise.all([
   getSandServer(client,guildId),
-  ...SAND_CATALOG.map(item=>getSandLimitedStock(client,item.id)),
+  ...items.map(item=>getSandLimitedStock(client,item.id)),
  ]);
+ const chosen=SAND_SHOP_CATEGORIES.find(entry=>entry.id===selected);
  return {
   embeds:[createEmbed({
-   title:'🪙 Beacon • Sand Coins Shop',
-   description:'Browse cosmetics and **press Preview** to see each item on a sample rank card.\n'+
-    'Previews are free, and purchases go into **'+short(guildName)+'\'s server inventory**.\n'+
-    'Use /sandcoins wallet privately to check your coins.',
-   fields:SAND_CATALOG.map((item,index)=>({
+   title:'🪙 Beacon Shop • '+chosen.heading,
+   description:'**'+chosen.emoji+' '+chosen.label+'**'+
+    '\nChoose a category above and use its **Preview** buttons to see real rank cards.'+
+    '\n**'+items.length+' item'+(items.length===1?'':'s')+'** in this view • No coins spent on previews.'+
+    '\n\nPurchases are owned by **'+short(guildName)+'** as server inventory.'+
+    '\nUse /sandcoins wallet privately to see your balance.',
+   fields:items.map((item,index)=>({
     name:(server.inventory.includes(item.id)?'✅ ':'▫️ ')+item.name+
      (item.limited?' • Limited Edition':''),
-    value:item.description+'\n**'+format(item.price)+'** • ID: \`'+item.id+'\`'+
-      (stocks[index]?' • **'+stocks[index].remaining+'/'+stocks[index].total+' left globally**':''),
+    value:item.description+'\n**'+format(item.price)+'** • ID: '+item.id+
+     (stocks[index]?' • **'+stocks[index].remaining+'/'+stocks[index].total+' left globally**':''),
    })),
    color:'primary',
-   footer:'Preview with buttons • /sandcoins buy to purchase • /sandcoins equip to apply',
+   footer:'Frames • Name Tags • Backgrounds • /sandcoins buy • /sandcoins equip',
   })],
-  components:buildSandShopPreviewButtons(),
+  components:buildSandShopPreviewButtons(selected),
   attachments:[],
  };
 }

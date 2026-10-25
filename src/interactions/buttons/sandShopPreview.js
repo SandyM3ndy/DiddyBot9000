@@ -1,6 +1,6 @@
 import { MessageFlags } from 'discord.js';
 import { getSandServer, getSandCatalogItem } from '../../services/sandCoinsService.js';
-import { buildSandShopItemPreview,buildSandShopPanel } from '../../commands/Community/sandcoins.js';
+import { buildSandShopItemPreview,buildSandShopPanel,normalizeSandShopCategory } from '../../commands/Community/sandcoins.js';
 import { logger } from '../../utils/logger.js';
 
 // A global button handler replaces short-lived collectors. Buttons survive
@@ -27,6 +27,9 @@ export async function handleSandShopButton(interaction,client,args=[],action='pr
   }).catch(()=>{});
  }
  const itemId=args.at(-1);
+ // Previous public shop messages have item-only IDs. Preserve support.
+ const category=action==='preview' && args.length===1?'all':
+  normalizeSandShopCategory(args[0]);
  if(action==='preview' && !getSandCatalogItem(itemId)){
   return interaction.reply({
    content:'That decoration is not available to preview. Use /sandcoins shop to refresh.',
@@ -47,12 +50,13 @@ export async function handleSandShopButton(interaction,client,args=[],action='pr
   if(revision!==state.revision)return;
   try{
    let payload;
-   if(action==='back'){
-    payload=await buildSandShopPanel(client,interaction.guildId,interaction.guild.name);
+   if(action==='back' || action==='category'){
+    payload=await buildSandShopPanel(client,interaction.guildId,interaction.guild.name,
+     action==='back'?'all':category);
    }else{
     const server=await getSandServer(client,interaction.guildId);
     if(revision!==state.revision)return;
-    payload=buildSandShopItemPreview(itemId,server,interaction.guild.name);
+    payload=buildSandShopItemPreview(itemId,server,interaction.guild.name,category);
    }
    if(revision!==state.revision)return;
    // Important: edits target the original PUBLIC shop message; no per-click
@@ -74,6 +78,9 @@ export async function handleSandShopButton(interaction,client,args=[],action='pr
 export default [
  {name:'sand_shop_preview',async execute(interaction,client,args){
   return handleSandShopButton(interaction,client,args,'preview');
+ }},
+ {name:'sand_shop_category',async execute(interaction,client,args){
+  return handleSandShopButton(interaction,client,args,'category');
  }},
  {name:'sand_shop_back',async execute(interaction,client){
   return handleSandShopButton(interaction,client,[],'back');
