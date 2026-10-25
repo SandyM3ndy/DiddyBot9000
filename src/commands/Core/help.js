@@ -6,6 +6,7 @@ import { createSelectMenu } from '../../utils/components.js';
 import { formatCategoryName, getCategoryIcon } from '../../config/commands/commandCategories.js';
 import { searchBeaconCommandsByIntent } from '../../utils/helpSearch.js';
 import { getRegisteredCommands } from '../../handlers/help/helpSelectMenus.js';
+import { BEACON_TEAM_NAME } from '../../config/bot.js';
 
 const SUPPORT_URL = 'https://discord.gg/76N2EM6v6k';
 
@@ -39,7 +40,7 @@ export async function createInitialHelpMenu(client) {
       '**Your community\'s all-in-one Discord assistant.**',
       'Global server rankings, rotating quests, moderation, tickets and security — all in Beacon.', 
       '',
-      'New here? Press **Start Here** for a guided tour, or browse the command categories below.',
+      '**/dashboard is your Main Control Center.** Use **Start Here** for a guided tour, or explore commands below.',
     ].join('\n'),
     color: 'primary',
     thumbnail: client?.user?.displayAvatarURL?.({ size: 256 }) || null,
@@ -51,6 +52,7 @@ export async function createInitialHelpMenu(client) {
       { name: '🎯 Community Progression', value: '**/progression quests** — Daily challenges\n**/progression weekly** — Weekly goals\n**/progression leaderboard** — Global server rankings', inline: false },
       { name: '🧰 Administration', value: '**/roleaudit** — Review powerful server roles\n**/ticketstats** — Track your support workload', inline: false },
       { name: '👑 Developer tools', value: 'The **Bot Owner** category contains commands reserved for Beacon’s creator. Server owners and moderators can manage their own communities normally.', inline: false },
+      { name: '💜 Thank You', value: 'Thank you for making Beacon part of your server. Your feedback helps us keep improving. — **' + BEACON_TEAM_NAME + '**', inline: false },
     ],
     footer: 'Beacon • Explore the categories below',
   });
