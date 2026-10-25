@@ -63,7 +63,7 @@ export default {
     .setRequired(true).addChoices(...SAND_CATALOG.map(item=>({name:item.name,value:item.id})))))
   .addSubcommand(s=>s.setName('unequip').setDescription('Manager: remove the equipped decoration from a rank-card slot')
    .addStringOption(o=>o.setName('slot').setDescription('Rank-card slot').setRequired(true)
-    .addChoices(...SAND_SLOTS.map(slot=>({name:slot,value:slot)))))
+    .addChoices(...SAND_SLOTS.map(slot=>({name:slot,value:slot})))))
   .addSubcommand(s=>s.setName('pay').setDescription('Send Sand Coins from your global wallet to another member')
    .addUserOption(o=>o.setName('member').setDescription('Server member receiving the coins').setRequired(true))
    .addIntegerOption(o=>o.setName('amount').setDescription('Sand Coins to send (1-10,000)').setMinValue(1).setMaxValue(10000).setRequired(true)))
