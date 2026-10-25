@@ -1,5 +1,6 @@
 import { SlashCommandBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, MessageFlags } from 'discord.js';
 import { createEmbed } from '../../utils/embeds.js';
+import { BEACON_TEAM_NAME, BEACON_MOTTO, BEACON_TEAM_THANKS } from '../../config/bot.js';
 import { logger } from '../../utils/logger.js';
 
 import { InteractionHelper } from '../../utils/interactionHelper.js';
@@ -23,8 +24,8 @@ export default {
       await InteractionHelper.safeReply(interaction, {
         embeds: [
           createEmbed({
-            title: "Need Help?",
-            description: "Your community's all-in-one Discord assistant.\n\nNeed a hand with Beacon? Join our support server to report an issue, suggest an idea, or get help with server configuration. We'll do our best to help.",
+            title: "💜 Beacon • Here for Your Community",
+            description: '**' + BEACON_MOTTO + '**\n\nNeed a hand? Join our support server to report a bug, suggest an improvement or get help with your server setup.\n\n' + BEACON_TEAM_THANKS + '\n\nWith appreciation, **' + BEACON_TEAM_NAME + '** 💜',
           }),
         ],
         components: [actionRow],
