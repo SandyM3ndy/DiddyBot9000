@@ -78,6 +78,10 @@ export async function respondSandPay(interaction){
  if(result.error)return reply(interaction,
   result.error==='INSUFFICIENT_FUNDS'?'⚠️ Your balance changed; not enough coins remain. Nothing was sent.':
   '⚠️ Payment could not be completed.');
+ // Notification is best-effort; the committed transfer is never rolled back
+ // because the recipient has DMs disabled.
+ await recipient.send('🪙 **Beacon Sand Coins** — You received **'+format(amount)+
+  '** from <@'+interaction.user.id+'>! Use /sandcoins wallet in a Beacon server to view your balance.').catch(()=>{});
  return InteractionHelper.safeEditReply(interaction,{
   content:'✅ Sent **'+format(amount)+'** to <@'+recipient.id+'>! Your balance: **'+format(result.fromBalance)+'**.',
   embeds:[],components:[],allowedMentions:{parse:[]},
