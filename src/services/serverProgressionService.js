@@ -966,7 +966,7 @@ export async function rerollDailyQuest(client,guildId,questId){
  });
 }
 /**
- * Founder badges are 25 numbered slots assigned by oldest Beacon join date.
+ * Founder badges are 10 consecutive numbered slots assigned by seniority.
  * A leaderboard exclusion disqualifies its guild from future Founder selection,
  * without erasing XP, levels or purchased cosmetics. Reallocation uses one
  * shared advisory lock to prevent concurrent double-awards.
@@ -985,20 +985,28 @@ export async function registerFoundingServers(client){
    const states=await Promise.all(batch.map(id=>client.db.get('guild:'+id+':progression',null)));
    states.forEach((data,j)=>{if(data?.leaderboardExcluded===true)excluded.add(batch[j]);});
   }
-  const entries=before.filter(x=>!excluded.has(x.guildId)&&
-   Number.isSafeInteger(x.number)&&x.number>=1&&x.number<=FOUNDING_CAP);
-  const awarded=new Set(entries.map(x=>x.guildId));
-  const taken=new Set(entries.map(x=>x.number));
-  const vacancies=Array.from({length:FOUNDING_CAP},(_,i)=>i+1).filter(n=>!taken.has(n));
-  let changed=entries.length!==before.length;
-  for(const guild of guilds){
-   if(!vacancies.length)break;
-   if(excluded.has(guild.id)||awarded.has(guild.id))continue;
-   const number=vacancies.shift();
-   entries.push({guildId:guild.id,number,awardedAt:new Date().toISOString()});
-   awarded.add(guild.id);changed=true;
+  // Keep existing Founder seniority; close gaps by moving all higher
+  // numbers down, then append the oldest eligible successor at the end.
+  const surviving=before
+   .filter(x=>!excluded.has(x.guildId)&&
+    Number.isSafeInteger(x.number)&&x.number>=1&&x.number<=FOUNDING_CAP)
+   .sort((a,b)=>a.number-b.number||a.guildId.localeCompare(b.guildId));
+  const entries=[];
+  const awarded=new Set();
+  for(const entry of surviving){
+   if(entries.length>=FOUNDING_CAP)break;
+   if(awarded.has(entry.guildId))continue;
+   entries.push({...entry,number:entries.length+1});
+   awarded.add(entry.guildId);
   }
-  entries.sort((a,b)=>a.number-b.number);
+  for(const guild of guilds){
+   if(entries.length>=FOUNDING_CAP)break;
+   if(excluded.has(guild.id)||awarded.has(guild.id))continue;
+   entries.push({guildId:guild.id,number:entries.length+1,awardedAt:new Date().toISOString()});
+   awarded.add(guild.id);
+  }
+  const changed=entries.length!==before.length ||
+   entries.some((entry,i)=>entry.guildId!==before[i]?.guildId||entry.number!==before[i]?.number);
   if(changed){
    const stored=await client.db.set(FOUNDERS_KEY,{version:1,entries});
    if(stored===false)throw new Error('Founding registry storage rejected the write.');

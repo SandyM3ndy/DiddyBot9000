@@ -33,7 +33,7 @@ function mockClient({guildIds=[g1,g2],failGuild=null}={}){
 
 test('v1.1 requires /daily and /sandcoins locally; rest register globally',()=>{
  assert.deepEqual(REQUIRED_V11_COMMANDS,['diagnose','roleaudit','ticket','giveaway','time','sandcoins','daily','rank']);
- assert.deepEqual(REQUIRED_GLOBAL_COMMANDS,['diagnose','roleaudit','ticket','giveaway','time','rank']);
+ assert.deepEqual(REQUIRED_GLOBAL_COMMANDS,['diagnose','roleaudit','ticket','giveaway','time']);
  assert.deepEqual(getMissingRequiredCommands(['help','diagnose','roleaudit','ticket','giveaway']),['time','sandcoins','daily','rank']);
  assert.throws(()=>assertRequiredCommandsPresent(['diagnose','ticket'],'loaded'),/roleaudit/);
  assert.doesNotThrow(()=>assertRequiredCommandsPresent(REQUIRED_V11_COMMANDS));
@@ -57,7 +57,7 @@ test('all guilds get both economy commands immediately, without global duplicate
  assert.equal(global.verb,'PUT');
  assert.equal(global.route,`/applications/${appId}/commands`);
  assert.ok(global.body.some(cmd=>cmd.name==='giveaway'));
- assert.ok(global.body.some(cmd=>cmd.name==='rank'));
+ assert.ok(global.body.every(cmd=>cmd.name!=='rank'),'guild and global /rank must never coexist');
  assert.deepEqual(posts[2].body.options.map(option=>option.name),['card','server']);
  assert.equal(posts[2].body.options[0].options[0].name,'server_id');
  assert.ok(global.body.every(cmd=>!['sandcoins','daily'].includes(cmd.name)));
@@ -71,8 +71,29 @@ test('a failed guild registration retains both global economy command fallbacks'
  assert.equal(global.verb,'PUT');
  assert.ok(global.body.some(x=>x.name==='sandcoins'));
  assert.ok(global.body.some(x=>x.name==='daily'));
+ assert.ok(global.body.every(x=>x.name!=='rank'));
 });
 
+test('no-guild startup keeps /rank globally available as a fallback',async()=>{
+ const {client,calls}=mockClient({guildIds:[]});
+ await registerCommands(client,{clientId:appId});
+ assert.ok(calls.at(-1).body.some(command=>command.name==='rank'));
+ assert.equal(calls.filter(call=>call.verb==='POST').length,0);
+});
+test('the rank definition is confirmed as a nested /rank card subcommand',async()=>{
+ const {client,calls}=mockClient();
+ const post=client.rest.post.bind(client.rest);
+ client.rest.post=async(route,body)=>{
+  const result=await post(route,body);
+  if(body.body.name==='rank')return {...result,options:[{type:1,name:'server'}]};
+  return result;
+ };
+ await registerCommands(client,{clientId:appId});
+ assert.ok(calls.some(x=>x.body.name==='rank'));
+ // An invalid guild definition must never create a second global /rank;
+ // the failed guild is logged for retry instead.
+ assert.ok(calls.at(-1).body.every(command=>command.name!=='rank'));
+});
 test('new guild command registration only upserts, never deletes existing commands',async()=>{
  const {client,calls}=mockClient({guildIds:[]});
  assert.equal(await registerGuildCommands(client,g1),3);

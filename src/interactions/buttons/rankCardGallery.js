@@ -2,7 +2,7 @@ import { MessageFlags } from 'discord.js';
 import { logger } from '../../utils/logger.js';
 import {
  isRankCardId,loadLiveRankCard,buildRankCardDisplay,
- saveRankCardSnapshot,readRankCardSnapshot,
+ saveRankCardSnapshot,readRankCardSnapshot,getRankCardLikes,toggleRankCardLike,
 } from '../../services/rankCardGalleryService.js';
 
 // Permanent globally registered buttons: never expire when a collector does,
@@ -17,7 +17,7 @@ function getState(messageId){
  }
  return state;
 }
-const actions=new Set(['live','cosmetics','save','saved']);
+const actions=new Set(['live','cosmetics','save','saved','like']);
 
 export async function handleRankCardButton(interaction,client,args=[]){
  const [action,targetId,ownerId]=args;
@@ -39,28 +39,39 @@ export async function handleRankCardButton(interaction,client,args=[]){
   return;
  }
  const run=async()=>{
-  if(action!=='save' && revision!==state.revision)return;
+  if(action!=='save' && action!=='like' && revision!==state.revision)return;
   try{
    const previous=await readRankCardSnapshot(client,interaction.message.id,targetId);
    let card,view=action;
-   if(action==='saved'){
+   if(action==='like'){
+    // Persist before editing the public message. Everyone has their own
+    // like entitlement, so rapid presses never generate duplicate likes.
+    await toggleRankCardLike(client,interaction.message.id,interaction.user.id);
+    const title=interaction.message?.embeds?.[0]?.title||'';
+    view=title.includes('Cosmetic Collection')?'cosmetics':
+      title.includes('Saved Rank Card')?'saved':'live';
+   }
+   if(view==='saved'){
     if(!previous){
-     await interaction.followUp({content:'No saved snapshot for this rank card yet. Press Save Snapshot first.',
-      flags:MessageFlags.Ephemeral}).catch(()=>{});
-     return;
-    }
-    card=previous.card;
-   }else{
+     if(action==='saved')
+      await interaction.followUp({content:'No saved snapshot for this rank card yet. Press Save Snapshot first.',
+       flags:MessageFlags.Ephemeral}).catch(()=>{});
+     if(action==='like')view='live';
+     else return;
+    }else card=previous.card;
+   }
+   if(!card){
     card=await loadLiveRankCard(client,targetId);
     if(action==='save'){
-     // Store server stats AND equipped appearance; this survives restarts.
+     // Store stats and equipped cosmetics without affecting likes.
      await saveRankCardSnapshot(client,interaction.message.id,card,ownerId);
      view='saved';
     }
    }
+   const reactions=await getRankCardLikes(client,interaction.message.id);
    if(revision!==state.revision)return;
    const payload=buildRankCardDisplay(card,{
-    ownerId,view,hasSaved:action==='save'||Boolean(previous),
+    ownerId,view,hasSaved:action==='save'||Boolean(previous),likes:reactions.count,
    });
    await interaction.editReply(payload);
   }catch(error){

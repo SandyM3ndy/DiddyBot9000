@@ -13,9 +13,9 @@ const COMMAND_COUNT_WARN_THRESHOLD = 90;
 export const REQUIRED_V11_COMMANDS = Object.freeze(['diagnose', 'roleaudit', 'ticket', 'giveaway', 'time', 'sandcoins', 'daily', 'rank']);
 // Economy commands appear immediately in every guild; account state stays global.
 const GUILD_ECONOMY_COMMANDS = Object.freeze(['sandcoins','daily']);
-// Publish /rank card per-guild immediately as well as globally.
+// /rank card is published per guild only. The global duplicate is deleted on sync.
 const GUILD_IMMEDIATE_COMMANDS = Object.freeze([...GUILD_ECONOMY_COMMANDS,'rank']);
-export const REQUIRED_GLOBAL_COMMANDS = Object.freeze(REQUIRED_V11_COMMANDS.filter(name => !GUILD_ECONOMY_COMMANDS.includes(name)));
+export const REQUIRED_GLOBAL_COMMANDS = Object.freeze(REQUIRED_V11_COMMANDS.filter(name => !GUILD_IMMEDIATE_COMMANDS.includes(name)));
 
 export function getMissingRequiredCommands(names) {
     const available = new Set(names);
@@ -296,11 +296,15 @@ export async function registerCommands(client, options = {}) {
         // Guild registrations appear immediately; keep both commands as global
         // fallbacks if any guild rejects its registration.
         const sync = await registerSandCoinsAllGuilds(client, { clientId });
-        // If ANY guild failed, retain the global command as a safety fallback.
-        const globalCommands = sync.failed.length || sync.total === 0
-            ? commands
-            : commands.filter(command => !GUILD_ECONOMY_COMMANDS.includes(command.name));
-        if (sync.failed.length) logger.warn('Keeping global economy command fallbacks because some guild registrations failed');
+        // A global /rank alongside a guild /rank renders TWO slash entries.
+        // Never globally publish /rank while the bot is in any guild. The
+        // global PUT also deletes the previous duplicate on startup.
+        // Keep only economy global fallbacks when any guild upsert fails.
+        const globalCommands = commands.filter(command =>
+            (sync.total===0 || command.name!=='rank') &&
+            (sync.total===0 || sync.failed.length>0 || !GUILD_ECONOMY_COMMANDS.includes(command.name)));
+        if(sync.failed.length)
+            logger.warn('Retaining global economy fallbacks; /rank stays guild-only to prevent duplicate slash entries');
         const totalSubcommands = globalCommands.reduce((sum, command) => sum + getSubcommandInfo(command).length, 0);
         await registerGlobalCommands(client, clientId, globalCommands, totalSubcommands);
     } catch (error) {

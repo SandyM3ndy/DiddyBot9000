@@ -2,7 +2,7 @@
 import { ActionRowBuilder,AttachmentBuilder,ButtonBuilder,ButtonStyle } from 'discord.js';
 import { renderProgressionRankPng } from '../utils/progressionRankCard.js';
 import { createEmbed } from '../utils/embeds.js';
-import { getServerProgression,getGlobalProgressionLeaderboard,getLevelProgress,getFoundingBadge } from './serverProgressionService.js';
+import { getServerProgression,getGlobalProgressionLeaderboard,getLevelProgress,getFoundingBadge,withGuildLock } from './serverProgressionService.js';
 import { SAND_CATALOG,SAND_SLOTS,getSandServer,getSandAppearance,getSandCatalogItem } from './sandCoinsService.js';
 
 const PREFIX='beacon:rank-card:v1:snapshot:';
@@ -11,6 +11,29 @@ const tick=String.fromCharCode(96);
 const short=value=>String(value||'Unknown Server').replace(/[@*_~<>|]/g,'').replaceAll(tick,'').slice(0,70);
 export const isRankCardId=value=>ID.test(String(value||''));
 export const rankCardSaveKey=id=>PREFIX+id;
+const LIKES_PREFIX='beacon:rank-card:v1:likes:';
+export const rankCardLikesKey=id=>LIKES_PREFIX+id;
+
+/** One reversible like per user per posted card, durable across restarts. */
+export async function getRankCardLikes(client,messageId,userId=null){
+ if(!isRankCardId(messageId))throw new Error('INVALID_RANK_CARD_MESSAGE');
+ const value=await client.db.get(rankCardLikesKey(messageId),null);
+ const users=Array.isArray(value?.users)?value.users:[];
+ return {count:users.length,liked:Boolean(userId&&users.includes(userId))};
+}
+export async function toggleRankCardLike(client,messageId,userId){
+ if(!isRankCardId(messageId)||!isRankCardId(userId))throw new Error('INVALID_RANK_CARD_LIKE');
+ return withGuildLock('rank-card-like:'+messageId,async()=>{
+  const key=rankCardLikesKey(messageId);
+  const value=await client.db.get(key,null);
+  const users=new Set(Array.isArray(value?.users)?value.users:[]);
+  const liked=!users.has(userId);
+  if(liked)users.add(userId);else users.delete(userId);
+  const saved=await client.db.set(key,{version:1,users:[...users]});
+  if(saved===false)throw new Error('RANK_CARD_LIKE_SAVE_FAILED');
+  return {count:users.size,liked};
+ },client);
+}
 
 export async function loadLiveRankCard(client,targetId){
  if(!isRankCardId(targetId))throw new Error('INVALID_SERVER_ID');
@@ -33,7 +56,7 @@ export async function loadLiveRankCard(client,targetId){
   inventory:server.inventory.filter(id=>getSandCatalogItem(id)).slice(0,70),
  };
 }
-export function rankCardButtons(targetId,ownerId,view='live',hasSaved=false){
+export function rankCardButtons(targetId,ownerId,view='live',hasSaved=false,likeCount=0){
  if(!isRankCardId(targetId)||!isRankCardId(ownerId))throw new Error('INVALID_ID');
  const button=(action,label,emoji,active=false,disabled=false)=>
   new ButtonBuilder().setCustomId('rank_card:'+action+':'+targetId+':'+ownerId)
@@ -44,6 +67,7 @@ export function rankCardButtons(targetId,ownerId,view='live',hasSaved=false){
   button('cosmetics','Cosmetics','🎨',view==='cosmetics'),
   button('save','Save Snapshot','💾'),
   button('saved','Saved Card','📸',view==='saved',!hasSaved),
+  button('like','Like '+Math.max(0,Math.floor(likeCount||0)).toLocaleString('en-US'),'❤️'),
  )];
 }
 
@@ -61,7 +85,7 @@ function cachedPng(card){
  return png;
 }
 const itemName=id=>SAND_CATALOG.find(item=>item.id===id)?.name||'None equipped';
-export function buildRankCardDisplay(card,{view='live',ownerId,hasSaved=false}={}){
+export function buildRankCardDisplay(card,{view='live',ownerId,hasSaved=false,likes=0}={}){
  if(!isRankCardId(card?.guildId)||!isRankCardId(ownerId))throw new Error('INVALID_RANK_CARD');
  const saved=view==='saved',cosmetics=view==='cosmetics';
  let embed,files=[];
@@ -100,7 +124,7 @@ export function buildRankCardDisplay(card,{view='live',ownerId,hasSaved=false}={
   embed.setImage('attachment://'+filename);
   files=[new AttachmentBuilder(cachedPng(card),{name:filename})];
  }
- return {embeds:[embed],files,attachments:[],components:rankCardButtons(card.guildId,ownerId,view,hasSaved),
+ return {embeds:[embed],files,attachments:[],components:rankCardButtons(card.guildId,ownerId,view,hasSaved,likes),
   allowedMentions:{parse:[]}};
 }
 export async function saveRankCardSnapshot(client,messageId,card,ownerId){
@@ -120,7 +144,7 @@ export async function readRankCardSnapshot(client,messageId,expectedId=null){
   const {getFoundingBadge}=await import('./serverProgressionService.js');
   const current=await getFoundingBadge(client,saved.card.guildId);
   if(!current||current.number!==saved.card.founder.number)
-   return {...saved,card:{...saved.card,founder:null}};
+   return {...saved,card:{...saved.card,founder:current?{number:current.number}:null}};
  }
  return saved;
 }
