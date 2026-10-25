@@ -379,15 +379,15 @@ export function previewDailyQuests(guildId, day, level = 1, memberCount = 1) {
 
 
 // Weekly rewards complement sustained activity instead of deciding world #1.
-// v2 raises minimum effort and cuts max 3-quest payout from 2,600 to 680 XP.
-export const WEEKLY_BALANCE_VERSION=2;
+// v3 keeps tougher targets with moderate rewards: top 3 total 920 XP.
+export const WEEKLY_BALANCE_VERSION=3;
 const WEEKLY_POOL=[
-{id:'warmup',title:'🌱 Weekly Warmup',description:'Send 100 eligible messages this week.',metric:'messages',target:100,reward:100,minMembers:1},
-{id:'explorer',title:'🤖 Beacon Explorer',description:'Use 50 eligible commands this week.',metric:'commands',target:50,reward:120,minMembers:1},
-{id:'streak',title:'📅 Consistent Crew',description:'Qualifying activity on 5 different days.',metric:'activeDays',target:5,reward:150,minMembers:1},
-{id:'team',title:'🔥 Community Spirit',description:'Have 8 unique participants this week.',metric:'uniqueMembers',target:8,reward:160,minMembers:8},
-{id:'dailies',title:'🏆 Dedicated Community',description:'Complete 15 daily quests this week.',metric:'dailyQuests',target:15,reward:220,minMembers:1},
-{id:'legend',title:'👑 Weekly Legends',description:'Earn 3,000 eligible activity XP this week.',metric:'activityXp',target:3000,reward:300,minMembers:5},
+{id:'warmup',title:'🌱 Weekly Warmup',description:'Send 100 eligible messages this week.',metric:'messages',target:100,reward:150,minMembers:1},
+{id:'explorer',title:'🤖 Beacon Explorer',description:'Use 50 eligible commands this week.',metric:'commands',target:50,reward:180,minMembers:1},
+{id:'streak',title:'📅 Consistent Crew',description:'Qualifying activity on 5 different days.',metric:'activeDays',target:5,reward:200,minMembers:1},
+{id:'team',title:'🔥 Community Spirit',description:'Have 8 unique participants this week.',metric:'uniqueMembers',target:8,reward:220,minMembers:8},
+{id:'dailies',title:'🏆 Dedicated Community',description:'Complete 15 daily quests this week.',metric:'dailyQuests',target:15,reward:300,minMembers:1},
+{id:'legend',title:'👑 Weekly Legends',description:'Earn 3,000 eligible activity XP this week.',metric:'activityXp',target:3000,reward:400,minMembers:5},
 ];
 // Preserve completed quests and XP actually paid; only unfinished quests
 // are migrated to the current balance policy without losing their progress.
@@ -965,27 +965,52 @@ export async function rerollDailyQuest(client,guildId,questId){
   return {changed:true,previous,next};
  });
 }
-/** Immutable registration ledger, shared between processes using PostgreSQL advisory lock. */
+/**
+ * Founder badges are 25 numbered slots assigned by oldest Beacon join date.
+ * A leaderboard exclusion disqualifies its guild from future Founder selection,
+ * without erasing XP, levels or purchased cosmetics. Reallocation uses one
+ * shared advisory lock to prevent concurrent double-awards.
+ */
 export async function registerFoundingServers(client){
  return withGuildLock('beacon-founders',async()=>{
   const raw=await client.db.get(FOUNDERS_KEY,null);
-  const entries=Array.isArray(raw?.entries)?raw.entries:[];
-  const seen=new Set(entries.map(x=>x.guildId));
-  const guilds=[...client.guilds.cache.values()].sort((a,b)=>(a.joinedTimestamp||0)-(b.joinedTimestamp||0)||a.id.localeCompare(b.id));
-  for(const guild of guilds){
-    if(entries.length>=FOUNDING_CAP)break;
-    if(seen.has(guild.id))continue;
-    entries.push({guildId:guild.id,number:entries.length+1,awardedAt:new Date().toISOString()});
-    seen.add(guild.id);
+  const before=Array.isArray(raw?.entries)?raw.entries:[];
+  const guilds=[...(client.guilds?.cache?.values()||[])]
+   .sort((a,b)=>(a.joinedTimestamp||0)-(b.joinedTimestamp||0)||a.id.localeCompare(b.id));
+  const ids=[...new Set([...before.map(x=>x.guildId),...guilds.map(g=>g.id)])];
+  const excluded=new Set();
+  // Check already-excluded testing servers, including former Founder holders.
+  for(let i=0;i<ids.length;i+=8){
+   const batch=ids.slice(i,i+8);
+   const states=await Promise.all(batch.map(id=>client.db.get('guild:'+id+':progression',null)));
+   states.forEach((data,j)=>{if(data?.leaderboardExcluded===true)excluded.add(batch[j]);});
   }
-  if(entries.length!==(raw?.entries?.length||0)){
-    const stored=await client.db.set(FOUNDERS_KEY,{version:1,entries});
-    if(stored===false)throw new Error('Founding registry storage rejected the write.');
+  const entries=before.filter(x=>!excluded.has(x.guildId)&&
+   Number.isSafeInteger(x.number)&&x.number>=1&&x.number<=FOUNDING_CAP);
+  const awarded=new Set(entries.map(x=>x.guildId));
+  const taken=new Set(entries.map(x=>x.number));
+  const vacancies=Array.from({length:FOUNDING_CAP},(_,i)=>i+1).filter(n=>!taken.has(n));
+  let changed=entries.length!==before.length;
+  for(const guild of guilds){
+   if(!vacancies.length)break;
+   if(excluded.has(guild.id)||awarded.has(guild.id))continue;
+   const number=vacancies.shift();
+   entries.push({guildId:guild.id,number,awardedAt:new Date().toISOString()});
+   awarded.add(guild.id);changed=true;
+  }
+  entries.sort((a,b)=>a.number-b.number);
+  if(changed){
+   const stored=await client.db.set(FOUNDERS_KEY,{version:1,entries});
+   if(stored===false)throw new Error('Founding registry storage rejected the write.');
   }
   return entries;
  },client);
 }
 export async function getFoundingBadge(client,guildId){
  const raw=await client.db.get(FOUNDERS_KEY,{entries:[]});
- return (raw?.entries||[]).find(x=>x.guildId===guildId)||null;
+ const entry=(raw?.entries||[]).find(x=>x.guildId===guildId);
+ if(!entry)return null;
+ // Immediately hide a revoked badge even if registry repair is pending.
+ const progression=await client.db.get('guild:'+guildId+':progression',null);
+ return progression?.leaderboardExcluded===true?null:entry;
 }

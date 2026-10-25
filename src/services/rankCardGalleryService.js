@@ -115,5 +115,12 @@ export async function readRankCardSnapshot(client,messageId,expectedId=null){
  const saved=await client.db.get(rankCardSaveKey(messageId),null);
  if(!saved||saved.version!==1||!isRankCardId(saved.card?.guildId))return null;
  if(expectedId&&saved.card.guildId!==expectedId)return null;
+ // A revoked Founder badge cannot stay visible in historic saved cards.
+ if(saved.card.founder){
+  const {getFoundingBadge}=await import('./serverProgressionService.js');
+  const current=await getFoundingBadge(client,saved.card.guildId);
+  if(!current||current.number!==saved.card.founder.number)
+   return {...saved,card:{...saved.card,founder:null}};
+ }
  return saved;
 }

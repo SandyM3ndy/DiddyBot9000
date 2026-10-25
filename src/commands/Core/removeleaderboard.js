@@ -1,7 +1,7 @@
 import { SlashCommandBuilder, MessageFlags } from 'discord.js';
 import { createEmbed } from '../../utils/embeds.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
-import { getServerProgression } from '../../services/serverProgressionService.js';
+import { mutateServerProgression,registerFoundingServers,getFoundingBadge } from '../../services/serverProgressionService.js';
 
 import { isPrimaryBotOwner } from '../../config/bot.js';
 
@@ -39,31 +39,42 @@ export default {
       });
     }
 
-    const data = await getServerProgression(interaction.client, serverId);
-    if (data.leaderboardExcluded === true) {
-      return InteractionHelper.safeReply(interaction, {
-        embeds: [createEmbed({ title: '🌎 Already Removed', description: `**${guild.name}** is already excluded from the global Server Progression leaderboard.`, color: 'warning' })],
-        flags: MessageFlags.Ephemeral,
+    const previousFounder=await getFoundingBadge(interaction.client,serverId);
+    const {data,result}=await mutateServerProgression(interaction.client,serverId,current=>{
+      if(current.leaderboardExcluded===true)return {changed:false};
+      current.leaderboardExcluded=true;
+      return {changed:true};
+    });
+    // Retry registration even when previously excluded: repairs old test guilds.
+    let founders,successor=null;
+    try{
+      founders=await registerFoundingServers(interaction.client);
+      if(previousFounder)successor=founders.find(x=>x.number===previousFounder.number)||null;
+    }catch(error){
+      return InteractionHelper.safeReply(interaction,{
+        content:'⚠️ Leaderboard exclusion saved, but Founder reassignment failed. Run the command again to retry.',
+        flags:MessageFlags.Ephemeral,
       });
     }
-
-    data.leaderboardExcluded = true;
-    data.updatedAt = new Date().toISOString();
-    await interaction.client.db.set(`guild:${serverId}:progression`, data);
-
-    return InteractionHelper.safeReply(interaction, {
-      embeds: [createEmbed({
-        title: '🌎 Server Removed From Leaderboard',
-        description: `**${guild.name}** has been removed from the global Server Progression leaderboard.`,
-        color: 'success',
-        fields: [
-          { name: '🏠 Server', value: `${guild.name} (${serverId})`, inline: false },
-          { name: '📈 Server XP', value: data.xp.toLocaleString(), inline: true },
-          { name: '📊 Level', value: String(data.level), inline: true },
+    const badge=previousFounder?
+      successor&&successor.guildId!==serverId
+       ?'🌟 Founder #'+previousFounder.number+' transferred to **'+
+         (interaction.client.guilds.cache.get(successor.guildId)?.name||successor.guildId)+'**.'
+       :'🌟 Founder #'+previousFounder.number+' revoked; its slot awaits an eligible server.'
+      :'No Founder badge was assigned to this server.';
+    return InteractionHelper.safeReply(interaction,{
+      embeds:[createEmbed({
+        title:result.changed?'🌎 Server Removed From Leaderboard':'🌎 Already Removed • Founder Registry Checked',
+        description:'**'+guild.name+'** is excluded from global Server Progression rankings.\n\n'+badge,
+        color:'success',
+        fields:[
+          {name:'🏠 Server',value:guild.name+' ('+serverId+')',inline:false},
+          {name:'📈 Server XP',value:data.xp.toLocaleString(),inline:true},
+          {name:'📊 Level',value:String(data.level),inline:true},
+          {name:'🏅 Active Founders',value:String(founders.length)+' / 25',inline:true},
         ],
-        footer: 'The server can still use Server Progression normally; only its global leaderboard listing is hidden.',
-      })],
-      flags: MessageFlags.Ephemeral,
+        footer:'XP and owned cosmetics stay saved. Excluded servers cannot regain a Founder badge.',
+      })],flags:MessageFlags.Ephemeral,
     });
   },
 };

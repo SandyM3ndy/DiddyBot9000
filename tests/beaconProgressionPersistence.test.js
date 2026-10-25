@@ -66,11 +66,11 @@ test('weekly archival never destroys lifetime XP or lifetime contribution counts
 });
 test('weekly challenge rebalance is difficult enough to avoid instant #1 from three easy quests',()=>{
  const list=getWeeklyCatalog(),byId=new Map(list.map(x=>[x.id,x]));
- assert.equal(WEEKLY_BALANCE_VERSION,2);
+ assert.equal(WEEKLY_BALANCE_VERSION,3);
  assert.equal(list.length,6);
  assert.equal(new Set(list.map(x=>x.id)).size,6);
  const maxThree=list.map(q=>q.reward).sort((a,b)=>b-a).slice(0,3).reduce((a,b)=>a+b,0);
- assert.ok(maxThree<=680,'a full weekly set should not eclipse daily activity rewards');
+ assert.ok(maxThree<=920,'a full weekly set should not eclipse daily activity rewards');
  assert.deepEqual(
   ['warmup','explorer','streak','team','dailies','legend'].map(id=>byId.get(id).target),
   [100,50,5,8,15,3000],
@@ -106,10 +106,10 @@ test('existing unfinished weekly quests rebalance on read while keeping old XP a
  assert.equal(commands.completed,false);
  assert.equal(commands.progress,9,'retain legitimate quest progress');
  assert.equal(commands.target,50);
- assert.equal(commands.reward,120);
+ assert.equal(commands.reward,180);
  assert.equal(streak.progress,2);
  assert.equal(streak.target,5);
- assert.equal(streak.reward,150);
+ assert.equal(streak.reward,200);
  assert.equal(store.get(key).weekly.balanceVersion,WEEKLY_BALANCE_VERSION,
   'new policy must survive a bot restart even if nobody earns more XP');
  const restart=mockClient(store);
