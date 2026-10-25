@@ -30,9 +30,9 @@ const HIDDEN_COMMANDS = new Set([
     'logging',
     'welcome',
     'jointocreate',
-    'reactroles',
-    // Removed from the public bot in v1.1. Sources are kept for rollback.
-    'broadcast', 'shorten', 'generatepassword', 'firstmsg', 'randomuser',
+    // Owner/internal or superseded commands remain hidden. The maintained
+    // /reactroles studio and /firstmsg are public because help advertises them.
+    'broadcast', 'shorten', 'generatepassword', 'randomuser',
 ]);
 
 // Legacy handlers remain loaded for old text-prefix usage, but their
@@ -41,7 +41,7 @@ export const LEGACY_SLASH_COMMANDS = new Set([
   'gcreate', 'gdelete', 'gend', 'greroll',
   'ticketadd', 'ticketremove', 'ticketrename', 'claim', 'close', 'priority', 'ticketstats',
   'rank', 'levels', 'unixtime', 'warn', 'autoverify', 'lock', 'unlock', 'goodbye', 'popularity',
-  'broadcast', 'shorten', 'generatepassword', 'firstmsg', 'randomuser',
+  'broadcast', 'shorten', 'generatepassword', 'randomuser',
 ]);
 
 function getSubcommandInfo(commandData) {
