@@ -18,7 +18,7 @@ export function eligibleSandContributors(quest,contributions){
   .sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]))
   .slice(0,MAX_RECIPIENTS).map(([userId])=>userId);
 }
-export function recordQuestContribution(data,guildId,metric,options,completedDaily,baseXp){
+export function recordQuestContribution(data,guildId,metric,options,completedDaily,baseXp,priorProgress=null){
  const store=data.sandContributions;
  if(!store||!options.userId)return;
  const userId=options.userId;
@@ -29,9 +29,9 @@ export function recordQuestContribution(data,guildId,metric,options,completedDai
  for(const quest of data.dailyQuests){
   if(quest.completed)continue;
   if((metric==='message'&&(['messages','channels','uniqueMembers'].includes(quest.metric)))||
-     (metric==='command'&&quest.metric==='commands')||
-     (metric==='newMembers'&&quest.metric==='newMembers')){
-   add(store.daily,quest);
+     (metric==='command'&&quest.metric==='commands')){
+   const increase=priorProgress?Math.max(0,quest.progress-(priorProgress[quest.id]??quest.progress)):1;
+   if(increase>0)add(store.daily,quest,increase);
   }
  }
  for(const quest of data.weekly?.quests||[]){
