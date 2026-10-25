@@ -230,37 +230,43 @@ function verifiedServer(tx,guildId){
 function storeServer(tx,guildId,server,reason,operationId=null){
  const current=readServer(server);
  const previous=readInventoryVault(tx.get(vaultKey(guildId)),guildId);
- const revision=(previous?.revision||0)+1;
+ // Keep eight distinct inventory/appearance revisions. Audit delivery and
+ // pending trade offers are still mirrored durably, but must not evict actual
+ // purchase/trade/equipment recovery points from the rolling history.
+ const changedInventory=!previous||
+  ['purchase','equip','unequip','trade_completed','legacy_inventory_protected'].includes(reason);
+ const revision=(previous?.revision||0)+(changedInventory?1:0);
  const entry={revision,at:new Date().toISOString(),reason,
   operationId,checksum:inventoryHash(current),server:structuredClone(current)};
+ const savedHistory=changedInventory?previous?.snapshots||[]:previous?.snapshots.slice(1)||[];
  const vault={schema:1,guildId,revision,checksum:entry.checksum,
-  snapshots:[entry,...(previous?.snapshots||[])].slice(0,SAND_INVENTORY_SNAPSHOT_DEPTH)};
+  snapshots:[entry,...savedHistory].slice(0,SAND_INVENTORY_SNAPSHOT_DEPTH)};
  tx.put(serverKey(guildId),current);
  tx.put(vaultKey(guildId),vault);
  return {revision,at:entry.at};
 }
-export async function getSandServer(client,guildId){
+/**
+ * A verified, consistent point-in-time read for owners and backups.
+ * Server data and the vault revision are fetched under the SAME locks,
+ * preventing export files from mixing pre-trade and post-trade states.
+ */
+export async function getSandInventoryProtectedSnapshot(client,guildId){
  requireId(guildId,'server ID');
  const sk=serverKey(guildId),vk=vaultKey(guildId);
  return atomic(client,[sk,vk],async tx=>{
   const server=verifiedServer(tx,guildId);
-  // Backfill the protective vault for existing inventories without removing
-  // or changing items, equipment, audit queues, or purchase history.
-  if(!tx.get(vk))storeServer(tx,guildId,server,'legacy_inventory_protected');
-  return server;
- });
-}
-/** Health/read-only revision for owners and diagnostic tests. */
-export async function getSandInventoryBackupStatus(client,guildId){
- requireId(guildId,'server ID');
- const sk=serverKey(guildId),vk=vaultKey(guildId);
- return atomic(client,[sk,vk],async tx=>{
-  const server=verifiedServer(tx,guildId);
+  // Backfill legacy inventories (including archived catalog items) safely.
   if(!tx.get(vk))storeServer(tx,guildId,server,'legacy_inventory_protected');
   const vault=readInventoryVault(tx.get(vk),guildId);
-  return {protected:true,revision:vault.revision,copies:vault.snapshots.length,
-   savedAt:vault.snapshots[0].at,items:server.inventory.length};
+  return {server,backup:{protected:true,revision:vault.revision,copies:vault.snapshots.length,
+   savedAt:vault.snapshots[0].at,items:server.inventory.length}};
  });
+}
+export async function getSandServer(client,guildId){
+ return (await getSandInventoryProtectedSnapshot(client,guildId)).server;
+}
+export async function getSandInventoryBackupStatus(client,guildId){
+ return (await getSandInventoryProtectedSnapshot(client,guildId)).backup;
 }
 export function getSandCatalogItem(id){return SAND_CATALOG.find(item=>item.id===id)||null;}
 export async function getSandLimitedStock(client,itemId){
