@@ -5,7 +5,7 @@ import { getGuildConfig } from '../../services/config/guildConfig.js';
 import { resolveLogChannel } from '../../services/loggingService.js';
 import {
  SAND_CATALOG,SAND_SLOTS,getSandWallet,getSandServer,getSandCatalogItem,
- getSandAppearance,buySandDecoration,equipSandDecoration,deliverSandPurchaseLogs,
+ getSandAppearance,buySandDecoration,equipSandDecoration,deliverSandPurchaseLogs,getSandLimitedStock,
 } from '../../services/sandCoinsService.js';
 import { logger } from '../../utils/logger.js';
 
@@ -87,11 +87,13 @@ export default {
      fields:ownedDescription(server),color:'primary',
     })]});
     const w=await getSandWallet(interaction.client,interaction.user.id);
+    const stocks=await Promise.all(SAND_CATALOG.map(item=>getSandLimitedStock(interaction.client,item.id)));
     return InteractionHelper.safeEditReply(interaction,{embeds:[createEmbed({
      title:'🪙 Beacon • Sand Coins Shop',
      description:'**Your balance: '+format(w.balance)+'**\nPurchase here and the item goes into **'+short(interaction.guild.name)+'\'s server inventory** — not your personal inventory. Spend coins earned in any Beacon server.',
-     fields:SAND_CATALOG.map(item=>({name:(server.inventory.includes(item.id)?'✅ ':'▫️ ')+item.name+
-      (item.limited?' • Limited Edition':''),value:item.description+'\n**'+format(item.price)+'** • ID: \`'+item.id+'\`'})),
+     fields:SAND_CATALOG.map((item,index)=>({name:(server.inventory.includes(item.id)?'✅ ':'▫️ ')+item.name+
+      (item.limited?' • Limited Edition':''),value:item.description+'\n**'+format(item.price)+'** • ID: \`'+item.id+'\`'+
+      (stocks[index]?' • **'+stocks[index].remaining+'/'+stocks[index].total+' left globally**':'')})),
      color:'primary',footer:'Use /sandcoins buy • Owners/admins equip with /sandcoins equip',
     })]});
    }
@@ -103,8 +105,9 @@ export default {
     const result=await buySandDecoration(interaction.client,{
      userId:interaction.user.id,guildId:interaction.guildId,itemId,purchaseId:interaction.id,
     });
-    if(result.error)return InteractionHelper.safeEditReply(interaction,{content:result.error==='ALREADY_OWNED'?
-     '✅ This server already owns **'+name(item)+'**. Ask a manager to equip it with /sandcoins equip.':
+    if(result.error)return InteractionHelper.safeEditReply(interaction,{content:
+     result.error==='ALREADY_OWNED'?'✅ This server already owns **'+name(item)+'**. Ask a manager to equip it with /sandcoins equip.':
+     result.error==='SOLD_OUT'?'⚠️ This limited edition has sold out globally. No coins were spent.':
      '🪙 Not enough Sand Coins. This costs **'+format(item.price)+'** and your balance is **'+format(result.balance)+'**.'});
     const sent=await deliverSandPurchaseLogs(interaction.client,interaction.guildId).catch(e=>{
      logger.warn('Sand Coins purchase log pending',{guildId:interaction.guildId,error:e.message});
