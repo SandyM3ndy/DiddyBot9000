@@ -216,6 +216,8 @@ function verifiedServer(tx,guildId){
   if(vault){
    const restored=readServer(vault.snapshots[0].server);
    tx.put(serverKey(guildId),restored);
+   tx.put(vaultKey(guildId),{...vault,recoveryCount:(vault.recoveryCount||0)+1,
+    lastRecoveredAt:new Date().toISOString()});
    logger.warn('Recovered missing Sand Coins inventory from verified PostgreSQL vault',
     {guildId,revision:vault.revision});
    return restored;
@@ -240,6 +242,7 @@ function storeServer(tx,guildId,server,reason,operationId=null){
   operationId,checksum:inventoryHash(current),server:structuredClone(current)};
  const savedHistory=changedInventory?previous?.snapshots||[]:previous?.snapshots.slice(1)||[];
  const vault={schema:1,guildId,revision,checksum:entry.checksum,
+  recoveryCount:previous?.recoveryCount||0,lastRecoveredAt:previous?.lastRecoveredAt||null,
   snapshots:[entry,...savedHistory].slice(0,SAND_INVENTORY_SNAPSHOT_DEPTH)};
  tx.put(serverKey(guildId),current);
  tx.put(vaultKey(guildId),vault);
@@ -256,10 +259,15 @@ export async function getSandInventoryProtectedSnapshot(client,guildId){
  return atomic(client,[sk,vk],async tx=>{
   const server=verifiedServer(tx,guildId);
   // Backfill legacy inventories (including archived catalog items) safely.
-  if(!tx.get(vk))storeServer(tx,guildId,server,'legacy_inventory_protected');
+  if(!tx.get(vk)){
+   storeServer(tx,guildId,server,'legacy_inventory_protected');
+   logger.info('Created durable Sand Coins inventory recovery vault',
+    {guildId,items:server.inventory.length});
+  }
   const vault=readInventoryVault(tx.get(vk),guildId);
   return {server,backup:{protected:true,revision:vault.revision,copies:vault.snapshots.length,
-   savedAt:vault.snapshots[0].at,items:server.inventory.length}};
+   savedAt:vault.snapshots[0].at,items:server.inventory.length,
+   recoveryCount:vault.recoveryCount||0,lastRecoveredAt:vault.lastRecoveredAt||null}};
  });
 }
 export async function getSandServer(client,guildId){
