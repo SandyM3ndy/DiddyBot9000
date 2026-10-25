@@ -22,7 +22,9 @@ async function verifyAuditChannel(interaction){
  if(!id)return {error:'Configure a **server audit/logs channel** in /dashboard before purchasing rank-card decorations.'};
  const channel=interaction.guild?.channels.cache.get(id)||
    await interaction.guild?.channels.fetch(id).catch(()=>null);
- if(!channel?.send||!channel?.permissionsFor?.(interaction.guild.members.me)?.has([
+ const botMember=interaction.guild?.members.me||
+   await interaction.guild?.members.fetchMe?.().catch(()=>null);
+ if(!channel?.send||!botMember||!channel?.permissionsFor?.(botMember)?.has([
   PermissionFlagsBits.SendMessages,PermissionFlagsBits.EmbedLinks
  ]))return {error:'Beacon cannot send purchase logs to the configured audit channel. Give it **Send Messages** and **Embed Links** permissions, then try again.'};
  return {channel};
