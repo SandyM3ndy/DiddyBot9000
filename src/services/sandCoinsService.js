@@ -30,7 +30,7 @@ const claimKey=(eventId,userId)=>PREFIX+'claim:'+eventId+':'+userId;
 const stockKey=itemId=>PREFIX+'stock:'+itemId;
 const validId=value=>typeof value==='string' && /^\d{17,20}$/.test(value);
 const initialWallet=()=>({balance:0,lifetime:0,earnedToday:0,earnedWeek:0,day:'',week:'',history:[],leaderboardHidden:false,dailyStreak:0,lastDailyClaimDate:''});
-const initialServer=()=>({inventory:[],equipped:{background:null,border:null,tag:null},purchases:[],pendingLogs:[]});
+const initialServer=()=>({inventory:[],equipped:{background:null,border:null,tag:null},purchases:[],pendingLogs:[],tradeOffers:[],pendingTradeLogs:[],tradeHistory:[]});
 const safeNumber=value=>Number.isSafeInteger(value)&&value>=0;
 function requireId(value,label){if(!validId(value))throw new Error('Invalid '+label);}
 function readWallet(value){
@@ -45,6 +45,9 @@ function readServer(value){
  d.equipped={...initialServer().equipped,...(d.equipped||{})};
  d.purchases=Array.isArray(d.purchases)?d.purchases:[];
  d.pendingLogs=Array.isArray(d.pendingLogs)?d.pendingLogs:[];
+ d.tradeOffers=Array.isArray(d.tradeOffers)?d.tradeOffers:[];
+ d.pendingTradeLogs=Array.isArray(d.pendingTradeLogs)?d.pendingTradeLogs:[];
+ d.tradeHistory=Array.isArray(d.tradeHistory)?d.tradeHistory:[];
  return d;
 }
 function dayKey(now){return now.toISOString().slice(0,10);}
@@ -239,6 +242,166 @@ export async function equipSandDecoration(client,{guildId,itemId,slot,actorId}){
   return {appearance:getSandAppearance(server)};
  });
 }
+
+/** Global account-to-account payments: atomic, one-time, non-minting. */
+export async function transferSandCoins(client,{fromId,toId,amount,transferId}){
+ requireId(fromId,'sender ID');requireId(toId,'recipient ID');requireId(String(transferId),'transfer ID');
+ if(fromId===toId)throw new Error('Cannot pay yourself');
+ if(!Number.isSafeInteger(amount)||amount<1||amount>10000)throw new Error('Transfers must be 1–10,000 Sand Coins');
+ const fk=walletKey(fromId),tk=walletKey(toId),id=PREFIX+'transfer:'+transferId;
+ return atomic(client,[fk,tk,id],async tx=>{
+  const prior=tx.get(id);
+  if(prior)return prior.fromId===fromId&&prior.toId===toId&&prior.amount===amount
+   ?{...prior,duplicate:true}:{error:'TRANSFER_ID_REUSED'};
+  const from=withWindow(readWallet(tx.get(fk)),new Date());
+  const to=withWindow(readWallet(tx.get(tk)),new Date());
+  if(from.balance<amount)return {error:'INSUFFICIENT_FUNDS',balance:from.balance};
+  if(!safeNumber(to.balance+amount))throw new Error('Recipient wallet overflow');
+  from.balance-=amount;to.balance+=amount;
+  const at=new Date().toISOString();
+  recordHistory(from,{kind:'payment_sent',delta:-amount,toId,transferId,at});
+  recordHistory(to,{kind:'payment_received',delta:amount,fromId,transferId,at});
+  tx.put(fk,from);tx.put(tk,to);
+  const result={fromId,toId,amount,fromBalance:from.balance,toBalance:to.balance};
+  tx.put(id,result);
+  return {...result,duplicate:false};
+ });
+}
+const TRADE_TTL_MS=24*60*60*1000;
+const tradeKey=id=>PREFIX+'trade:'+id;
+const activeOffers=(server,now)=>server.tradeOffers.filter(offer=>
+ offer&&typeof offer.id==='string'&&Number.isFinite(offer.expiresAt)&&offer.expiresAt>now);
+function assertTradeId(id){requireId(String(id),'trade ID');}
+function assertItem(id){if(!getSandCatalogItem(id))throw new Error('Unknown Sand Coins decoration');}
+function tradeNotification(offer,status,actorId){
+ return {id:offer.id+':'+status,tradeId:offer.id,status,fromGuildId:offer.fromGuildId,
+  toGuildId:offer.toGuildId,offeredItem:offer.offeredItem,requestedItem:offer.requestedItem,
+  actorId,at:new Date().toISOString()};
+}
+function addTradeNotification(server,offer,status,actorId){
+ server.pendingTradeLogs.push(tradeNotification(offer,status,actorId));
+}
+export async function getSandTrade(client,id){
+ assertTradeId(id);
+ return await client.db.get(tradeKey(id),null);
+}
+/** An owner offers one server-owned cosmetic for another, requiring the other owner's approval. */
+export async function offerSandTrade(client,{tradeId,fromGuildId,toGuildId,fromOwnerId,toOwnerId,offeredItem,requestedItem,now=new Date()}){
+ assertTradeId(tradeId);requireId(fromGuildId,'source server ID');requireId(toGuildId,'destination server ID');
+ requireId(fromOwnerId,'source owner ID');requireId(toOwnerId,'destination owner ID');
+ assertItem(offeredItem);assertItem(requestedItem);
+ if(fromGuildId===toGuildId)throw new Error('Trade must involve different servers');
+ if(!Number.isFinite(now.getTime()))throw new Error('Invalid trade time');
+ const a=serverKey(fromGuildId),b=serverKey(toGuildId),k=tradeKey(tradeId);
+ return atomic(client,[a,b,k],async tx=>{
+  if(tx.get(k))return {error:'DUPLICATE_TRADE'};
+  const from=readServer(tx.get(a)),to=readServer(tx.get(b));
+  if(!from.inventory.includes(offeredItem))return {error:'OFFER_NOT_OWNED'};
+  if(!to.inventory.includes(requestedItem))return {error:'REQUEST_NOT_OWNED'};
+  if(to.inventory.includes(offeredItem)||from.inventory.includes(requestedItem))
+   return {error:'DUPLICATE_INVENTORY'};
+  from.tradeOffers=activeOffers(from,now.getTime());
+  to.tradeOffers=activeOffers(to,now.getTime());
+  if(from.tradeOffers.length>=5||to.tradeOffers.length>=10)return {error:'TOO_MANY_OFFERS'};
+  const offer={id:tradeId,fromGuildId,toGuildId,fromOwnerId,toOwnerId,offeredItem,requestedItem,
+   status:'pending',createdAt:now.toISOString(),expiresAt:now.getTime()+TRADE_TTL_MS};
+  for(const state of [from,to]){
+   state.tradeOffers.push({id:tradeId,expiresAt:offer.expiresAt});
+   addTradeNotification(state,offer,'offered',fromOwnerId);
+  }
+  tx.put(a,from);tx.put(b,to);tx.put(k,offer);
+  return {offer};
+ });
+}
+export async function getSandServerTradeOffers(client,guildId){
+ const server=await getSandServer(client,guildId);
+ const ids=[...new Set(server.tradeOffers.map(e=>e.id))].slice(-25);
+ const offers=await Promise.all(ids.map(id=>getSandTrade(client,id).catch(()=>null)));
+ return offers.filter(o=>o&&o.status==='pending'&&o.expiresAt>Date.now());
+}
+/**
+ * Accept/decline/cancel by the CURRENT owner of the acting guild. Caller supplies
+ * current owner IDs verified from Discord; stale offers after ownership changes fail.
+ */
+export async function resolveSandTrade(client,{tradeId,actorId,actingGuildId,fromOwnerId,toOwnerId,decision,now=new Date()}){
+ assertTradeId(tradeId);requireId(actorId,'actor ID');requireId(actingGuildId,'acting guild ID');
+ requireId(fromOwnerId,'source owner ID');requireId(toOwnerId,'destination owner ID');
+ if(!['accept','decline','cancel'].includes(decision))throw new Error('Invalid trade decision');
+ const k=tradeKey(tradeId),initial=await client.db.get(k,null);
+ if(!initial)return {error:'TRADE_NOT_FOUND'};
+ const a=serverKey(initial.fromGuildId),b=serverKey(initial.toGuildId);
+ return atomic(client,[a,b,k],async tx=>{
+  const offer=tx.get(k);
+  if(!offer||offer.status!=='pending')return {error:'TRADE_NOT_PENDING'};
+  if(offer.fromOwnerId!==fromOwnerId||offer.toOwnerId!==toOwnerId)
+   return {error:'OWNERSHIP_CHANGED'};
+  if(decision==='cancel'){
+   if(actorId!==fromOwnerId||actingGuildId!==offer.fromGuildId)return {error:'OWNER_ONLY'};
+  }else{
+   if(actorId!==toOwnerId||actingGuildId!==offer.toGuildId)return {error:'OWNER_ONLY'};
+  }
+  const from=readServer(tx.get(a)),to=readServer(tx.get(b));
+  const expired=offer.expiresAt<=now.getTime();
+  if(decision==='accept'&&expired)return {error:'TRADE_EXPIRED'};
+  if(decision==='accept'){
+   if(!from.inventory.includes(offer.offeredItem)||!to.inventory.includes(offer.requestedItem))
+    return {error:'INVENTORY_CHANGED'};
+   if(to.inventory.includes(offer.offeredItem)||from.inventory.includes(offer.requestedItem))
+    return {error:'DUPLICATE_INVENTORY'};
+   from.inventory=from.inventory.filter(id=>id!==offer.offeredItem).concat(offer.requestedItem);
+   to.inventory=to.inventory.filter(id=>id!==offer.requestedItem).concat(offer.offeredItem);
+   const removeEquipped=(server,item)=>{
+    for(const [slot,id] of Object.entries(server.equipped))if(id===item)server.equipped[slot]=null;
+   };
+   removeEquipped(from,offer.offeredItem);removeEquipped(to,offer.requestedItem);
+  }
+  const status=decision==='accept'?'completed':decision==='decline'?'declined':'cancelled';
+  const ended={...offer,status,closedAt:now.toISOString(),resolvedBy:actorId};
+  for(const state of [from,to]){
+   state.tradeOffers=state.tradeOffers.filter(x=>x.id!==tradeId);
+   state.tradeHistory=[{id:tradeId,status,offeredItem:offer.offeredItem,requestedItem:offer.requestedItem,
+    otherGuildId:state===from?offer.toGuildId:offer.fromGuildId,at:ended.closedAt},...state.tradeHistory].slice(0,30);
+   addTradeNotification(state,offer,status,actorId);
+  }
+  tx.put(a,from);tx.put(b,to);tx.put(k,ended);
+  return {offer:ended};
+ });
+}
+/** Durable, per-server audit outbox for trade offers and their resolutions. */
+export async function deliverSandTradeLogs(client,guildId){
+ const config=await getGuildConfig(client,guildId);
+ const logId=resolveLogChannel(config,'audit');
+ if(!logId)return {error:'LOG_CHANNEL_NOT_CONFIGURED'};
+ const guild=client.guilds.cache.get(guildId)||await client.guilds.fetch(guildId).catch(()=>null);
+ const channel=guild?.channels.cache.get(logId)||await guild?.channels.fetch(logId).catch(()=>null);
+ if(!channel?.send)return {error:'LOG_CHANNEL_MISSING'};
+ const pending=(await getSandServer(client,guildId)).pendingTradeLogs.slice(0,25);
+ let delivered=0;
+ for(const entry of pending){
+  try{
+   await channel.send({embeds:[createEmbed({
+    title:'🔄 Sand Coins • Inventory Trade '+entry.status.toUpperCase(),
+    description:'Cross-server trade '+entry.status+'. Server-owned items change hands only after both owners agree.',
+    fields:[
+     {name:'Trade ID',value:entry.tradeId},
+     {name:'From server',value:entry.fromGuildId,inline:true},
+     {name:'To server',value:entry.toGuildId,inline:true},
+     {name:'Offered item',value:getSandCatalogItem(entry.offeredItem)?.name||entry.offeredItem,inline:true},
+     {name:'Requested item',value:getSandCatalogItem(entry.requestedItem)?.name||entry.requestedItem,inline:true},
+     {name:'Action by',value:'<@'+entry.actorId+'>',inline:true},
+    ],color:entry.status==='completed'?'success':'info',footer:'Beacon • Server inventory trade audit',
+   })],allowedMentions:{parse:[]}});
+   await atomic(client,[serverKey(guildId)],async tx=>{
+    const server=readServer(tx.get(serverKey(guildId)));
+    server.pendingTradeLogs=server.pendingTradeLogs.filter(log=>log.id!==entry.id);
+    tx.put(serverKey(guildId),server);
+   });
+   delivered++;
+  }catch(err){logger.warn('Sand Coins trade audit delivery deferred',{guildId,error:err.message});break;}
+ }
+ return {delivered,pending:pending.length-delivered};
+}
+
 /** Outbox replay on shop use so temporarily offline log channels do not lose purchases. */
 export async function deliverSandPurchaseLogs(client,guildId){
  const config=await getGuildConfig(client,guildId);
