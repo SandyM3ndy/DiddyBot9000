@@ -2,7 +2,7 @@ import { SlashCommandBuilder, MessageFlags } from 'discord.js';
 import { createEmbed } from '../../utils/embeds.js';
 import { getRegisteredCommandCount } from '../../utils/commandCounts.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
-import { isBotOwner } from '../../config/bot.js';
+import { isBotOwner, BEACON_VERSION_LABEL } from '../../config/bot.js';
 
 export default {
   data: new SlashCommandBuilder()
@@ -27,7 +27,7 @@ export default {
     const uptimeLabel = [days ? days + 'd' : '', hours ? hours + 'h' : '', minutes + 'm'].filter(Boolean).join(' ');
 
     const embed = createEmbed({
-      title: (healthy ? '🟢' : '🟠') + ' Beacon • System Status',
+      title: (healthy ? '🟢' : '🟠') + ' Beacon ' + BEACON_VERSION_LABEL + ' • System Status',
       description: healthy
         ? '**All core services operational.**\nBeacon is connected and responding normally.'
         : '**Degraded service detected.**\nOne or more core services need attention.',
