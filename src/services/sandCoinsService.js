@@ -18,7 +18,7 @@ export const SAND_CATALOG=Object.freeze([
   {id:'emerald',name:'Emerald Horizon',type:'background',price:500,description:'Rich green background accents.',palette:'emerald'},
   {id:'gold',name:'Golden Frame',type:'border',price:650,description:'Golden border around the rank card.',palette:'gold'},
   {id:'diamond',name:'Diamond Frame',type:'border',price:1600,description:'Icy diamond-inspired highlights.',palette:'diamond'},
-  {id:'royal',name:'Royal Sands',type:'tag',price:950,description:'Limited-edition ROYAL SANDS rank-card title.',palette:'royal',limited:true,limit:25},
+  {id:'royal',name:'Royal Sands',type:'tag',price:950,description:'Limited-edition ROYAL SANDS rank-card title.',palette:'royal',limited:true,limit:5},
   {id:'pioneer',name:'Sand Pioneer',type:'tag',price:400,description:'PIONEER rank-card title.',palette:'pioneer'},
 ]);
 export const SAND_SLOTS=Object.freeze(['background','border','tag']);
