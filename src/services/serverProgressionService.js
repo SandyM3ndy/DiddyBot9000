@@ -638,6 +638,7 @@ async function recordActivity(client, guildId, metric, options = {}) {
       const data = await load(client, guildId);
       const previousLevel = data.level;
       const previousXp = data.xp;
+      const dailyBefore = Object.fromEntries(data.dailyQuests.map(q=>[q.id,q.progress]));
       const now = Date.now();
 
       if (metric === 'message') {
@@ -701,7 +702,7 @@ async function recordActivity(client, guildId, metric, options = {}) {
       }
 
       // Track contributors for shared quests without changing existing XP.
-      recordQuestContribution(data,guildId,metric,options,0,metric==='message'?5:metric==='command'?10:0);
+      recordQuestContribution(data,guildId,metric,options,0,metric==='message'?5:metric==='command'?10:0,dailyBefore);
       const completed = completeQuests(data);
       addContribution(data,options.userId,metric);
       const earned=['message','command'].includes(metric)
