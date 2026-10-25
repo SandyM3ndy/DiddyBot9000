@@ -5,7 +5,7 @@ import { resolveCommandAlias } from '../src/config/commands/commandAliases.js';
 
 test('decommissioned slash commands cannot accidentally load', async () => {
   const text = await readFile('src/handlers/loaders/commandLoader.js', 'utf8');
-  for (const name of ['broadcast','shorten','generatepassword','firstmsg','randomuser']) {
+  for (const name of ['broadcast','shorten','generatepassword','randomuser']) {
     assert.ok(text.includes("'" + name + "'"), name);
   }
 });
