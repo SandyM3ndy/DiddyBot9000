@@ -102,7 +102,7 @@ test('contributor eligibility limits payouts to meaningful quest participants',(
 test('command only contains sandboxed server shop and does not expose purchases as admin controls',()=>{
  assert.equal(sandCommand.data.toJSON().name,'sandcoins');
  const names=sandCommand.data.toJSON().options.map(x=>x.name);
- assert.deepEqual(names,['wallet','daily','leaderboard','privacy','shop','inventory','buy','equip','unequip','pay','trade']);
+ assert.deepEqual(names,['wallet','daily','leaderboard','privacy','shop','inventory','backup','buy','equip','unequip','pay','trade']);
  const group=sandCommand.data.toJSON().options.find(x=>x.name==='trade');
  assert.equal(group.type,2);
  assert.deepEqual(group.options.map(x=>x.name),['offer','inbox','status','accept','decline','cancel']);
@@ -311,10 +311,14 @@ test('trade rejects expired offers, changed owners and inventory changes; cancel
   fromOwnerId:ownerA,toOwnerId:ownerB,decision:'accept',now:new Date('2027-01-12T12:00:00Z')});
  assert.equal(expired.error,'TRADE_EXPIRED');
  const second=await offerSandTrade(client,{...base,tradeId:'777777777777777778'});
- store.set('beacon:sandcoins:v1:server:'+g1,{...(await getSandServer(client,g1)),inventory:[]});
- const vanished=await resolveSandTrade(client,{tradeId:second.offer.id,actorId:ownerB,actingGuildId:g2,
-  fromOwnerId:ownerA,toOwnerId:ownerB,decision:'accept',now});
- assert.equal(vanished.error,'INVENTORY_CHANGED');
+ const saved=structuredClone(await getSandServer(client,g1));
+ // Manual edits that drop an item must NEVER bypass the persisted vault:
+ // doing so could create duplicates after a cross-server trade.
+ store.set('beacon:sandcoins:v1:server:'+g1,{...saved,inventory:[]});
+ await assert.rejects(resolveSandTrade(client,{tradeId:second.offer.id,actorId:ownerB,actingGuildId:g2,
+  fromOwnerId:ownerA,toOwnerId:ownerB,decision:'accept',now}),/disagreement/);
+ // Simulate a verified operator restoring the exact matched primary state.
+ store.set('beacon:sandcoins:v1:server:'+g1,saved);
  const cancelled=await resolveSandTrade(client,{tradeId:second.offer.id,actorId:ownerA,actingGuildId:g1,
   fromOwnerId:ownerA,toOwnerId:ownerB,decision:'cancel',now});
  assert.equal(cancelled.offer.status,'cancelled');
