@@ -55,7 +55,7 @@ function ownedDescription(server){
  * These are strictly read-only; purchasing and equipping remain separate.
  */
 export function buildSandShopPreviewButtons(interactionId,disabled=false){
- if(!/^\\d{17,20}$/.test(String(interactionId)))throw new Error('Invalid Sand Coins shop interaction');
+ if(!/^\d{17,20}$/.test(String(interactionId)))throw new Error('Invalid Sand Coins shop interaction');
  const rows=[];
  for(let start=0;start<SAND_CATALOG.length;start+=4){
   const buttons=SAND_CATALOG.slice(start,start+4).map(item=>
@@ -84,9 +84,9 @@ export function buildSandShopItemPreview(itemId,server,serverName){
  const owned=server.inventory.includes(item.id);
  const embed=createEmbed({
   title:'👁️ Preview • '+item.name,
-  description:'**'+item.description+'**\\n\\n'+
-   '**Price:** '+format(item.price)+' • **'+(owned?'Already owned by this server':'Not owned by this server')+'**\\n'+
-   'This is a **sample rank card** with your server\\'s currently equipped cosmetics, '+
+  description:'**'+item.description+'**\n\n'+
+   '**Price:** '+format(item.price)+' • **'+(owned?'Already owned by this server':'Not owned by this server')+'**\n'+
+   'This is a **sample rank card** with your server\'s currently equipped cosmetics, '+
    'plus a preview of **'+item.name+'**. The rank and XP shown are examples.',
   fields:[
    {name:'Decoration Type',value:item.type.charAt(0).toUpperCase()+item.type.slice(1),inline:true},
@@ -272,12 +272,12 @@ export default {
     const posted=await InteractionHelper.safeEditReply(interaction,{
      embeds:[createEmbed({
       title:'🪙 Beacon • Sand Coins Shop',
-      description:'**Your balance: '+format(w.balance)+'**\\n'+
-       'Choose **Preview** below any item to see it on a sample rank card — free, no changes made.\\n\\n'+
-       'Purchases go into **'+short(interaction.guild.name)+'\\'s server inventory**, not your personal inventory. '+ 
+      description:'**Your balance: '+format(w.balance)+'**\n'+
+       'Choose **Preview** below any item to see it on a sample rank card — free, no changes made.\n\n'+
+       'Purchases go into **'+short(interaction.guild.name)+'\'s server inventory**, not your personal inventory. '+ 
        'Spend coins earned in any Beacon server.',
       fields:SAND_CATALOG.map((item,index)=>({name:(server.inventory.includes(item.id)?'✅ ':'▫️ ')+item.name+
-       (item.limited?' • Limited Edition':''),value:item.description+'\\n**'+format(item.price)+'** • ID: \\'+item.id+'\\'+
+       (item.limited?' • Limited Edition':''),value:item.description+'\n**'+format(item.price)+'** • ID: `'+item.id+'`'+
        (stocks[index]?' • **'+stocks[index].remaining+'/'+stocks[index].total+' left globally**':'')})),
       color:'primary',footer:'Preview with the buttons • Purchase with /sandcoins buy • Equip with /sandcoins equip',
      })],
