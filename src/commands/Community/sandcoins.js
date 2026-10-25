@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, MessageFlags, PermissionFlagsBits } from 'discord.js';
+import { SlashCommandBuilder, MessageFlags, PermissionFlagsBits, AttachmentBuilder } from 'discord.js';
 import { createEmbed } from '../../utils/embeds.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 import { getGuildConfig } from '../../services/config/guildConfig.js';
@@ -7,6 +7,7 @@ import {
  SAND_CATALOG,SAND_SLOTS,getSandWallet,getSandServer,getSandCatalogItem,
  getSandAppearance,buySandDecoration,equipSandDecoration,deliverSandPurchaseLogs,getSandLimitedStock,
  getSandGlobalLeaderboard,setSandLeaderboardHidden,getSandDailyStatusFromWallet,
+ getSandInventoryBackupStatus,
 } from '../../services/sandCoinsService.js';
 import { logger } from '../../utils/logger.js';
 import { respondSandDaily } from '../../utils/sandDailyReply.js';
@@ -34,12 +35,18 @@ async function verifyAuditChannel(interaction){
 }
 function ownedDescription(server){
  const appearance=getSandAppearance(server);
- return SAND_SLOTS.map(slot=>{
+ const fields=SAND_SLOTS.map(slot=>{
   const items=SAND_CATALOG.filter(item=>item.type===slot&&server.inventory.includes(item.id));
   return {name:(slot==='background'?'🌄 ':slot==='border'?'💠 ':'🏷️ ')+slot.toUpperCase(),
-   value:items.length?items.map(item=> (appearance[slot]===item.id?'✅ ':'▫️ ')+
-    item.name+' (\`'+item.id+'\`)').join('\n'):'Nothing purchased for this slot yet.'};
+   value:items.length?items.map(item=>(appearance[slot]===item.id?'✅ ':'▫️ ')+
+    item.name+' (`'+item.id+'`)').join('\n'):'Nothing purchased for this slot yet.'};
  });
+ const retired=server.inventory.filter(id=>!SAND_CATALOG.some(item=>item.id===id));
+ if(retired.length)fields.push({
+  name:'📜 Legacy / Unlisted Decorations',
+  value:retired.map(id=>'`'+id.replace(/[`\\]/g,'').slice(0,100)+'` • safely retained').join('\n').slice(0,1024),
+ });
+ return fields;
 }
 export default {
  slashOnly:true,
@@ -55,6 +62,7 @@ export default {
    .addBooleanOption(o=>o.setName('hidden').setDescription('Hide yourself from the public ranking').setRequired(true)))
   .addSubcommand(s=>s.setName('shop').setDescription('Browse rank-card decorations for this server'))
   .addSubcommand(s=>s.setName('inventory').setDescription('See rank-card cosmetics owned by this server'))
+  .addSubcommand(s=>s.setName('backup').setDescription('Server owner: export a saved inventory recovery copy'))
   .addSubcommand(s=>s.setName('buy').setDescription('Use your coins to buy a rank-card item for THIS server')
    .addStringOption(o=>o.setName('item').setDescription('Decoration to buy for the current server')
     .setRequired(true).addChoices(...SAND_CATALOG.map(item=>({name:item.name,value:item.id})))))
@@ -94,6 +102,26 @@ export default {
      content:'🔒 Only the server owner or members with **Manage Server** can change the public rank-card appearance.'});
    if(sub==='daily')return respondSandDaily(interaction);
    if(sub==='pay')return respondSandPay(interaction);
+   if(sub==='backup'){
+    const guild=await interaction.guild.fetch().catch(()=>null);
+    if(!guild||guild.ownerId!==interaction.user.id)return InteractionHelper.safeEditReply(interaction,{
+     content:'🔒 Only the verified server owner can export inventory backups.'});
+    const state=await getSandServer(interaction.client,guild.id);
+    const health=await getSandInventoryBackupStatus(interaction.client,guild.id);
+    const exported={format:'beacon-sandcoins-inventory-v1',serverId:guild.id,
+     exportedAt:new Date().toISOString(),revision:health.revision,
+     items:[...state.inventory],equipped:{...state.equipped},
+     purchases:state.purchases,tradeHistory:state.tradeHistory,
+     note:'Reference export only. Never import/replay purchases or traded items without reconciling global trade history.'};
+    const file=new AttachmentBuilder(Buffer.from(JSON.stringify(exported,null,2)),{
+     name:'beacon-inventory-'+guild.id+'-rev'+health.revision+'.json'});
+    return InteractionHelper.safeEditReply(interaction,{
+     content:'🛡️ **Inventory export saved!** Revision **'+health.revision+
+       '** • **'+health.copies+'** verified PostgreSQL recovery snapshots. '+
+       'Keep this owner-only file private. Restoration requires careful review to prevent duplicate items.',
+     files:[file],allowedMentions:{parse:[]},
+    });
+   }
    if(interaction.options.getSubcommandGroup(false)==='trade')return respondSandTrade(interaction);
    if(sub==='leaderboard'){
     const players=await getSandGlobalLeaderboard(interaction.client,10);
@@ -131,11 +159,22 @@ export default {
    if(sub==='shop'||sub==='inventory'){
     const server=await getSandServer(interaction.client,interaction.guildId);
     if(server.pendingLogs.length)await deliverSandPurchaseLogs(interaction.client,interaction.guildId).catch(()=>{});
-    if(sub==='inventory')return InteractionHelper.safeEditReply(interaction,{embeds:[createEmbed({
-     title:'🎨 '+short(interaction.guild.name)+' • Rank-Card Inventory',
-     description:'Members can purchase these decorations with global Sand Coins. **Only the owner or Manage Server admins** can equip them.\n\nThe selected items appear on /progression → Share Rank Card.',
-     fields:ownedDescription(server),color:'primary',
-    })]});
+    if(sub==='inventory'){
+     const saved=await getSandInventoryBackupStatus(interaction.client,interaction.guildId);
+     const savedFields=ownedDescription(server);
+     savedFields.push({name:'🛡️ Protected PostgreSQL Save',value:
+      '**'+saved.items+' items** • revision **'+saved.revision+'** • **'+
+      saved.copies+'** verified recovery snapshot(s)\nLast saved: <t:'+
+      Math.floor(Date.parse(saved.savedAt)/1000)+':R>\n'+
+      'Only the server owner can export a private copy with /sandcoins backup.'});
+     return InteractionHelper.safeEditReply(interaction,{embeds:[createEmbed({
+      title:'🎨 '+short(interaction.guild.name)+' • Rank-Card Inventory',
+      description:'These items belong to **this server** and persist across bot restarts. '+
+       '**Only the owner or Manage Server admins** can equip them.\n\n'+
+       'Selected items appear on /progression → Share Rank Card.',
+      fields:savedFields,color:'primary',
+     })]});
+    }
     const w=await getSandWallet(interaction.client,interaction.user.id);
     const stocks=await Promise.all(SAND_CATALOG.map(item=>getSandLimitedStock(interaction.client,item.id)));
     return InteractionHelper.safeEditReply(interaction,{embeds:[createEmbed({
