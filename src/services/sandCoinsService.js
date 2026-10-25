@@ -1,5 +1,5 @@
 /**
- * Sand Coins: quest-only, account-wide virtual currency.
+ * Sand Coins: quest participation and daily login rewards, account-wide.
  * Never reuses Beacon's retired guild-scoped economy balances.
  * Production mutations MUST run in a single PostgreSQL transaction.
  */
@@ -12,6 +12,8 @@ import { logger } from '../utils/logger.js';
 const PREFIX='beacon:sandcoins:v1:';
 export const SAND_DAILY_LIMIT=200;
 export const SAND_WEEKLY_LIMIT=600;
+// Daily streak rewards are separate from quest-only earning caps.
+export const SAND_DAILY_STREAK_REWARDS=Object.freeze([25,35,45,55,65,75,85]);
 export const SAND_CATALOG=Object.freeze([
   {id:'sunset',name:'Sunset Glow',type:'background',price:300,description:'Warm sunset colour palette for the rank card.',palette:'sunset'},
   {id:'galaxy',name:'Galaxy Night',type:'background',price:1200,description:'A deep cosmic gradient for your community.',palette:'galaxy'},
@@ -27,7 +29,7 @@ const serverKey=guildId=>PREFIX+'server:'+guildId;
 const claimKey=(eventId,userId)=>PREFIX+'claim:'+eventId+':'+userId;
 const stockKey=itemId=>PREFIX+'stock:'+itemId;
 const validId=value=>typeof value==='string' && /^\d{17,20}$/.test(value);
-const initialWallet=()=>({balance:0,lifetime:0,earnedToday:0,earnedWeek:0,day:'',week:'',history:[],leaderboardHidden:false});
+const initialWallet=()=>({balance:0,lifetime:0,earnedToday:0,earnedWeek:0,day:'',week:'',history:[],leaderboardHidden:false,dailyStreak:0,lastDailyClaimDate:''});
 const initialServer=()=>({inventory:[],equipped:{background:null,border:null,tag:null},purchases:[],pendingLogs:[]});
 const safeNumber=value=>Number.isSafeInteger(value)&&value>=0;
 function requireId(value,label){if(!validId(value))throw new Error('Invalid '+label);}
@@ -52,6 +54,47 @@ function withWindow(wallet,now){
  if(wallet.day!==d){wallet.day=d;wallet.earnedToday=0;}
  if(wallet.week!==w){wallet.week=w;wallet.earnedWeek=0;}
  return wallet;
+}
+// The UTC calendar-day streak survives reboots, purchases and switching servers.
+function dailyClaimState(wallet,now){
+ const today=dayKey(now),last=wallet.lastDailyClaimDate||'';
+ const lastMs=/^\d{4}-\d{2}-\d{2}$/.test(last)?Date.parse(last+'T00:00:00.000Z'):NaN;
+ const currentMs=Date.parse(today+'T00:00:00.000Z');
+ const days=Number.isFinite(lastMs)?(currentMs-lastMs)/86400000:Infinity;
+ const prev=Number.isSafeInteger(wallet.dailyStreak)?Math.max(0,Math.min(7,wallet.dailyStreak)):0;
+ const alreadyClaimed=days===0;
+ const streak=days===0||days===1?prev:0;
+ const nextStreak=alreadyClaimed||days===1?Math.min(7,streak+1):1;
+ return {alreadyClaimed,streak,nextStreak,nextReward:SAND_DAILY_STREAK_REWARDS[nextStreak-1],
+  nextClaimAt:Math.floor((currentMs+86400000)/1000),today};
+}
+export function getSandDailyStatusFromWallet(wallet,now=new Date()){
+ if(!(now instanceof Date)||Number.isNaN(now.getTime()))throw new Error('Invalid claim time');
+ return dailyClaimState(readWallet(wallet),now);
+}
+
+/**
+ * One bonus per UTC day across ALL Beacon servers. The PostgreSQL wallet
+ * transaction prevents repeated or simultaneous claims from paying twice.
+ */
+export async function claimSandDaily(client,{userId,now=new Date()}){
+ requireId(userId,'user ID');
+ if(!(now instanceof Date)||Number.isNaN(now.getTime()))throw new Error('Invalid claim time');
+ const wk=walletKey(userId);
+ return atomic(client,[wk],async tx=>{
+  const wallet=withWindow(readWallet(tx.get(wk)),now);
+  const state=dailyClaimState(wallet,now);
+  if(state.alreadyClaimed)return {claimed:false,amount:0,balance:wallet.balance,...state};
+  const streak=state.nextStreak,amount=SAND_DAILY_STREAK_REWARDS[streak-1];
+  if(!safeNumber(wallet.balance+amount)||!safeNumber(wallet.lifetime+amount))
+   throw new Error('Sand Coins wallet overflow');
+  wallet.balance+=amount;wallet.lifetime+=amount;
+  wallet.dailyStreak=streak;wallet.lastDailyClaimDate=state.today;
+  recordHistory(wallet,{kind:'daily',delta:amount,streak,at:now.toISOString()});
+  tx.put(wk,wallet);
+  return {claimed:true,amount,balance:wallet.balance,streak,
+   nextClaimAt:state.nextClaimAt,alreadyClaimed:false};
+ });
 }
 function recordHistory(wallet,item){
  wallet.history=[item,...wallet.history].slice(0,30);
