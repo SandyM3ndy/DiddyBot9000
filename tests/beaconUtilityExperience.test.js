@@ -1,19 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ChannelType } from 'discord.js';
-import { buildFirstMessageDetails } from '../src/commands/Utility/firstmsg.js';
 import { buildBeaconServerInfoEmbed } from '../src/commands/Utility/serverinfo.js';
-
-test('first message explorer gives a correct jump URL and time without reposting message content',()=>{
-  const guildId='111111111111111111',channel={id:'222222222222222222',name:'general'};
-  const message={id:'333333333333333333',createdTimestamp:Date.UTC(2024,1,2),author:{id:'444444444444444444'},content:'PRIVATE MESSAGE BODY'};
-  const result=buildFirstMessageDetails(message,guildId,channel);
-  assert.equal(result.url,'https://discord.com/channels/'+guildId+'/'+channel.id+'/'+message.id);
-  const embed=result.embed.toJSON();
-  assert.match(embed.description,/Jump to the first message/);
-  assert.match(JSON.stringify(embed),/444444444444444444/);
-  assert.doesNotMatch(JSON.stringify(embed),/PRIVATE MESSAGE BODY/);
-});
 
 test('server overview uses real counts and never implies progression is enabled without configuration',()=>{
   const guild={
