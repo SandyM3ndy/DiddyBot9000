@@ -1,6 +1,7 @@
 import { SlashCommandBuilder, MessageFlags, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder } from 'discord.js';
 import { patchGuildConfig } from '../../services/config/guildConfig.js';
 import { renderProgressionRankPng } from '../../utils/progressionRankCard.js';
+import { getSandServer, getSandAppearance } from '../../services/sandCoinsService.js';
 import { createEmbed } from '../../utils/embeds.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 import { getGuildConfig } from '../../services/config/guildConfig.js';
@@ -321,15 +322,17 @@ async function openQuestReroll(button){
 
 async function sendRankCard(button){
  await button.deferReply();
- const [data,entries,founder]=await Promise.all([
+ const [data,entries,founder,sandInventory]=await Promise.all([
   getServerProgression(button.client,button.guildId),
   getGlobalProgressionLeaderboard(button.client),
   getFoundingBadge(button.client,button.guildId),
+  getSandServer(button.client,button.guildId),
  ]);
  const idx=entries.findIndex(e=>e.guildId===button.guildId);
  const png=renderProgressionRankPng({
   name:button.guild.name,rank:idx<0?null:idx+1,
   level:data.level,xp:data.xp,progress:getLevelProgress(data).percent,founder,
+  appearance:getSandAppearance(sandInventory),
  });
  await button.editReply({
   content:'🏆 **'+cleanName(button.guild.name)+'** — Beacon Server Rank Card',
