@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { getQuestCatalog, previewDailyQuests } from '../src/services/serverProgressionService.js';
+import { getQuestCatalog, previewDailyQuests, getGlobalProgressionLeaderboard } from '../src/services/serverProgressionService.js';
 
 test('expanded quest catalog has distinct IDs, practical starter challenges and original quests', () => {
   const catalog = getQuestCatalog();
@@ -37,4 +37,44 @@ test('high-level servers get up to six varied quests without duplicates', () => 
     assert.equal(new Set(quests.map(quest => quest.id)).size, count);
     assert.ok(quests.every(quest => catalog.some(entry => entry.id === quest.id)));
   }
+});
+
+
+test('disabled server progression removes a server from world rankings without losing XP', async () => {
+  const enabledId = '111111111111111111';
+  const toggledId = '222222222222222222';
+  const excludedId = '333333333333333333';
+  const unconfiguredId = '444444444444444444';
+  const guilds = [enabledId, toggledId, excludedId, unconfiguredId];
+  const entries = new Map([
+    [`guild:${enabledId}:progression`, { xp: 500 }],
+    [`guild:${toggledId}:progression`, { xp: 900 }],
+    [`guild:${excludedId}:progression`, { xp: 2000, leaderboardExcluded: true }],
+    [`guild:${unconfiguredId}:progression`, { xp: 3000 }],
+    [`guild:${enabledId}:config`, { serverProgression: { enabled: true } }],
+    [`guild:${toggledId}:config`, { serverProgression: { enabled: true } }],
+    [`guild:${excludedId}:config`, { serverProgression: { enabled: true } }],
+  ]);
+  const client = {
+    db: {
+      list: async prefix => [...entries.keys()].filter(key => key.startsWith(prefix)),
+      get: async (key, fallback = null) => entries.get(key) ?? fallback,
+    },
+    guilds: { cache: new Map(guilds.map(id => [id, { id, name: 'Server ' + id.slice(0, 3) }])) },
+  };
+
+  const initial = await getGlobalProgressionLeaderboard(client);
+  assert.deepEqual(initial.map(server => server.guildId), [toggledId, enabledId]);
+
+  // Disable progression via the persisted guild flag; the existing XP remains.
+  entries.set(`guild:${toggledId}:config`, { serverProgression: { enabled: false } });
+  const disabled = await getGlobalProgressionLeaderboard(client);
+  assert.deepEqual(disabled.map(server => server.guildId), [enabledId]);
+  assert.equal(entries.get(`guild:${toggledId}:progression`).xp, 900);
+
+  // Re-enabling makes the preserved server XP eligible for ranking again.
+  entries.set(`guild:${toggledId}:config`, { serverProgression: { enabled: true } });
+  const restored = await getGlobalProgressionLeaderboard(client);
+  assert.deepEqual(restored.map(server => server.guildId), [toggledId, enabledId]);
+  assert.equal(restored[0].xp, 900);
 });
