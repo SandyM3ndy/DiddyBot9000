@@ -448,7 +448,12 @@ function ensureExtras(data,guildId,members=1,now=new Date()){
   if(data.weekly?.week)data.weeklyHistory.push({...data.weekly,recordedAt:new Date().toISOString()});
   data.weekly={week,balanceVersion:WEEKLY_BALANCE_VERSION,quests:pickWeekly(guildId,week,members),days:[],uniqueMembers:[]};
  }
- rebalanceExistingWeekly(data.weekly);
+ if(data.weekly.balanceVersion!==WEEKLY_BALANCE_VERSION){
+  // Do not mutate raw.weekly by reference: load() compares the stored
+  // version with the new one to persist this policy on the next panel read.
+  data.weekly={...data.weekly,quests:data.weekly.quests.map(q=>({...q}))};
+  rebalanceExistingWeekly(data.weekly);
+ }
  data.dailyRerollDay ||= null;data.joinDay ||= day;data.joinIds ||= [];
  if(data.joinDay!==day){data.joinDay=day;data.joinIds=[];}
  return data;
