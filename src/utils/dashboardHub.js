@@ -51,6 +51,7 @@ export function buildDashboardHubPanel(section, config = {}, guild = {}) {
         { name: 'Server Progression', value: config.serverProgression?.enabled
           ? '🟢 Enabled — use **/progression overview**, **/progression quests** and **/progression weekly**.'
           : '⚪ Optional — the server owner can enable it in dashboard settings.', inline: false },
+        { name: '🪙 Sand Coins & Rank Card Shop', value: 'Members earn **global Sand Coins** from shared quest contributions and can purchase decorations for this server with **/sandcoins shop**. View ownership with **/sandcoins inventory**. Only the owner or **Manage Server** admins can equip items using **/sandcoins equip**. Purchases are sent to the configured audit channel.', inline: false },
         { name: 'More', value: 'Configure **Join to Create**, **/poll** or **/suggest** for your community.', inline: false },
       ],
     },
