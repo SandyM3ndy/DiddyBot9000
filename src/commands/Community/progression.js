@@ -106,7 +106,7 @@ function questsEmbed(guild, data) {
     description: '**' + finished + '/' + quests.length + ' completed today**\n' +
       'Your server receives a rotating set of community challenges from a pool of **' +
       catalogSize + '** quests. Smaller communities get achievable starter objectives.\n\n' +
-      '🟩 Completed quests award Server XP automatically.',
+      '🟩 Completed quests award Server XP automatically. Eligible contributors also earn global **Sand Coins** (SC) toward this server’s rank-card decorations.',
     color: 'primary',
     fields: fields.length ? fields : [{ name: 'No Quests Yet', value: 'Send a message after enabling progression to begin.' }],
     footer: 'Quests reset daily at 00:00 UTC. Activity must qualify for XP to count.',
@@ -170,7 +170,7 @@ function weeklyEmbed(guild,data) {
     description:'**Week beginning '+(w?.week||'—')+' (UTC)**\n'+
       'Weekly progress and rewards are saved. New challenges roll over every Monday (UTC).',
     color:'primary',fields:fields.length?fields:[{name:'Getting Started',value:'Weekly quests will be assigned once progression starts.'}],
-    footer:'Weekly rewards are awarded automatically and only once.'});
+    footer:'Server XP is automatic. Eligible contributors earn global Sand Coins only once per quest.'});
 }
 function contributorsEmbed(guild,data){
  const weekly=contributorRanking(data,'weekly',10);
