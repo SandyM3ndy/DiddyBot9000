@@ -27,7 +27,7 @@ const serverKey=guildId=>PREFIX+'server:'+guildId;
 const claimKey=(eventId,userId)=>PREFIX+'claim:'+eventId+':'+userId;
 const stockKey=itemId=>PREFIX+'stock:'+itemId;
 const validId=value=>typeof value==='string' && /^\d{17,20}$/.test(value);
-const initialWallet=()=>({balance:0,lifetime:0,earnedToday:0,earnedWeek:0,day:'',week:'',history:[]});
+const initialWallet=()=>({balance:0,lifetime:0,earnedToday:0,earnedWeek:0,day:'',week:'',history:[],leaderboardHidden:false});
 const initialServer=()=>({inventory:[],equipped:{background:null,border:null,tag:null},purchases:[],pendingLogs:[]});
 const safeNumber=value=>Number.isSafeInteger(value)&&value>=0;
 function requireId(value,label){if(!validId(value))throw new Error('Invalid '+label);}
@@ -91,6 +91,30 @@ async function atomic(client,keys,fn){
 export async function getSandWallet(client,userId){
  requireId(userId,'user ID');
  return withWindow(readWallet(await client.db.get(walletKey(userId),null)),new Date());
+}
+export async function setSandLeaderboardHidden(client,userId,hidden){
+ requireId(userId,'user ID');
+ const key=walletKey(userId);
+ return atomic(client,[key],async tx=>{
+  const w=readWallet(tx.get(key));
+  w.leaderboardHidden=hidden===true;
+  tx.put(key,w);
+  return w.leaderboardHidden;
+ });
+}
+export async function getSandGlobalLeaderboard(client,limit=10){
+ const keys=(await client.db.list(PREFIX+'wallet:')).filter(key=>
+  key.startsWith(PREFIX+'wallet:') && /^\\d{17,20}$/.test(key.slice((PREFIX+'wallet:').length)));
+ const rows=[];
+ for(let i=0;i<keys.length;i+=8){
+  const part=keys.slice(i,i+8);
+  rows.push(...(await Promise.all(part.map(async key=>{
+   const wallet=readWallet(await client.db.get(key,null));
+   if(wallet.leaderboardHidden||wallet.lifetime<=0)return null;
+   return {userId:key.slice((PREFIX+'wallet:').length),earned:wallet.lifetime};
+  }))).filter(Boolean));
+ }
+ return rows.sort((a,b)=>b.earned-a.earned||a.userId.localeCompare(b.userId)).slice(0,limit);
 }
 export async function getSandServer(client,guildId){
  requireId(guildId,'server ID');
