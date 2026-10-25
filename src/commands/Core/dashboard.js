@@ -24,7 +24,8 @@ import { DASHBOARD_FAVOURITES, getDashboardFavourites, formatDashboardFavourites
     updateDashboardSettingWithUndo, getDashboardUndo, undoLastDashboardSetting,
 } from '../../services/dashboardExperienceService.js';
 import { logger } from '../../utils/logger.js';
-import { botConfig, getCommandPrefix } from '../../config/bot.js';
+import { botConfig, getCommandPrefix, BEACON_MOTTO, BEACON_TEAM_NAME } from '../../config/bot.js';
+import { buildDashboardHubMenu, buildDashboardHubPanel } from '../../utils/dashboardHub.js';
 import ticketDashboard from '../Ticket/modules/ticket_dashboard.js';
 import commandsDashboard from './modules/commands_dashboard.js';
 import loggingDashboard from '../Logging/modules/logging_dashboard.js';
@@ -123,10 +124,11 @@ export function buildDashboardEmbed(config, guild) {
           (next || 'Open the menu below to finish setup.');
 
     return createEmbed({
-        title: '⚙️ Beacon • Server Control Center',
+        title: '🏠 Beacon • Main Control Center',
         description: [
             '**' + guild.name + '**',
-            'Manage your server from one private control center.',
+            '**' + BEACON_MOTTO + '**',
+            'Your central place for server setup, safety, community tools and support.',
             '',
             readiness,
             '',
@@ -150,10 +152,11 @@ export function buildDashboardEmbed(config, guild) {
             { name: '🎫 Support', value: config.ticketPanelChannelId
                 ? 'Panel: ' + formatChannelMention(guild, config.ticketPanelChannelId)
                 : '⚪ Panel not configured', inline: true },
-            { name: '🧭 Navigation', value: 'Choose a feature from the menu. Use **Refresh** to reload saved settings and **Guide** for shortcuts.', inline: false },
+            { name: '🧭 Explore Beacon', value: 'Use **Explore your Control Center** for guided views of Security, Community, Tickets and the Development Team. Use **Choose a feature** to actually configure settings.', inline: false },
             { name: '🔍 Diagnostics', value: '**/diagnose** checks configuration and permissions. **/roleaudit** reviews risky server roles.', inline: false },
+            { name: '💜 From Our Team', value: 'Thanks for choosing Beacon for your community. — **' + BEACON_TEAM_NAME + '**', inline: false },
         ],
-        footer: 'Beacon • Private server management • Automatically closes after 10 minutes',
+        footer: 'Beacon • Main Control Center • Private session ends after 10 minutes',
     });
 }
 
@@ -273,7 +276,7 @@ function buildFavouriteShortcuts(guildId, ids = []) {
 }
 
 function buildDashboardRows(config,guildId,ids=[]){
-    const rows=[buildButtonRow(config,guildId),buildSettingsSelect(guildId)];
+    const rows=[buildButtonRow(config,guildId),buildSettingsSelect(guildId),buildDashboardHubMenu(guildId)];
     const favourites=buildFavouriteShortcuts(guildId,ids);
     if(favourites)rows.push(favourites);
     return rows;
@@ -548,7 +551,9 @@ async function runSetupWizard(buttonInteraction, config, guild, client, rootInte
 
         const summaryEmbed = createEmbed({
             title: wizardCancelled ? `⚠️ ${summaryTitle}` : `✅ ${summaryTitle}`,
-            description: summaryBody,
+            description: summaryBody + (!wizardCancelled
+                ? '\n\n💜 Thank you for setting up Beacon. We appreciate you trusting us with your community. — ' + BEACON_TEAM_NAME
+                : ''),
             color: wizardCancelled ? 'warning' : (errors.length > 0 ? 'warning' : 'success'),
         });
 
@@ -813,7 +818,7 @@ export default {
     slashOnly: true,
     data: new SlashCommandBuilder()
         .setName('dashboard')
-        .setDescription('Open Beacon Dashboard 2.0 with guided settings and diagnostics')
+        .setDescription('Open Beacon’s main Control Center for server settings, security and support')
         .addStringOption(o => o.setName('find').setDescription('Search for a dashboard setting or feature').setMaxLength(80))
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
         .setDMPermission(false),
@@ -883,13 +888,14 @@ export default {
                         if (componentInteraction.customId === 'dashboard_guide:' + interaction.guildId) {
                             await componentInteraction.followUp({
                                 embeds: [infoEmbed('🧭 Beacon Dashboard Guide', [
+                                    '**Explore:** Use the second dropdown to view Security, Community, Tickets and a message from our team.',
+                                    '**Configure:** Use the settings dropdown to open and edit a feature.',
                                     '**Setup:** Start or review the guided configuration wizard.',
-                                    '**Support:** Use Ticket System to set up panels, staff and transcripts.',
-                                    '**Safety:** Configure AutoMod, review role permissions with /roleaudit and run /diagnose.',
-                                    '**Community:** Use Welcome & Goodbye, Reaction Roles and Join to Create.',
-                                    '**Commands:** Command Access controls which commands members can run.',
+                                    '**Favourites:** Pin up to four features for quick access.',
+                                    '**Undo:** Reverse the last supported setting change after confirmation.',
+                                    '**Health:** /diagnose checks permissions; /roleaudit reviews powerful roles.',
                                     '',
-                                    'Your dashboard is private. Settings change only when you confirm a form or control.',
+                                    'This is your main Beacon Control Center. Browsing sections never changes settings.',
                                 ].join('\\n'))],
                                 flags: MessageFlags.Ephemeral,
                             });
@@ -940,6 +946,22 @@ export default {
 
                     if (componentInteraction.isStringSelectMenu()) {
                         const selected = componentInteraction.values[0];
+                        // Hub pages are read-only previews, not another command
+                        // system. Keep the dashboard intact and let owners return.
+                        if (componentInteraction.customId === 'dashboard_hub:' + interaction.guildId) {
+                            await componentInteraction.deferUpdate();
+                            if (selected === 'hubOverview') {
+                                const refreshed = await getGuildConfig(interaction.client, interaction.guildId);
+                                await refreshDashboard(interaction, refreshed, interaction.guild);
+                            } else {
+                                const current = await getGuildConfig(interaction.client, interaction.guildId);
+                                const view = buildDashboardHubPanel(selected, current, interaction.guild);
+                                if (view) await componentInteraction.followUp({
+                                    ...view, flags: MessageFlags.Ephemeral,
+                                });
+                            }
+                            return;
+                        }
                         if (selected === 'dashboardSearchReset') {
                             await componentInteraction.deferUpdate();
                             const refreshed = await getGuildConfig(interaction.client, interaction.guildId);
