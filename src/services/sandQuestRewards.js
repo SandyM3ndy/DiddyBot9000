@@ -9,7 +9,7 @@ export function questCoinAmount(quest,weekly=false){
 }
 export function minimumContribution(quest){
  if(['uniqueMembers','newMembers','channels','activeDays'].includes(quest.metric))return 1;
- return Math.max(2,Math.min(3,Math.ceil(quest.target*0.1)));
+ return Math.min(Math.max(1,quest.target),Math.max(2,Math.min(3,Math.ceil(quest.target*0.1))));
 }
 export function eligibleSandContributors(quest,contributions){
  const threshold=minimumContribution(quest);
