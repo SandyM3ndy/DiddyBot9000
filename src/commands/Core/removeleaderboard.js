@@ -40,6 +40,8 @@ export default {
     }
 
     const previousFounder=await getFoundingBadge(interaction.client,serverId);
+    const registryBefore=await interaction.client.db.get('beacon:founders:v1',{entries:[]});
+    const oldGuilds=new Set((registryBefore?.entries||[]).map(x=>x.guildId));
     const {data,result}=await mutateServerProgression(interaction.client,serverId,current=>{
       if(current.leaderboardExcluded===true)return {changed:false};
       current.leaderboardExcluded=true;
@@ -49,7 +51,7 @@ export default {
     let founders,successor=null;
     try{
       founders=await registerFoundingServers(interaction.client);
-      if(previousFounder)successor=founders.find(x=>x.number===previousFounder.number)||null;
+      if(previousFounder)successor=founders.find(x=>!oldGuilds.has(x.guildId))||null;
     }catch(error){
       return InteractionHelper.safeReply(interaction,{
         content:'⚠️ Leaderboard exclusion saved, but Founder reassignment failed. Run the command again to retry.',
@@ -57,10 +59,12 @@ export default {
       });
     }
     const badge=previousFounder?
-      successor&&successor.guildId!==serverId
-       ?'🌟 Founder #'+previousFounder.number+' transferred to **'+
-         (interaction.client.guilds.cache.get(successor.guildId)?.name||successor.guildId)+'**.'
-       :'🌟 Founder #'+previousFounder.number+' revoked; its slot awaits an eligible server.'
+      successor
+       ?'🌟 Founder #'+previousFounder.number+' revoked. Higher badges shifted down by one; **'+
+         (interaction.client.guilds.cache.get(successor.guildId)?.name||successor.guildId)+
+         '** now holds Founder #'+successor.number+'.'
+       :'🌟 Founder #'+previousFounder.number+
+         ' revoked. Higher badges shifted down by one; no replacement is currently eligible.'
       :'No Founder badge was assigned to this server.';
     return InteractionHelper.safeReply(interaction,{
       embeds:[createEmbed({
