@@ -1,5 +1,6 @@
 import { SlashCommandBuilder, version as discordVersion } from 'discord.js';
 import { createEmbed } from '../../utils/embeds.js';
+import { BEACON_TEAM_NAME, BEACON_TEAM_THANKS } from '../../config/bot.js';
 import { getRegisteredCommandCount } from '../../utils/commandCounts.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 import { isAntiNukeAIConfigured, getAntiNukeAIModel } from '../../services/aiSecurityService.js';
@@ -35,8 +36,9 @@ export default {
         { name: '⏱️ Uptime', value: displayUptime(Math.floor(process.uptime())), inline: true },
         { name: '🧠 RAM', value: Math.round(memory.rss / 1024 / 1024) + ' MB', inline: true },
         { name: '🛡️ Anti-Nuke', value: isAntiNukeAIConfigured() ? 'AI assisted • ' + getAntiNukeAIModel() : 'Local adaptive protection', inline: false },
-        { name: '🧰 Quick Start', value: '/help • Browse commands\n/progression overview • Quests and global rankings\n/dashboard • Configure your server\n/diagnose • Check setup', inline: false },
+        { name: '🧰 Quick Start', value: '/dashboard • Main Control Center\n/help • Browse commands\n/progression overview • Quests and global rankings\n/diagnose • Check setup', inline: false },
         { name: '⚙️ Runtime', value: 'Node ' + process.version + ' • discord.js ' + discordVersion, inline: false },
+        { name: '💜 A Note from Our Developers', value: BEACON_TEAM_THANKS + '\n— **' + BEACON_TEAM_NAME + '**', inline: false },
       ],
       footer: 'Beacon • Your community\'s all-in-one Discord assistant.',
     });
