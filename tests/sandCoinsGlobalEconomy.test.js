@@ -64,9 +64,9 @@ test('global wallet can purchase for another guild atomically; server owns inven
 test('limited editions are globally capped, and exhausted stock does not spend coins',async()=>{
  const {db,values}=mockDatabase();
  const limited=SAND_CATALOG.find(item=>item.id==='royal');
- assert.equal(limited.limit,25);
+ assert.equal(limited.limit,5);
  values.set(walletKey(u),{balance:5000,lifetime:5000});
- values.set('beacon:sandcoins:v1:stock:royal',25);
+ values.set('beacon:sandcoins:v1:stock:royal',5);
  const result=await buySandDecoration({db},{userId:u,guildId:g1,itemId:'royal',purchaseId:'777777777777777777'});
  assert.equal(result.error,'SOLD_OUT');
  assert.equal((await getSandWallet({db},u)).balance,5000);
