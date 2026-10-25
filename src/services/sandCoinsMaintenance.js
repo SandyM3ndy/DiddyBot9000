@@ -1,5 +1,5 @@
 import { settlePendingSandPayouts } from './serverProgressionService.js';
-import { deliverSandPurchaseLogs, getSandServer } from './sandCoinsService.js';
+import { deliverSandPurchaseLogs, deliverSandTradeLogs, getSandServer } from './sandCoinsService.js';
 import { logger } from '../utils/logger.js';
 
 let started=false;
@@ -10,6 +10,7 @@ export async function maintainSandCoins(client){
    await settlePendingSandPayouts(client,guild.id);
    const state=await getSandServer(client,guild.id);
    if(state.pendingLogs.length)await deliverSandPurchaseLogs(client,guild.id);
+   if(state.pendingTradeLogs.length)await deliverSandTradeLogs(client,guild.id);
   }catch(error){
    logger.warn('Sand Coins pending work retained',{guildId:guild.id,error:error.message});
   }

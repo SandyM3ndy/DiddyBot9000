@@ -10,6 +10,7 @@ import {
 } from '../../services/sandCoinsService.js';
 import { logger } from '../../utils/logger.js';
 import { respondSandDaily } from '../../utils/sandDailyReply.js';
+import { respondSandPay,respondSandTrade } from '../../utils/sandTradingCommands.js';
 
 const name=item=>item?.name||'Unknown Decoration';
 const format=n=>n.toLocaleString('en-US')+' SC';
@@ -62,7 +63,26 @@ export default {
     .setRequired(true).addChoices(...SAND_CATALOG.map(item=>({name:item.name,value:item.id})))))
   .addSubcommand(s=>s.setName('unequip').setDescription('Manager: remove the equipped decoration from a rank-card slot')
    .addStringOption(o=>o.setName('slot').setDescription('Rank-card slot').setRequired(true)
-    .addChoices(...SAND_SLOTS.map(slot=>({name:slot,value:slot}))))),
+    .addChoices(...SAND_SLOTS.map(slot=>({name:slot,value:slot)))))
+  .addSubcommand(s=>s.setName('pay').setDescription('Send Sand Coins from your global wallet to another member')
+   .addUserOption(o=>o.setName('member').setDescription('Server member receiving the coins').setRequired(true))
+   .addIntegerOption(o=>o.setName('amount').setDescription('Sand Coins to send (1-10,000)').setMinValue(1).setMaxValue(10000).setRequired(true)))
+  .addSubcommandGroup(group=>group.setName('trade').setDescription('Owner-only trades between server inventories')
+   .addSubcommand(s=>s.setName('offer').setDescription('Owner: propose an item swap with another Beacon server')
+    .addStringOption(o=>o.setName('server').setDescription('Other server ID (Developer Mode → Copy Server ID)').setRequired(true))
+    .addStringOption(o=>o.setName('give').setDescription('Item your server offers').setRequired(true)
+     .addChoices(...SAND_CATALOG.map(i=>({name:i.name,value:i.id}))))
+    .addStringOption(o=>o.setName('want').setDescription('Item you request from the other server').setRequired(true)
+     .addChoices(...SAND_CATALOG.map(i=>({name:i.name,value:i.id})))))
+   .addSubcommand(s=>s.setName('inbox').setDescription('Owner: list incoming and outgoing inventory trade offers'))
+   .addSubcommand(s=>s.setName('status').setDescription('Owner: inspect a trade before approving')
+    .addStringOption(o=>o.setName('id').setDescription('Trade ID').setRequired(true)))
+   .addSubcommand(s=>s.setName('accept').setDescription('Owner: accept a trade offered to THIS server')
+    .addStringOption(o=>o.setName('id').setDescription('Trade ID').setRequired(true)))
+   .addSubcommand(s=>s.setName('decline').setDescription('Owner: decline an offer to THIS server')
+    .addStringOption(o=>o.setName('id').setDescription('Trade ID').setRequired(true)))
+   .addSubcommand(s=>s.setName('cancel').setDescription('Owner: cancel an offer FROM this server')
+    .addStringOption(o=>o.setName('id').setDescription('Trade ID').setRequired(true)))),
  async execute(interaction){
   if(!interaction.guild)return InteractionHelper.safeReply(interaction,{
    content:'Open Sand Coins from a server using Beacon.',flags:MessageFlags.Ephemeral});
@@ -73,6 +93,8 @@ export default {
     return InteractionHelper.safeEditReply(interaction,{
      content:'🔒 Only the server owner or members with **Manage Server** can change the public rank-card appearance.'});
    if(sub==='daily')return respondSandDaily(interaction);
+   if(sub==='pay')return respondSandPay(interaction);
+   if(interaction.options.getSubcommandGroup(false)==='trade')return respondSandTrade(interaction);
    if(sub==='leaderboard'){
     const players=await getSandGlobalLeaderboard(interaction.client,10);
     return InteractionHelper.safeEditReply(interaction,{embeds:[createEmbed({
