@@ -1,5 +1,7 @@
 import { createEmbed } from '../utils/embeds.js';
 import { logger } from '../utils/logger.js';
+import { grantQuestSandCoins } from './sandCoinsService.js';
+import { recordQuestContribution, queueSharedSandRewards } from './sandQuestRewards.js';
 
 const KEY_PREFIX = 'guild:';
 const KEY_SUFFIX = ':progression';
@@ -403,6 +405,10 @@ function pickWeekly(guildId,week,members){
 }
 function ensureExtras(data,guildId,members=1,now=new Date()){
  const day=dateKey(now),week=utcWeekKey(now);
+ data.sandPendingPayouts=Array.isArray(data.sandPendingPayouts)?data.sandPendingPayouts:[];
+ data.sandContributions ||= {day,week,daily:{},weekly:{}};
+ if(data.sandContributions.day!==day){data.sandContributions.day=day;data.sandContributions.daily={};}
+ if(data.sandContributions.week!==week){data.sandContributions.week=week;data.sandContributions.weekly={};}
  data.dailyHistory=Array.isArray(data.dailyHistory)?data.dailyHistory:[];
  data.weeklyHistory=Array.isArray(data.weeklyHistory)?data.weeklyHistory:[];
  data.contributors ||= {day,week,daily:{},weekly:{},lifetime:{}};
@@ -694,16 +700,39 @@ async function recordActivity(client, guildId, metric, options = {}) {
         }
       }
 
+      // Track contributors for shared quests without changing existing XP.
+      recordQuestContribution(data,guildId,metric,options,0,metric==='message'?5:metric==='command'?10:0);
       const completed = completeQuests(data);
       addContribution(data,options.userId,metric);
       const earned=['message','command'].includes(metric)
         ? data.xp-previousXp-completed.reduce((sum,q)=>sum+q.reward,0) : 0;
+      if(completed.length)recordQuestContribution(data,guildId,'dailyCompleted',options,completed.length,0);
       const weeklyCompleted=updateWeekly(data,metric,options.userId,completed.length,earned);
+      queueSharedSandRewards(data,guildId,completed,weeklyCompleted);
       await save(client, guildId, data);
 
-      return { data, completed, weeklyCompleted, level: data.level, leveledUp: data.level > previousLevel, previousLevel, levelPerks: getLevelPerks(data.level) };
+      return { data, completed, weeklyCompleted, pendingSand:[...data.sandPendingPayouts], level: data.level, leveledUp: data.level > previousLevel, previousLevel, levelPerks: getLevelPerks(data.level) };
     },client);
 
+    // A saved payout intent survives a restart. Atomic wallet claims guarantee
+    // that replaying a pending event never credits a user twice.
+    if(result?.pendingSand?.length){
+      const settled=[];
+      for(const payout of result.pendingSand.slice(0,150)){
+        try {
+          await grantQuestSandCoins(client,payout);
+          settled.push(payout.key);
+        }catch(error){
+          logger.warn('Sand Coins payout retained for retry',{guildId,error:error.message});
+        }
+      }
+      if(settled.length)await withGuildLock(guildId,async()=>{
+        const latest=await load(client,guildId);
+        const paid=new Set(settled);
+        latest.sandPendingPayouts=(latest.sandPendingPayouts||[]).filter(p=>!paid.has(p.key));
+        await save(client,guildId,latest);
+      },client);
+    }
     return result;
   } catch (error) {
     logger.debug('Server progression update failed', { guildId, error: error.message });
