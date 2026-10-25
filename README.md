@@ -90,7 +90,7 @@ Beacon is fully containerized for easy deployment.
    ```bash
    cp .env.example .env
    ```
-   Set at minimum `DISCORD_TOKEN`, `CLIENT_ID`, and `GUILD_ID`. Docker Compose also reads `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `POSTGRES_DB` from `.env` (defaults: `beacon` / `password` / `beacon`).
+   Set at minimum `DISCORD_TOKEN` and `CLIENT_ID`; `GUILD_ID` is optional for development. Docker Compose also reads `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `POSTGRES_DB` from `.env` (defaults: `beacon` / `password` / `beacon`).
 
 3. **Build and start the containers:**
    ```bash
@@ -157,9 +157,11 @@ docker pull ghcr.io/sandym3ndy/diddybot9000:main
    # Discord Bot Configuration
    DISCORD_TOKEN=your_discord_bot_token_here
    CLIENT_ID=your_discord_client_id_here
+   # Optional development-only guild ID
    GUILD_ID=your_discord_guild_id_here
 
    # PostgreSQL Configuration (Primary Database)
+   # Set a usable connection URL or equivalent individual PostgreSQL settings.
    POSTGRES_URL=postgresql://postgres:yourpassword@localhost:5432/beacon
    POSTGRES_HOST=localhost
    POSTGRES_PORT=5432
