@@ -94,13 +94,13 @@ export default {
         const embed = createEmbed({
           title: '🔎 Beacon • Command Search',
           description: matched.length
-            ? '**' + matched.length + ' match(es)** for "' + query.replace(/@/g,'@\\u200b') + '"\n' +
+            ? '**' + matched.length + ' match(es)** for "' + query.replace(/@/g,'@\u200b') + '"\n' +
               (matched.length > items.length ? 'Showing the first 15. Try a more specific search.' : 'Select a command from the list below.')
-            : 'No command matched "' + query + '". Try a category such as tickets, music or moderation.',
+            : 'No command matched "' + query.replace(/@/g,'@\u200b') + '". Try searching for a goal such as "support queue", "daily goals" or "reaction roles".',
           color: 'primary',
           fields: items.map(x => ({
             name: ('/' + x.name + ' • ' + x.category).slice(0,256),
-            value: (x.description + (x.ownerOnly ? '\\n👑 Bot Owner Only' : '')).slice(0,1024),
+            value: (x.description + (x.ownerOnly ? '\n👑 Bot Owner Only' : '')).slice(0,1024),
             inline: false,
           })),
           footer: 'Beacon • Command Center • Search installed commands',
