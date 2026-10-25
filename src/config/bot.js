@@ -3,6 +3,10 @@ import { logger } from '../utils/logger.js';
 /** Official public brand copy. Do not substitute campaign taglines for the motto. */
 export const BEACON_MOTTO = "Your community's all-in-one Discord assistant.";
 export const BEACON_FOOTER = `Beacon • ${BEACON_MOTTO}`;
+// A warm signature for welcoming and community-facing experiences only.
+// Avoid this copy on disciplinary actions, sensitive reports and errors.
+export const BEACON_TEAM_NAME = 'The Beacon Development Team';
+export const BEACON_TEAM_THANKS = 'Thank you for welcoming Beacon into your community. Every server that gives us a chance helps us build something better. Your feedback, ideas and patience mean a lot to our team.';
 
 /**
  * Preserve useful context in a Discord embed footer without letting panels
