@@ -50,37 +50,51 @@ function ownedDescription(server){
  return fields;
 }
 /**
- * Every catalog item gets its own Preview button. Keep IDs scoped to this
- * interaction so old panels cannot accidentally activate new sessions.
- * These are strictly read-only; purchasing and equipping remain separate.
+ * Stable global component IDs: no collectors or session-specific messages.
+ * Preview buttons keep working after bot restarts and tolerate rapid clicks.
  */
-export function buildSandShopPreviewButtons(interactionId,disabled=false){
- if(!/^\d{17,20}$/.test(String(interactionId)))throw new Error('Invalid Sand Coins shop interaction');
+export function buildSandShopPreviewButtons(){
  const rows=[];
  for(let start=0;start<SAND_CATALOG.length;start+=4){
-  const buttons=SAND_CATALOG.slice(start,start+4).map(item=>
-   new ButtonBuilder()
-    .setCustomId('sand_shop_preview:'+interactionId+':'+item.id)
+  rows.push(new ActionRowBuilder().addComponents(
+   SAND_CATALOG.slice(start,start+4).map(item=>new ButtonBuilder()
+    .setCustomId('sand_shop_preview:'+item.id)
     .setLabel('Preview '+item.name)
-    .setStyle(ButtonStyle.Secondary)
-    .setDisabled(disabled));
-  rows.push(new ActionRowBuilder().addComponents(...buttons));
+    .setStyle(ButtonStyle.Secondary))
+  ));
  }
+ rows.push(new ActionRowBuilder().addComponents(new ButtonBuilder()
+  .setCustomId('sand_shop_back')
+  .setLabel('Shop Overview')
+  .setEmoji('🛒')
+  .setStyle(ButtonStyle.Primary)));
  return rows;
 }
 
-/** Render the exact current rank-card style with ONE preview-only substitution. */
+// Bounded render cache; the same cosmetic combination never has to compress a
+// million-pixel rank card repeatedly when members click preview buttons quickly.
+const PREVIEW_CACHE_MAX=64;
+const previewPngCache=new Map();
 export function buildSandShopItemPreview(itemId,server,serverName){
  const item=getSandCatalogItem(itemId);
  if(!item)throw new Error('Shop preview item unavailable');
  const equipped=getSandAppearance(server);
  const appearance={...equipped,[item.type]:item.id};
+ const cleanServerName=short(serverName)||'BEACON SERVER';
+ const key=JSON.stringify([itemId,cleanServerName,appearance.background,appearance.border,appearance.tag]);
+ let png=previewPngCache.get(key);
+ if(png){
+  previewPngCache.delete(key);
+  previewPngCache.set(key,png);
+ }else{
+  png=renderProgressionRankPng({
+   name:cleanServerName,rank:42,level:14,xp:48500,progress:74,appearance,
+  });
+  previewPngCache.set(key,png);
+  if(previewPngCache.size>PREVIEW_CACHE_MAX)
+   previewPngCache.delete(previewPngCache.keys().next().value);
+ }
  const imageName='beacon-preview-'+item.id+'.png';
- const png=renderProgressionRankPng({
-  name:short(serverName)||'BEACON SERVER',
-  rank:42,level:14,xp:48500,progress:74,
-  appearance,
- });
  const owned=server.inventory.includes(item.id);
  const embed=createEmbed({
   title:'👁️ Preview • '+item.name,
@@ -93,51 +107,37 @@ export function buildSandShopItemPreview(itemId,server,serverName){
    {name:'Preview Only',value:'No coins spent • No inventory or equipped items changed',inline:false},
   ],
   color:'primary',
-  footer:'Beacon • Sand Coins Shop • Buy using /sandcoins buy',
+  footer:'Beacon • Sand Coins Shop • Select another preview or Shop Overview',
  });
  embed.setImage('attachment://'+imageName);
- return {embeds:[embed],files:[new AttachmentBuilder(png,{name:imageName})]};
+ return {embeds:[embed],files:[new AttachmentBuilder(png,{name:imageName})],
+  attachments:[],components:buildSandShopPreviewButtons()};
 }
-async function openSandShopPreviews(interaction){
- const message=await interaction.fetchReply().catch(()=>null);
- if(!message?.createMessageComponentCollector){
-  logger.warn('Sand Coins shop preview controls could not start',{guildId:interaction.guildId});
-  return;
- }
- const prefix='sand_shop_preview:'+interaction.id+':';
- const collector=message.createMessageComponentCollector({
-  time:10*60_000,
-  filter:i=>i.isButton()&&i.customId.startsWith(prefix),
- });
- collector.on('collect',async button=>{
-  if(button.user.id!==interaction.user.id){
-   await button.reply({content:'Open /sandcoins shop to preview items in your own session.',
-    flags:MessageFlags.Ephemeral}).catch(()=>{});
-   return;
-  }
-  const acknowledged=await button.deferReply({flags:MessageFlags.Ephemeral})
-   .then(()=>true).catch(()=>false);
-  if(!acknowledged)return;
-  try{
-   const itemId=button.customId.slice(prefix.length);
-   if(!getSandCatalogItem(itemId)){
-    await button.editReply({content:'This decoration is no longer available to preview.'});
-    return;
-   }
-   // Always use the current saved appearance, not a stale in-memory snapshot.
-   const server=await getSandServer(interaction.client,interaction.guildId);
-   const preview=buildSandShopItemPreview(itemId,server,interaction.guild.name);
-   await button.editReply(preview);
-  }catch(error){
-   logger.warn('Sand Coins item preview failed',{guildId:interaction.guildId,error:error.message});
-   await button.editReply({content:'⚠️ Could not generate this preview. No coins were spent or items changed.'})
-    .catch(()=>{});
-  }
- });
- collector.on('end',async()=>{
-  await interaction.editReply({components:buildSandShopPreviewButtons(interaction.id,true)})
-   .catch(()=>{});
- });
+
+/** Public shop listing: never leak the invoking member's private wallet. */
+export async function buildSandShopPanel(client,guildId,guildName){
+ const [server,...stocks]=await Promise.all([
+  getSandServer(client,guildId),
+  ...SAND_CATALOG.map(item=>getSandLimitedStock(client,item.id)),
+ ]);
+ return {
+  embeds:[createEmbed({
+   title:'🪙 Beacon • Sand Coins Shop',
+   description:'Browse cosmetics and **press Preview** to see each item on a sample rank card.\n'+
+    'Previews are free, and purchases go into **'+short(guildName)+'\'s server inventory**.\n'+
+    'Use /sandcoins wallet privately to check your coins.',
+   fields:SAND_CATALOG.map((item,index)=>({
+    name:(server.inventory.includes(item.id)?'✅ ':'▫️ ')+item.name+
+     (item.limited?' • Limited Edition':''),
+    value:item.description+'\n**'+format(item.price)+'** • ID: \`'+item.id+'\`'+
+      (stocks[index]?' • **'+stocks[index].remaining+'/'+stocks[index].total+' left globally**':''),
+   })),
+   color:'primary',
+   footer:'Preview with buttons • /sandcoins buy to purchase • /sandcoins equip to apply',
+  })],
+  components:buildSandShopPreviewButtons(),
+  attachments:[],
+ };
 }
 
 export default {
@@ -187,7 +187,8 @@ export default {
   if(!interaction.guild)return InteractionHelper.safeReply(interaction,{
    content:'Open Sand Coins from a server using Beacon.',flags:MessageFlags.Ephemeral});
   const sub=interaction.options.getSubcommand();
-  if(!(await InteractionHelper.safeDefer(interaction,['leaderboard','daily'].includes(sub)?{}:{flags:MessageFlags.Ephemeral})))return;
+  const publicCommands=new Set(['leaderboard','daily','shop','inventory','equip','unequip']);
+  if(!(await InteractionHelper.safeDefer(interaction,publicCommands.has(sub)?{}:{flags:MessageFlags.Ephemeral})))return;
   try{
    if(['equip','unequip'].includes(sub)&&!isManager(interaction))
     return InteractionHelper.safeEditReply(interaction,{
@@ -248,43 +249,27 @@ export default {
      ],color:'primary',footer:'Beacon • Sand Coins • Daily claims reset at 00:00 UTC',
     })]});
    }
-   if(sub==='shop'||sub==='inventory'){
+   if(sub==='shop'){
+    // Public browsing; previews are globally handled and survive deploys.
+    const panel=await buildSandShopPanel(interaction.client,interaction.guildId,interaction.guild.name);
+    return InteractionHelper.safeEditReply(interaction,panel);
+   }
+   if(sub==='inventory'){
     const {server,backup:saved}=await getSandInventoryProtectedSnapshot(interaction.client,interaction.guildId);
-    if(server.pendingLogs.length)await deliverSandPurchaseLogs(interaction.client,interaction.guildId).catch(()=>{});
-    if(sub==='inventory'){
-     const savedFields=ownedDescription(server);
-     savedFields.push({name:'🛡️ Protected PostgreSQL Save',value:
-      '**'+saved.items+' items** • revision **'+saved.revision+'** • **'+
-      saved.copies+'** verified recovery snapshot(s)\nLast saved: <t:'+
-      Math.floor(Date.parse(saved.savedAt)/1000)+':R>\n'+
-      'Only the server owner can export a private copy with /sandcoins backup.'+
-      (saved.recoveryCount?'\nVerified recoveries: **'+saved.recoveryCount+'**':'')});
-     return InteractionHelper.safeEditReply(interaction,{embeds:[createEmbed({
-      title:'🎨 '+short(interaction.guild.name)+' • Rank-Card Inventory',
-      description:'These items belong to **this server** and persist across bot restarts. '+
-       '**Only the owner or Manage Server admins** can equip them.\n\n'+
-       'Selected items appear on /progression → Share Rank Card.',
-      fields:savedFields,color:'primary',
-     })]});
-    }
-    const w=await getSandWallet(interaction.client,interaction.user.id);
-    const stocks=await Promise.all(SAND_CATALOG.map(item=>getSandLimitedStock(interaction.client,item.id)));
-    const posted=await InteractionHelper.safeEditReply(interaction,{
-     embeds:[createEmbed({
-      title:'🪙 Beacon • Sand Coins Shop',
-      description:'**Your balance: '+format(w.balance)+'**\n'+
-       'Choose **Preview** below any item to see it on a sample rank card — free, no changes made.\n\n'+
-       'Purchases go into **'+short(interaction.guild.name)+'\'s server inventory**, not your personal inventory. '+ 
-       'Spend coins earned in any Beacon server.',
-      fields:SAND_CATALOG.map((item,index)=>({name:(server.inventory.includes(item.id)?'✅ ':'▫️ ')+item.name+
-       (item.limited?' • Limited Edition':''),value:item.description+'\n**'+format(item.price)+'** • ID: `'+item.id+'`'+
-       (stocks[index]?' • **'+stocks[index].remaining+'/'+stocks[index].total+' left globally**':'')})),
-      color:'primary',footer:'Preview with the buttons • Purchase with /sandcoins buy • Equip with /sandcoins equip',
-     })],
-     components:buildSandShopPreviewButtons(interaction.id),
-    });
-    if(posted)await openSandShopPreviews(interaction);
-    return;
+    const savedFields=ownedDescription(server);
+    savedFields.push({name:'🛡️ Protected PostgreSQL Save',value:
+     '**'+saved.items+' items** • revision **'+saved.revision+'** • **'+
+     saved.copies+'** verified recovery snapshot(s)\nLast saved: <t:'+
+     Math.floor(Date.parse(saved.savedAt)/1000)+':R>\n'+
+     'Only the server owner can export a private copy with /sandcoins backup.'+
+     (saved.recoveryCount?'\nVerified recoveries: **'+saved.recoveryCount+'**':'')});
+    return InteractionHelper.safeEditReply(interaction,{embeds:[createEmbed({
+     title:'🎨 '+short(interaction.guild.name)+' • Rank-Card Inventory',
+     description:'These items belong to **this server** and persist across bot restarts. '+
+      '**Only the owner or Manage Server admins** can equip them.\n\n'+
+      'Selected items appear on /progression → Share Rank Card.',
+     fields:savedFields,color:'primary',
+    })]});
    }
    if(sub==='buy'){
     const itemId=interaction.options.getString('item',true);
