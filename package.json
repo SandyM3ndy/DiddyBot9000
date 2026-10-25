@@ -1,6 +1,6 @@
 {
   "name": "beacon-bot",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Beacon — Your community's all-in-one Discord assistant.",
   "main": "src/app.js",
   "type": "module",
