@@ -4,6 +4,7 @@ import { botConfig, getColor } from '../config/bot.js';
 import { buildGuildJoinFields } from '../utils/guildJoinNotification.js';
 import { getGuildConfig, setGuildConfig } from '../services/config/guildConfig.js';
 import { registerFoundingServers } from '../services/serverProgressionService.js';
+import { registerSandCoinsGuildCommand } from '../handlers/loaders/commandLoader.js';
 
 export default {
   name: Events.GuildCreate,
@@ -19,10 +20,16 @@ export default {
     try {
       const config = await getGuildConfig(client, guild.id);
       await setGuildConfig(client, guild.id, config);
-      // Slash commands are registered globally; do not create guild-scoped duplicates.
+      // /sandcoins is registered separately below so it appears immediately.
     } catch (error) {
       logger.error(`Error initializing guild ${guild.id} on join:`, error);
     }
+
+    // All other slash commands remain global. /sandcoins is registered per
+    // server as a single upsert, with no impact on other guild commands.
+    await registerSandCoinsGuildCommand(client, guild.id).catch(error =>
+      logger.error(`Could not publish /sandcoins to new guild ${guild.id}: ${error.message}`)
+    );
 
     await registerFoundingServers(client).catch(error => logger.error('Founding registry update failed',error));
 
