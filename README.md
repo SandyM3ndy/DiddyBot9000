@@ -2,6 +2,8 @@
 
 **Beacon** is your community's all-in-one Discord assistant. Keep your server organised with moderation, tickets, logging, reaction roles and utilities, while bringing members together through global server rankings, 25 rotating daily quests, weekly challenges, milestones, founding-community badges and shareable rank cards.
 
+**/dashboard is Beacon's Main Control Center.** Use its settings, guided sections, favourite shortcuts and guarded Undo to manage server features from one place. The team message and support links are there too.
+
 Built with Discord.js v14 and PostgreSQL. Existing server progression is designed to survive restarts and upgrades, subject to persistent hosting and reliable backups.
 
 **Try it in your server:** use `/invite` in a server where Beacon is installed, then `/progression overview` to explore the rankings, or visit the [support server](https://discord.gg/76N2EM6v6k) for assistance.
@@ -261,6 +263,8 @@ Beacon is released under the MIT License. See [LICENSE](LICENSE) for details.
 
 ## Thank You
 
-Thank you for choosing Beacon for your Discord server! We're constantly working to improve and add new features based on community feedback.
+Thank you for choosing Beacon for your Discord community. Every server that gives us a chance helps us build a better all-in-one assistant. Your feedback and ideas matter, and we're grateful you're here.
+
+With appreciation, **The Beacon Development Team** 💜
 
 *Last updated: October 2026*
