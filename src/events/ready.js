@@ -9,6 +9,7 @@ import { loadLockdownStates } from "../services/lockdownService.js";
 import { loadAllPersistedAntiNukeConfigs } from "../services/antinukeService.js";
 import { clearGuildScopedCommands } from "../handlers/loaders/commandLoader.js";
 import { startTicketSlaMonitor } from '../services/ticketSlaService.js';
+import { startSandCoinsMaintenance } from '../services/sandCoinsMaintenance.js';
 
 export default {
   name: Events.ClientReady,
@@ -30,6 +31,7 @@ export default {
       await loadLockdownStates(client);
       await loadAllPersistedAntiNukeConfigs(client);
       startTicketSlaMonitor(client);
+      startSandCoinsMaintenance(client);
       // Keep commands global-only and remove old guild-scoped copies that caused duplicates.
       await clearGuildScopedCommands(client);
 
