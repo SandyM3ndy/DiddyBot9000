@@ -6,9 +6,10 @@ import { resolveLogChannel } from '../../services/loggingService.js';
 import {
  SAND_CATALOG,SAND_SLOTS,getSandWallet,getSandServer,getSandCatalogItem,
  getSandAppearance,buySandDecoration,equipSandDecoration,deliverSandPurchaseLogs,getSandLimitedStock,
- getSandGlobalLeaderboard,setSandLeaderboardHidden,
+ getSandGlobalLeaderboard,setSandLeaderboardHidden,getSandDailyStatusFromWallet,
 } from '../../services/sandCoinsService.js';
 import { logger } from '../../utils/logger.js';
+import { respondSandDaily } from '../../utils/sandDailyReply.js';
 
 const name=item=>item?.name||'Unknown Decoration';
 const format=n=>n.toLocaleString('en-US')+' SC';
@@ -44,9 +45,10 @@ export default {
  category:'Community',
  data:new SlashCommandBuilder()
   .setName('sandcoins')
-  .setDescription('Earn global Sand Coins from quests and customise server rank cards')
+  .setDescription('Earn global Sand Coins from quests and daily streaks; customise rank cards')
   .setDMPermission(false)
-  .addSubcommand(s=>s.setName('wallet').setDescription('See your global Sand Coins balance and quest earnings'))
+  .addSubcommand(s=>s.setName('wallet').setDescription('See your global Sand Coins balance and earnings'))
+  .addSubcommand(s=>s.setName('daily').setDescription('Claim daily Sand Coins; consecutive days earn more (max day 7)'))
   .addSubcommand(s=>s.setName('leaderboard').setDescription('See the all-time global Sand Coin earners'))
   .addSubcommand(s=>s.setName('privacy').setDescription('Hide or show your identity on global coin rankings')
    .addBooleanOption(o=>o.setName('hidden').setDescription('Hide yourself from the public ranking').setRequired(true)))
@@ -65,11 +67,12 @@ export default {
   if(!interaction.guild)return InteractionHelper.safeReply(interaction,{
    content:'Open Sand Coins from a server using Beacon.',flags:MessageFlags.Ephemeral});
   const sub=interaction.options.getSubcommand();
-  if(!(await InteractionHelper.safeDefer(interaction,sub==='leaderboard'?{}:{flags:MessageFlags.Ephemeral})))return;
+  if(!(await InteractionHelper.safeDefer(interaction,['leaderboard','daily'].includes(sub)?{}:{flags:MessageFlags.Ephemeral})))return;
   try{
    if(['equip','unequip'].includes(sub)&&!isManager(interaction))
     return InteractionHelper.safeEditReply(interaction,{
      content:'🔒 Only the server owner or members with **Manage Server** can change the public rank-card appearance.'});
+   if(sub==='daily')return respondSandDaily(interaction);
    if(sub==='leaderboard'){
     const players=await getSandGlobalLeaderboard(interaction.client,10);
     return InteractionHelper.safeEditReply(interaction,{embeds:[createEmbed({
@@ -89,16 +92,18 @@ export default {
    }
    if(sub==='wallet'){
     const w=await getSandWallet(interaction.client,interaction.user.id);
+    const d=getSandDailyStatusFromWallet(w);
     return InteractionHelper.safeEditReply(interaction,{embeds:[createEmbed({
      title:'🪙 Your Global Sand Coins Wallet',
-     description:'Your Sand Coins follow you across **all** Beacon communities. Earn them by contributing to completed quests.',
+     description:'Your Sand Coins follow you across **all** Beacon communities. Earn coins from quests and /daily streaks.',
      fields:[
       {name:'Available',value:'**'+format(w.balance)+'**',inline:true},
       {name:'Lifetime Earned',value:format(w.lifetime),inline:true},
-      {name:'Earned Today',value:format(w.earnedToday),inline:true},
+      {name:'Quest Coins Today',value:format(w.earnedToday),inline:true},
+      {name:'🔥 Daily Streak',value:'**'+d.streak+'/7** • '+(d.alreadyClaimed?'Claimed today':'Next reward: '+format(d.nextReward)),inline:true},
       {name:'Recent Activity',value:w.history.length?w.history.slice(0,5).map(h=>
-       (h.delta>=0?'🟢 +':'🔴 ')+format(h.delta)+' • '+(h.kind==='quest'?'Quest reward':'Rank-card purchase')).join('\n'):'No transactions yet.'},
-     ],color:'primary',footer:'Beacon • Sand Coins • UTC reward limits apply',
+       (h.delta>=0?'🟢 +':'🔴 ')+format(h.delta)+' • '+(h.kind==='quest'?'Quest reward':h.kind==='daily'?'Daily streak reward':'Rank-card purchase')).join('\n'):'No transactions yet.'},
+     ],color:'primary',footer:'Beacon • Sand Coins • Daily claims reset at 00:00 UTC',
     })]});
    }
    if(sub==='shop'||sub==='inventory'){
