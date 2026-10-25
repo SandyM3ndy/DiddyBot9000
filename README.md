@@ -57,8 +57,6 @@ Beacon offers a complete suite of tools for Discord server management and commun
 
 ### 🎉 Giveaways, music and everyday tools
 - **Giveaways** — Create, end and reroll eligible giveaways
-- **Community games** — `/8ball` with Ask Again, and `/rps` with interactive rounds and Play Again; both offer optional private replies
-- **Classics** — `/flip` for a coin toss and `/roll` for dice
 - **Music** — Playback, queues and interactive controls when a working Lavalink node is connected
 - **Useful commands** — `/serverinfo`, `/firstmsg`, `/calculate`, `/todo`, `/search` and more
 - **Error Rescue** — Actionable recovery instructions and a support link when an operation fails
