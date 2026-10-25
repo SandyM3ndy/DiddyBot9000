@@ -2,6 +2,13 @@
 import { deflateSync } from 'node:zlib';
 
 const WIDTH=1000,HEIGHT=520;
+const THEMES={
+ default:{base:[9,15,31],mix:[27,42,75],outline:[65,111,185],inner:[13,24,48],accent:[67,209,231]},
+ sunset:{base:[31,17,38],mix:[97,54,48],outline:[234,140,105],inner:[60,32,58],accent:[255,187,130]},
+ galaxy:{base:[16,10,43],mix:[32,44,135],outline:[141,107,255],inner:[25,19,69],accent:[167,157,253]},
+ emerald:{base:[8,27,31],mix:[20,83,53],outline:[65,166,118],inner:[15,56,55],accent:[126,238,168]},
+};
+const BORDERS={gold:[245,196,80],diamond:[171,230,255]};
 const GLYPHS={
 'A':[14,17,17,31,17,17,17],'B':[30,17,17,30,17,17,30],
 'C':[14,17,16,16,16,17,14],'D':[30,17,17,17,17,17,30],
@@ -38,13 +45,16 @@ function chunk(type,data){
  size.writeUInt32BE(data.length,0);crc.writeUInt32BE(crc32(Buffer.concat([name,data])),0);
  return Buffer.concat([size,name,data,crc]);
 }
-export function renderProgressionRankPng({name='COMMUNITY',rank=null,level=1,xp=0,progress=0,founder=null}={}){
+export function renderProgressionRankPng({name='COMMUNITY',rank=null,level=1,xp=0,progress=0,founder=null,appearance={}}={}){
+ const theme=THEMES[appearance?.background]||THEMES.default;
+ const frame=BORDERS[appearance?.border]||theme.outline;
  const data=Buffer.alloc(WIDTH*HEIGHT*4);
  for(let y=0;y<HEIGHT;y++)for(let x=0;x<WIDTH;x++){
   const i=(y*WIDTH+x)*4,g=(x/WIDTH)*0.26+(y/HEIGHT)*0.18;
   const stripe=(x+y)%48<2?5:0;
-  data[i]=clamp(9+g*27+stripe);data[i+1]=clamp(15+g*42+stripe);
-  data[i+2]=clamp(31+g*75+stripe*2);data[i+3]=255;
+  data[i]=clamp(theme.base[0]+g*theme.mix[0]+stripe);
+  data[i+1]=clamp(theme.base[1]+g*theme.mix[1]+stripe);
+  data[i+2]=clamp(theme.base[2]+g*theme.mix[2]+stripe*2);data[i+3]=255;
  }
  const box=(x,y,w,h,color)=>{
   x=Math.max(0,Math.floor(x));y=Math.max(0,Math.floor(y));
@@ -61,8 +71,8 @@ export function renderProgressionRankPng({name='COMMUNITY',rank=null,level=1,xp=
    cx+=s*6;
   }
  };
- box(27,27,946,466,[65,111,185]);box(31,31,938,458,[13,24,48]);
- box(45,46,10,58,[67,209,231]);write('BEACON',75,50,6,[229,244,255]);
+ box(27,27,946,466,frame);box(31,31,938,458,theme.inner);
+ box(45,46,10,58,theme.accent);write('BEACON',75,50,6,[229,244,255]);
  write('WORLD RANKINGS',75,107,2,[111,177,215]);
  box(75,163,850,2,[49,87,137]);
  // Identity mark: an intentionally graphic server monogram, no remote avatar dependencies.
@@ -77,7 +87,12 @@ export function renderProgressionRankPng({name='COMMUNITY',rank=null,level=1,xp=
  write('TOTAL XP',646,375,3,[126,171,208]);
  write(Math.max(0,Math.floor(xp)).toLocaleString('en-US'),646,413,4,[247,247,250],14);
  box(75,351,850,10,[37,55,82]);
- box(75,351,Math.floor(850*Math.max(0,Math.min(100,progress))/100),10,[80,208,232]);
+ box(75,351,Math.floor(850*Math.max(0,Math.min(100,progress))/100),10,theme.accent);
+ if(appearance?.tag==='royal'||appearance?.tag==='pioneer'){
+  const tag=appearance.tag==='royal'?'ROYAL SANDS':'SAND PIONEER';
+  box(694,125,222,34,appearance.tag==='royal'?[103,77,31]:[42,97,104]);
+  write(tag,702,134,2,[255,236,182],18);
+ }
  if(founder) {
   box(740,72,177,50,[57,83,120]);
   write('FOUNDER #'+founder.number,754,87,3,[255,224,146],11);
