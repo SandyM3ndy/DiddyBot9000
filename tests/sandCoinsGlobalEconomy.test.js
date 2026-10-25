@@ -160,24 +160,25 @@ test('global lifetime coin rankings preserve earned status after spending and ho
 });
 
 test('daily streak claims exactly once per UTC calendar day, regardless of guild',async()=>{
+ assert.deepEqual([...SAND_DAILY_STREAK_REWARDS],[35,45,55,65,75,85,100]);
  const {db,values}=mockDatabase();
  const client={db};
  const d1=new Date('2027-01-01T23:59:59.000Z');
  const first=await claimSandDaily(client,{userId:u,now:d1});
  assert.equal(first.claimed,true);
  assert.equal(first.streak,1);
- assert.equal(first.amount,25);
+ assert.equal(first.amount,35);
  const duplicate=await claimSandDaily(client,{userId:u,now:new Date('2027-01-01T23:59:59.999Z')});
  assert.equal(duplicate.claimed,false);
  assert.equal(duplicate.amount,0);
- assert.equal(duplicate.balance,25);
+ assert.equal(duplicate.balance,35);
  assert.equal(values.get(walletKey(u)).history.length,1);
  const next=await claimSandDaily(client,{userId:u,now:new Date('2027-01-02T00:00:01Z')});
  assert.equal(next.streak,2);
- assert.equal(next.amount,35);
- assert.equal(next.balance,60);
+ assert.equal(next.amount,45);
+ assert.equal(next.balance,80);
  assert.equal(next.nextClaimAt,Date.parse('2027-01-03T00:00:00Z')/1000);
- assert.equal((await getSandWallet(client,u)).lifetime,60);
+ assert.equal((await getSandWallet(client,u)).lifetime,80);
  // The new /daily bonus never consumes the quest earning daily/weekly allowances.
  assert.equal(values.get(walletKey(u)).earnedToday,0);
  assert.equal(values.get(walletKey(u)).earnedWeek,0);
@@ -202,13 +203,13 @@ test('day seven is the maximum daily payout; missing one day resets to day one',
  const stale=getSandDailyStatusFromWallet(wallet,new Date('2027-01-11T03:00:00Z'));
  assert.equal(stale.streak,0);
  assert.equal(stale.nextStreak,1);
- assert.equal(stale.nextReward,25);
+ assert.equal(stale.nextReward,35);
  const reset=await claimSandDaily(client,{userId:u,now:new Date('2027-01-11T23:00:00Z')});
  assert.equal(reset.streak,1);
- assert.equal(reset.amount,25);
+ assert.equal(reset.amount,35);
  const resumed=await claimSandDaily(client,{userId:u,now:new Date('2027-01-12T04:00:00Z')});
  assert.equal(resumed.streak,2);
- assert.equal(resumed.amount,35);
+ assert.equal(resumed.amount,45);
 });
 
 test('daily reward and daily streak status persist across DB client instances and preserve quest payout caps',async()=>{
@@ -220,9 +221,9 @@ test('daily reward and daily streak status persist across DB client instances an
   userId:u,guildId:g1,eventId:g1+':daily:2027-02-01:messages',amount:200,
  });
  assert.equal(paid.credited,200);
- assert.equal((await getSandWallet(reopened,u)).balance,225);
+ assert.equal((await getSandWallet(reopened,u)).balance,235);
  const next=await claimSandDaily(reopened,{userId:u,now:new Date('2027-02-02T00:00:00Z')});
- assert.equal(next.amount,35);
- assert.equal((await getSandWallet(reopened,u)).balance,260);
+ assert.equal(next.amount,45);
+ assert.equal((await getSandWallet(reopened,u)).balance,280);
  assert.equal(values.get(walletKey(u)).history.filter(h=>h.kind==='daily').length,2);
 });

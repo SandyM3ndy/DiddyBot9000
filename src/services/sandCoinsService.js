@@ -13,7 +13,7 @@ const PREFIX='beacon:sandcoins:v1:';
 export const SAND_DAILY_LIMIT=200;
 export const SAND_WEEKLY_LIMIT=600;
 // Daily streak rewards are separate from quest-only earning caps.
-export const SAND_DAILY_STREAK_REWARDS=Object.freeze([25,35,45,55,65,75,85]);
+export const SAND_DAILY_STREAK_REWARDS=Object.freeze([35,45,55,65,75,85,100]);
 export const SAND_CATALOG=Object.freeze([
   {id:'sunset',name:'Sunset Glow',type:'background',price:300,description:'Warm sunset colour palette for the rank card.',palette:'sunset'},
   {id:'galaxy',name:'Galaxy Night',type:'background',price:1200,description:'A deep cosmic gradient for your community.',palette:'galaxy'},
