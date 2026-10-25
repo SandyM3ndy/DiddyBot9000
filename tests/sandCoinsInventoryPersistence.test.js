@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
  buySandDecoration, equipSandDecoration, getSandServer,
- getSandInventoryBackupStatus, offerSandTrade, resolveSandTrade,
+ getSandInventoryBackupStatus, getSandInventoryProtectedSnapshot,
+ offerSandTrade, resolveSandTrade,
  SAND_INVENTORY_SNAPSHOT_DEPTH,
 } from '../src/services/sandCoinsService.js';
 
@@ -180,4 +181,40 @@ test('invalid duplicate inventory records fail safely rather than silently shedd
  await assert.rejects(getSandServer(bot,serverA),/duplicate/);
  assert.equal(values.get(k(serverA)).inventory.length,2);
  assert.equal(values.has(vault(serverA)),false);
+});
+
+test('offers and audit metadata never evict meaningful inventory recovery revisions',async()=>{
+ const {db,values}=mockDatabase(),bot=client(db);
+ values.set(k(serverA),{inventory:['gold']});
+ values.set(k(serverB),{inventory:['galaxy']});
+ const ownerA='666666666666666666',ownerB='777777777777777777';
+ const time=new Date('2027-01-01T12:00:00Z');
+ await getSandServer(bot,serverA);
+ await getSandServer(bot,serverB);
+ for(let i=0;i<12;i++){
+  const id=String(555555555555555555n+BigInt(i));
+  const offer=await offerSandTrade(bot,{tradeId:id,fromGuildId:serverA,toGuildId:serverB,
+   fromOwnerId:ownerA,toOwnerId:ownerB,offeredItem:'gold',requestedItem:'galaxy',now:time});
+  assert.equal(offer.offer.status,'pending');
+  const closed=await resolveSandTrade(bot,{tradeId:id,actorId:ownerA,actingGuildId:serverA,
+   fromOwnerId:ownerA,toOwnerId:ownerB,decision:'cancel',now:time});
+  assert.equal(closed.offer.status,'cancelled');
+ }
+ const current=await getSandInventoryProtectedSnapshot(bot,serverA);
+ assert.deepEqual(current.server.inventory,['gold']);
+ assert.equal(current.backup.revision,1);
+ assert.equal(current.backup.copies,1);
+ assert.equal(values.get(vault(serverA)).snapshots[0].server.tradeOffers.length,0);
+ assert.equal(values.get(vault(serverA)).snapshots[0].server.tradeHistory.length,12);
+});
+
+test('protected export always returns inventory and revision from the same transaction',async()=>{
+ const {db}=mockDatabase(),bot=client(db);
+ const first=await getSandInventoryProtectedSnapshot(bot,serverA);
+ assert.equal(first.backup.revision,1);
+ assert.equal(first.backup.items,0);
+ assert.equal(first.backup.copies,1);
+ const other=await getSandInventoryProtectedSnapshot(bot,serverA);
+ assert.deepEqual(other,first);
+ assert.equal(other.backup.savedAt,first.backup.savedAt);
 });
