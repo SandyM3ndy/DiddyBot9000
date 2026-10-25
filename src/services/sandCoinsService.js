@@ -4,6 +4,7 @@
  * Production mutations MUST run in a single PostgreSQL transaction.
  */
 import { pgConfig } from '../config/database/postgres.js';
+import { createHash } from 'node:crypto';
 import { resolveLogChannel } from './loggingService.js';
 import { getGuildConfig } from './config/guildConfig.js';
 import { createEmbed } from '../utils/embeds.js';
@@ -26,6 +27,8 @@ export const SAND_CATALOG=Object.freeze([
 export const SAND_SLOTS=Object.freeze(['background','border','tag']);
 const walletKey=userId=>PREFIX+'wallet:'+userId;
 const serverKey=guildId=>PREFIX+'server:'+guildId;
+const vaultKey=guildId=>PREFIX+'inventory-vault:'+guildId;
+export const SAND_INVENTORY_SNAPSHOT_DEPTH=8;
 const claimKey=(eventId,userId)=>PREFIX+'claim:'+eventId+':'+userId;
 const stockKey=itemId=>PREFIX+'stock:'+itemId;
 const validId=value=>typeof value==='string' && /^\d{17,20}$/.test(value);
@@ -40,8 +43,16 @@ function readWallet(value){
  return d;
 }
 function readServer(value){
- const d={...initialServer(),...(value&&typeof value==='object'?value:{})};
- d.inventory=Array.isArray(d.inventory)?d.inventory.filter(id=>SAND_CATALOG.some(x=>x.id===id)):[];
+ if(value!==null&&value!==undefined&&(typeof value!=='object'||Array.isArray(value)))
+  throw new Error('Sand Coins server inventory is malformed; refusing to erase it');
+ const d={...initialServer(),...(value||{})};
+ // NEVER filter by the live shop catalog. Retired, limited, or temporarily
+ // unavailable items must survive reads, edits, log replay, and upgrades.
+ if(!Array.isArray(d.inventory)||d.inventory.some(id=>typeof id!=='string'||!id||id.length>128))
+  throw new Error('Sand Coins server inventory is malformed; refusing to overwrite it');
+ if(new Set(d.inventory).size!==d.inventory.length)
+  throw new Error('Sand Coins server inventory contains duplicate IDs; manual review required');
+ d.inventory=[...d.inventory];
  d.equipped={...initialServer().equipped,...(d.equipped||{})};
  d.purchases=Array.isArray(d.purchases)?d.purchases:[];
  d.pendingLogs=Array.isArray(d.pendingLogs)?d.pendingLogs:[];
@@ -162,9 +173,99 @@ export async function getSandGlobalLeaderboard(client,limit=10){
  }
  return rows.sort((a,b)=>b.earned-a.earned||a.userId.localeCompare(b.userId)).slice(0,limit);
 }
+/**
+ * Independent PostgreSQL inventory vault. Every inventory mutation updates
+ * the live record AND a checksummed rolling set of recovery snapshots in the
+ * SAME transaction, with identical advisory locks and no expiry.
+ *
+ * Never reconstruct from purchase receipts: traded-away items must remain gone.
+ * Never silently replace a primary record with a different valid snapshot:
+ * mismatches are flagged for investigation to prevent item duplication.
+ */
+function stableJson(value){
+ if(value===null||typeof value!=='object')return JSON.stringify(value);
+ if(Array.isArray(value))return '['+value.map(stableJson).join(',')+']';
+ return '{'+Object.keys(value).sort().map(key=>JSON.stringify(key)+':'+stableJson(value[key])).join(',')+'}';
+}
+function inventoryHash(server){return createHash('sha256').update(stableJson(server)).digest('hex');}
+function readInventoryVault(raw,guildId){
+ if(raw===null||raw===undefined)return null;
+ if(!raw||typeof raw!=='object'||raw.schema!==1||raw.guildId!==guildId||
+    !Number.isSafeInteger(raw.revision)||raw.revision<1||
+    !Array.isArray(raw.snapshots)||raw.snapshots.length<1||
+    raw.snapshots.length>SAND_INVENTORY_SNAPSHOT_DEPTH)
+  throw new Error('Sand Coins inventory vault metadata invalid; refusing unsafe restoration');
+ const current=raw.snapshots[0];
+ if(current.revision!==raw.revision||current.checksum!==raw.checksum||
+    !Number.isFinite(Date.parse(current.at))||!Array.isArray(current.server?.inventory))
+  throw new Error('Sand Coins inventory vault snapshot invalid');
+ for(const entry of raw.snapshots){
+  if(!Number.isSafeInteger(entry.revision)||entry.revision<1||
+      !Number.isFinite(Date.parse(entry.at))||
+      inventoryHash(readServer(entry.server))!==entry.checksum)
+   throw new Error('Sand Coins inventory vault checksum failure; refusing unsafe restoration');
+ }
+ return raw;
+}
+function verifiedServer(tx,guildId){
+ const current=tx.get(serverKey(guildId));
+ const vault=readInventoryVault(tx.get(vaultKey(guildId)),guildId);
+ if(current===null||current===undefined){
+  // Safe only because both keys are locked: no concurrent purchase/trade can
+  // slip between the recovery read and the primary restoration.
+  if(vault){
+   const restored=readServer(vault.snapshots[0].server);
+   tx.put(serverKey(guildId),restored);
+   logger.warn('Recovered missing Sand Coins inventory from verified PostgreSQL vault',
+    {guildId,revision:vault.revision});
+   return restored;
+  }
+  return initialServer();
+ }
+ const server=readServer(current);
+ if(vault&&inventoryHash(server)!==vault.checksum)
+  throw new Error('Sand Coins inventory/vault disagreement: writes blocked pending manual review');
+ return server;
+}
+function storeServer(tx,guildId,server,reason,operationId=null){
+ const current=readServer(server);
+ const previous=readInventoryVault(tx.get(vaultKey(guildId)),guildId);
+ const revision=(previous?.revision||0)+1;
+ const entry={revision,at:new Date().toISOString(),reason,
+  operationId,checksum:inventoryHash(current),server:structuredClone(current)};
+ const vault={schema:1,guildId,revision,checksum:entry.checksum,
+  snapshots:[entry,...(previous?.snapshots||[])].slice(0,SAND_INVENTORY_SNAPSHOT_DEPTH)};
+ tx.put(serverKey(guildId),current);
+ tx.put(vaultKey(guildId),vault);
+ return {revision,at:entry.at};
+}
 export async function getSandServer(client,guildId){
  requireId(guildId,'server ID');
- return readServer(await client.db.get(serverKey(guildId),null));
+ const sk=serverKey(guildId),vk=vaultKey(guildId);
+ return atomic(client,[sk,vk],async tx=>{
+  const server=verifiedServer(tx,guildId);
+  // Backfill the protective vault for existing inventories without removing
+  // or changing items, equipment, audit queues, or purchase history.
+  if(!tx.get(vk))storeServer(tx,guildId,server,'legacy_inventory_protected');
+  return server;
+ });
+}
+/** Health/read-only revision for owners and diagnostic tests. */
+export async function getSandInventoryBackupStatus(client,guildId){
+ requireId(guildId,'server ID');
+ const sk=serverKey(guildId),vk=vaultKey(guildId);
+ return atomic(client,[sk,vk],async tx=>{
+  const server=verifiedServer(tx,guildId);
+  if(!tx.get(vk))storeServer(tx,guildId,server,'legacy_inventory_protected');
+  const vault=readInventoryVault(tx.get(vk)||{
+   // The context only reads locked PRE-transaction values, not dirty writes.
+   schema:1,guildId,revision:1,checksum:inventoryHash(server),
+   snapshots:[{revision:1,at:new Date().toISOString(),reason:'legacy_inventory_protected',
+    checksum:inventoryHash(server),server}],
+  },guildId);
+  return {protected:true,revision:vault.revision,copies:vault.snapshots.length,
+   savedAt:vault.snapshots[0].at,items:server.inventory.length};
+ });
 }
 export function getSandCatalogItem(id){return SAND_CATALOG.find(item=>item.id===id)||null;}
 export async function getSandLimitedStock(client,itemId){
@@ -211,9 +312,9 @@ export async function buySandDecoration(client,{userId,guildId,itemId,purchaseId
  if(!item)throw new Error('Unknown shop item');
  const wk=walletKey(userId),sk=serverKey(guildId),pk=PREFIX+'purchase:'+purchaseId;
  const stock=item.limit?stockKey(itemId):null;
- return atomic(client,[wk,sk,pk,...(stock?[stock]:[])],async tx=>{
+ return atomic(client,[wk,sk,vaultKey(guildId),pk,...(stock?[stock]:[])],async tx=>{
   if(tx.get(pk))return {duplicate:true,...tx.get(pk)};
-  const wallet=withWindow(readWallet(tx.get(wk)),new Date()),server=readServer(tx.get(sk));
+  const wallet=withWindow(readWallet(tx.get(wk)),new Date()),server=verifiedServer(tx,guildId);
   if(server.inventory.includes(itemId))return {error:'ALREADY_OWNED'};
   if(stock && Number(tx.get(stock)||0)>=item.limit)return {error:'SOLD_OUT'};
   if(wallet.balance<item.price)return {error:'INSUFFICIENT_FUNDS',balance:wallet.balance,price:item.price};
@@ -224,7 +325,7 @@ export async function buySandDecoration(client,{userId,guildId,itemId,purchaseId
   server.inventory.push(itemId);
   server.purchases=[purchase,...server.purchases].slice(0,50);
   server.pendingLogs.push(purchase); // durable audit outbox
-  tx.put(wk,wallet);tx.put(sk,server);tx.put(pk,{purchase,balance});
+  tx.put(wk,wallet);storeServer(tx,guildId,server,'purchase',String(purchaseId));tx.put(pk,{purchase,balance});
   if(stock)tx.put(stock,Number(tx.get(stock)||0)+1);
   return {purchase,balance,duplicate:false};
  });
@@ -234,11 +335,11 @@ export async function equipSandDecoration(client,{guildId,itemId,slot,actorId}){
  if(!SAND_SLOTS.includes(slot))throw new Error('Invalid appearance slot');
  if(itemId!==null && getSandCatalogItem(itemId)?.type!==slot)throw new Error('Invalid cosmetic for selected slot');
  const sk=serverKey(guildId);
- return atomic(client,[sk],async tx=>{
-  const server=readServer(tx.get(sk));
+ return atomic(client,[sk,vaultKey(guildId)],async tx=>{
+  const server=verifiedServer(tx,guildId);
   if(itemId!==null&&!server.inventory.includes(itemId))return {error:'NOT_OWNED'};
   server.equipped[slot]=itemId;
-  tx.put(sk,server);
+  storeServer(tx,guildId,server,itemId===null?'unequip':'equip',actorId);
   return {appearance:getSandAppearance(server)};
  });
 }
@@ -293,9 +394,9 @@ export async function offerSandTrade(client,{tradeId,fromGuildId,toGuildId,fromO
  if(fromGuildId===toGuildId)throw new Error('Trade must involve different servers');
  if(!Number.isFinite(now.getTime()))throw new Error('Invalid trade time');
  const a=serverKey(fromGuildId),b=serverKey(toGuildId),k=tradeKey(tradeId);
- return atomic(client,[a,b,k],async tx=>{
+ return atomic(client,[a,b,vaultKey(fromGuildId),vaultKey(toGuildId),k],async tx=>{
   if(tx.get(k))return {error:'DUPLICATE_TRADE'};
-  const from=readServer(tx.get(a)),to=readServer(tx.get(b));
+  const from=verifiedServer(tx,fromGuildId),to=verifiedServer(tx,toGuildId);
   if(!from.inventory.includes(offeredItem))return {error:'OFFER_NOT_OWNED'};
   if(!to.inventory.includes(requestedItem))return {error:'REQUEST_NOT_OWNED'};
   if(to.inventory.includes(offeredItem)||from.inventory.includes(requestedItem))
@@ -309,14 +410,16 @@ export async function offerSandTrade(client,{tradeId,fromGuildId,toGuildId,fromO
    state.tradeOffers.push({id:tradeId,expiresAt:offer.expiresAt});
    addTradeNotification(state,offer,'offered',fromOwnerId);
   }
-  tx.put(a,from);tx.put(b,to);tx.put(k,offer);
+  storeServer(tx,fromGuildId,from,'trade_offered',tradeId);
+  storeServer(tx,toGuildId,to,'trade_offered',tradeId);
+  tx.put(k,offer);
   return {offer};
  });
 }
 export async function getSandServerTradeOffers(client,guildId){
  const server=await getSandServer(client,guildId);
  const ids=[...new Set(server.tradeOffers.map(e=>e.id))].slice(-25);
- const offers=await Promise.all(ids.map(id=>getSandTrade(client,id).catch(()=>null)));
+ const offers=await Promise.all(ids.map(id=>getSandTrade(client,id)));
  return offers.filter(o=>o&&o.status==='pending'&&o.expiresAt>Date.now());
 }
 /**
@@ -330,8 +433,12 @@ export async function resolveSandTrade(client,{tradeId,actorId,actingGuildId,fro
  const k=tradeKey(tradeId),initial=await client.db.get(k,null);
  if(!initial)return {error:'TRADE_NOT_FOUND'};
  const a=serverKey(initial.fromGuildId),b=serverKey(initial.toGuildId);
- return atomic(client,[a,b,k],async tx=>{
+ return atomic(client,[a,b,vaultKey(initial.fromGuildId),vaultKey(initial.toGuildId),k],async tx=>{
   const offer=tx.get(k);
+  // The pre-read determines the locked guild keys. A changed mapping is
+  // untrusted and cannot transfer items under the wrong locks.
+  if(offer&&(offer.fromGuildId!==initial.fromGuildId||offer.toGuildId!==initial.toGuildId))
+   throw new Error('Trade guild mapping changed: refusing unsafe transfer');
   if(!offer||offer.status!=='pending')return {error:'TRADE_NOT_PENDING'};
   if(offer.fromOwnerId!==fromOwnerId||offer.toOwnerId!==toOwnerId)
    return {error:'OWNERSHIP_CHANGED'};
@@ -340,7 +447,7 @@ export async function resolveSandTrade(client,{tradeId,actorId,actingGuildId,fro
   }else{
    if(actorId!==toOwnerId||actingGuildId!==offer.toGuildId)return {error:'OWNER_ONLY'};
   }
-  const from=readServer(tx.get(a)),to=readServer(tx.get(b));
+  const from=verifiedServer(tx,offer.fromGuildId),to=verifiedServer(tx,offer.toGuildId);
   const expired=offer.expiresAt<=now.getTime();
   if(decision==='accept'&&expired)return {error:'TRADE_EXPIRED'};
   if(decision==='accept'){
@@ -363,7 +470,9 @@ export async function resolveSandTrade(client,{tradeId,actorId,actingGuildId,fro
     otherGuildId:state===from?offer.toGuildId:offer.fromGuildId,at:ended.closedAt},...state.tradeHistory].slice(0,30);
    addTradeNotification(state,offer,status,actorId);
   }
-  tx.put(a,from);tx.put(b,to);tx.put(k,ended);
+  storeServer(tx,offer.fromGuildId,from,'trade_'+status,tradeId);
+  storeServer(tx,offer.toGuildId,to,'trade_'+status,tradeId);
+  tx.put(k,ended);
   return {offer:ended};
  });
 }
@@ -391,10 +500,10 @@ export async function deliverSandTradeLogs(client,guildId){
      {name:'Action by',value:'<@'+entry.actorId+'>',inline:true},
     ],color:entry.status==='completed'?'success':'info',footer:'Beacon • Server inventory trade audit',
    })],allowedMentions:{parse:[]}});
-   await atomic(client,[serverKey(guildId)],async tx=>{
-    const server=readServer(tx.get(serverKey(guildId)));
+   await atomic(client,[serverKey(guildId),vaultKey(guildId)],async tx=>{
+    const server=verifiedServer(tx,guildId);
     server.pendingTradeLogs=server.pendingTradeLogs.filter(log=>log.id!==entry.id);
-    tx.put(serverKey(guildId),server);
+    storeServer(tx,guildId,server,'trade_audit_delivered',entry.id);
    });
    delivered++;
   }catch(err){logger.warn('Sand Coins trade audit delivery deferred',{guildId,error:err.message});break;}
@@ -428,10 +537,10 @@ export async function deliverSandPurchaseLogs(client,guildId){
      footer:'Beacon • Sand Coins • Purchase '+entry.id,
     })],allowedMentions:{parse:[]},
    });
-   await atomic(client,[serverKey(guildId)],async tx=>{
-    const server=readServer(tx.get(serverKey(guildId)));
+   await atomic(client,[serverKey(guildId),vaultKey(guildId)],async tx=>{
+    const server=verifiedServer(tx,guildId);
     server.pendingLogs=server.pendingLogs.filter(e=>e.id!==entry.id);
-    tx.put(serverKey(guildId),server);
+    storeServer(tx,guildId,server,'purchase_audit_delivered',entry.id);
    });
    delivered++;
   }catch(err){logger.warn('Sand Coins purchase log delivery deferred',{guildId,error:err.message});break;}
