@@ -1,6 +1,8 @@
 import { logger } from '../utils/logger.js';
 
 /** Official public brand copy. Do not substitute campaign taglines for the motto. */
+export const BEACON_VERSION = '1.1.0';
+export const BEACON_VERSION_LABEL = 'v1.1';
 export const BEACON_MOTTO = "Your community's all-in-one Discord assistant.";
 export const BEACON_FOOTER = `Beacon • ${BEACON_MOTTO}`;
 // A warm signature for welcoming and community-facing experiences only.
@@ -29,7 +31,7 @@ export const botConfig = {
     status: "online",
     activities: [
       {
-        name: "V1 🎉 | Moderating...",
+        name: `${BEACON_VERSION_LABEL} 🎉 | Moderating...`,
         type: 4,
       },
     ],
