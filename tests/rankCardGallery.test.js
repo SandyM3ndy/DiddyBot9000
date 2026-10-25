@@ -115,6 +115,27 @@ test('saved rank cards are durable across a new client instance and never mutate
  assert.equal(await readRankCardSnapshot(afterRestart,'666666666666666666',other),null);
  assert.equal(await readRankCardSnapshot(afterRestart,'invalid',target),null);
 });
+test('a revoked Founder badge disappears from saved rank cards without destroying saved cosmetics',async()=>{
+ const {client,values}=mockClient();
+ const card=await loadLiveRankCard(client,target);
+ values.set('beacon:founders:v1',{version:1,entries:[{guildId:target,number:3}]});
+ card.founder={number:3};
+ const id='666666666666666668';
+ await saveRankCardSnapshot(client,id,card,post);
+ const originally=await readRankCardSnapshot(client,id,target);
+ assert.deepEqual(originally.card.founder,{number:3});
+ values.set('guild:'+target+':progression',{
+  ...values.get('guild:'+target+':progression'),leaderboardExcluded:true,
+ });
+ // Even if the Founder registry write has not finished, the persisted
+ // exclusion flag is authoritative for both live and archived cards.
+ const revoked=await readRankCardSnapshot(client,id,target);
+ assert.equal(revoked.card.founder,null);
+ assert.equal(revoked.card.appearance.tag,'royal');
+ assert.deepEqual(values.get(rankCardSaveKey(id)).card.founder,{number:3},
+  'do not corrupt the historical snapshot while hiding invalid entitlements');
+});
+
 test('public buttons can save, view a saved version and survive disabled progression',async()=>{
  const {client,values}=mockClient();
  const saving=fakeButton(client,'save');
