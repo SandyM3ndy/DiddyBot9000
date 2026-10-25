@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { getServerProgression, rerollDailyQuest, mutateServerProgression,
   registerFoundingServers, getFoundingBadge, contributorRanking, utcWeekKey,
+  getWeeklyCatalog, WEEKLY_BALANCE_VERSION,
   getGlobalProgressionLeaderboard, withGuildLock,
 } from '../src/services/serverProgressionService.js';
 import { renderProgressionRankPng } from '../src/utils/progressionRankCard.js';
@@ -63,6 +64,60 @@ test('weekly archival never destroys lifetime XP or lifetime contribution counts
  assert.equal(rolled.data.xp,1050);
  assert.equal(contributorRanking(rolled.data,'lifetime')[0].actions,8);
 });
+test('weekly challenge rebalance is difficult enough to avoid instant #1 from three easy quests',()=>{
+ const list=getWeeklyCatalog(),byId=new Map(list.map(x=>[x.id,x]));
+ assert.equal(WEEKLY_BALANCE_VERSION,2);
+ assert.equal(list.length,6);
+ assert.equal(new Set(list.map(x=>x.id)).size,6);
+ const maxThree=list.map(q=>q.reward).sort((a,b)=>b-a).slice(0,3).reduce((a,b)=>a+b,0);
+ assert.ok(maxThree<=680,'a full weekly set should not eclipse daily activity rewards');
+ assert.deepEqual(
+  ['warmup','explorer','streak','team','dailies','legend'].map(id=>byId.get(id).target),
+  [100,50,5,8,15,3000],
+ );
+ assert.ok(list.every(q=>q.reward>=100&&q.reward<=300));
+ assert.equal(byId.get('team').minMembers,8,'unattainable multi-user quests cannot be assigned to small servers');
+});
+
+test('existing unfinished weekly quests rebalance on read while keeping old XP and earned completions',async()=>{
+ const guildId='111111111111111111',store=new Map();
+ const key='guild:'+guildId+':progression';
+ const week=utcWeekKey(),today=new Date().toISOString().slice(0,10);
+ store.set(key,{
+  xp:2300,level:3,lastQuestDay:today,dailyQuests:[{id:'spark',title:'First Sparks',
+   target:3,progress:0,completed:false,reward:35}],
+  weekly:{week,days:[today],uniqueMembers:['111111111111111111'],quests:[
+   {id:'warmup',title:'🌱 Weekly Warmup',description:'Old',metric:'messages',
+    target:20,progress:20,completed:true,reward:250,minMembers:1},
+   {id:'explorer',title:'🤖 Beacon Explorer',description:'Old',metric:'commands',
+    target:10,progress:9,completed:false,reward:300,minMembers:1},
+   {id:'streak',title:'📅 Consistent Crew',description:'Old',metric:'activeDays',
+    target:3,progress:2,completed:false,reward:500,minMembers:1},
+  ]},
+ });
+ const client=mockClient(store);
+ const first=await getServerProgression(client,guildId);
+ assert.equal(first.xp,2300,'do not retroactively take earned XP');
+ assert.equal(first.weekly.balanceVersion,WEEKLY_BALANCE_VERSION);
+ const [finished,commands,streak]=first.weekly.quests;
+ assert.equal(finished.completed,true);
+ assert.equal(finished.target,20);
+ assert.equal(finished.reward,250,'completed rewards must reflect what was paid');
+ assert.equal(commands.completed,false);
+ assert.equal(commands.progress,9,'retain legitimate quest progress');
+ assert.equal(commands.target,50);
+ assert.equal(commands.reward,120);
+ assert.equal(streak.progress,2);
+ assert.equal(streak.target,5);
+ assert.equal(streak.reward,150);
+ assert.equal(store.get(key).weekly.balanceVersion,WEEKLY_BALANCE_VERSION,
+  'new policy must survive a bot restart even if nobody earns more XP');
+ const restart=mockClient(store);
+ const again=await getServerProgression(restart,guildId);
+ assert.deepEqual(again.weekly.quests,first.weekly.quests);
+ assert.equal(again.xp,2300);
+});
+
 test('rank card returns a real PNG with fixed 1000 by 520 dimensions',()=>{
  const png=renderProgressionRankPng({name:'The Sand Castle',rank:1,level:21,xp:11400,progress:64,founder:{number:1}});
  assert.deepEqual([...png.subarray(0,8)],[137,80,78,71,13,10,26,10]);
