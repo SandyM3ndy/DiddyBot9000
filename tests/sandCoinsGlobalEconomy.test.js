@@ -21,7 +21,8 @@ function mockDatabase(){
  };
  const pool={connect:async()=>({query,release(){}})};
  const db={db:{pool,isAvailable:()=>true},
-  async get(key,def=null){return values.get(key)??def;}};
+  async get(key,def=null){return values.get(key)??def;},
+  async list(prefix){return [...values.keys()].filter(key=>key.startsWith(prefix));}};
  return {db,values};
 }
 const walletKey=id=>'beacon:sandcoins:v1:wallet:'+id;
