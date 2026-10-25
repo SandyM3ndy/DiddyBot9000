@@ -1,7 +1,7 @@
 import { SlashCommandBuilder, MessageFlags } from 'discord.js';
 import { createEmbed } from '../../utils/embeds.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
-import { mutateServerProgression,registerFoundingServers,getFoundingBadge } from '../../services/serverProgressionService.js';
+import { mutateServerProgression,registerFoundingServers,getFoundingBadge,FOUNDING_CAP } from '../../services/serverProgressionService.js';
 
 import { isPrimaryBotOwner } from '../../config/bot.js';
 
@@ -71,7 +71,7 @@ export default {
           {name:'🏠 Server',value:guild.name+' ('+serverId+')',inline:false},
           {name:'📈 Server XP',value:data.xp.toLocaleString(),inline:true},
           {name:'📊 Level',value:String(data.level),inline:true},
-          {name:'🏅 Active Founders',value:String(founders.length)+' / 25',inline:true},
+          {name:'🏅 Active Founders',value:String(founders.length)+' / '+FOUNDING_CAP,inline:true},
         ],
         footer:'XP and owned cosmetics stay saved. Excluded servers cannot regain a Founder badge.',
       })],flags:MessageFlags.Ephemeral,

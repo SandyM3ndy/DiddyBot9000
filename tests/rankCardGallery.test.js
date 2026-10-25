@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import rankCommand from '../src/commands/Community/rank.js';
+import { LEGACY_SLASH_COMMANDS, REQUIRED_GLOBAL_COMMANDS } from '../src/handlers/loaders/commandLoader.js';
 import handler,{ handleRankCardButton } from '../src/interactions/buttons/rankCardGallery.js';
 import {
  isRankCardId,rankCardSaveKey,loadLiveRankCard,buildRankCardDisplay,
@@ -54,6 +55,8 @@ function fakeButton(client,action,user=post,id='666666666666666666'){
 test('/rank card accepts a server ID and old rank report remains available as /rank server',()=>{
  const body=rankCommand.data.toJSON();
  assert.equal(body.name,'rank');
+ assert.equal(LEGACY_SLASH_COMMANDS.has('rank'),false);
+ assert.ok(REQUIRED_GLOBAL_COMMANDS.includes('rank'));
  assert.deepEqual(body.options.map(o=>o.name),['server','card']);
  assert.equal(body.options[1].options[0].name,'server_id');
  assert.equal(body.options[1].options[0].required,true);

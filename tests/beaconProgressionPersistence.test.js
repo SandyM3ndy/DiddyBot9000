@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { getServerProgression, rerollDailyQuest, mutateServerProgression,
-  registerFoundingServers, getFoundingBadge, contributorRanking, utcWeekKey,
+  registerFoundingServers, getFoundingBadge, FOUNDING_CAP, contributorRanking, utcWeekKey,
   getWeeklyCatalog, WEEKLY_BALANCE_VERSION,
   getGlobalProgressionLeaderboard, withGuildLock,
 } from '../src/services/serverProgressionService.js';
@@ -40,14 +40,14 @@ test('leaderboard exclusion recycles the exact Founder number to the next oldest
  const store=new Map();
  const client=mockClient(store,ids);
  const initial=await registerFoundingServers(client);
- assert.equal(initial.length,25);
- assert.deepEqual(initial.map(e=>e.number),Array.from({length:25},(_,i)=>i+1));
- const removed=initial[2],oldestWaiting=ids[25];
+ assert.equal(initial.length,10);
+ assert.deepEqual(initial.map(e=>e.number),Array.from({length:10},(_,i)=>i+1));
+ const removed=initial[2],oldestWaiting=ids[10];
  assert.equal(removed.guildId,ids[2]);
  const xpBefore=8123;
  store.set('guild:'+removed.guildId+':progression',{xp:xpBefore,leaderboardExcluded:true});
  const changed=await registerFoundingServers(client);
- assert.equal(changed.length,25);
+ assert.equal(changed.length,10);
  assert.equal(changed.filter(x=>x.number===removed.number).length,1);
  assert.equal(changed.find(x=>x.number===removed.number).guildId,oldestWaiting);
  assert.equal(changed.some(x=>x.guildId===removed.guildId),false);
@@ -59,8 +59,33 @@ test('leaderboard exclusion recycles the exact Founder number to the next oldest
  const restarted=mockClient(store,ids);
  const again=await registerFoundingServers(restarted);
  assert.deepEqual(again,changed);
- assert.equal(new Set(again.map(x=>x.number)).size,25);
- assert.equal(new Set(again.map(x=>x.guildId)).size,25);
+ assert.equal(new Set(again.map(x=>x.number)).size,10);
+ assert.equal(new Set(again.map(x=>x.guildId)).size,10);
+});
+
+test('shrinking Founder slots from 25 to 10 removes old numbers 11–25 and never returns them',async()=>{
+ const ids=Array.from({length:27},(_,i)=>String(BigInt('666666666666666660')+BigInt(i)));
+ const store=new Map(),client=mockClient(store,ids);
+ const old=ids.slice(0,25).map((guildId,i)=>({guildId,number:i+1,awardedAt:'2026-10-01T00:00:00.000Z'}));
+ store.set('beacon:founders:v1',{version:1,entries:old});
+ const before=await getFoundingBadge(client,ids[12]);
+ assert.equal(before,null,'badges above the cap stop appearing before reconciliation');
+ const current=await registerFoundingServers(client);
+ assert.equal(FOUNDING_CAP,10);
+ assert.equal(current.length,10);
+ assert.deepEqual(current.map(x=>x.number),Array.from({length:10},(_,i)=>i+1));
+ assert.deepEqual(current.map(x=>x.guildId),ids.slice(0,10));
+ assert.equal((await getFoundingBadge(client,ids[9])).number,10);
+ assert.equal(await getFoundingBadge(client,ids[10]),null);
+ const restarted=mockClient(store,ids);
+ assert.deepEqual(await registerFoundingServers(restarted),current);
+ // Recycle one old slot to the next oldest non-founder, not the youngest.
+ store.set('guild:'+ids[0]+':progression',{xp:900,leaderboardExcluded:true});
+ const recycled=await registerFoundingServers(restarted);
+ assert.equal(recycled.find(x=>x.number===1).guildId,ids[10]);
+ assert.equal(recycled.length,10);
+ assert.equal(await getFoundingBadge(restarted,ids[0]),null);
+ assert.equal(store.get('guild:'+ids[0]+':progression').xp,900);
 });
 
 test('previously excluded test servers lose Founder badge and empty slots remain available',async()=>{

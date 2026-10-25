@@ -10,9 +10,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const MAX_COMMANDS = 100;
 const COMMAND_COUNT_WARN_THRESHOLD = 90;
-export const REQUIRED_V11_COMMANDS = Object.freeze(['diagnose', 'roleaudit', 'ticket', 'giveaway', 'time', 'sandcoins', 'daily']);
+export const REQUIRED_V11_COMMANDS = Object.freeze(['diagnose', 'roleaudit', 'ticket', 'giveaway', 'time', 'sandcoins', 'daily', 'rank']);
 // Economy commands appear immediately in every guild; account state stays global.
 const GUILD_ECONOMY_COMMANDS = Object.freeze(['sandcoins','daily']);
+// Publish /rank card per-guild immediately as well as globally.
+const GUILD_IMMEDIATE_COMMANDS = Object.freeze([...GUILD_ECONOMY_COMMANDS,'rank']);
 export const REQUIRED_GLOBAL_COMMANDS = Object.freeze(REQUIRED_V11_COMMANDS.filter(name => !GUILD_ECONOMY_COMMANDS.includes(name)));
 
 export function getMissingRequiredCommands(names) {
@@ -46,7 +48,7 @@ const HIDDEN_COMMANDS = new Set([
 export const LEGACY_SLASH_COMMANDS = new Set([
   'gcreate', 'gdelete', 'gend', 'greroll',
   'ticketadd', 'ticketremove', 'ticketrename', 'claim', 'close', 'priority', 'ticketstats',
-  'rank', 'levels', 'unixtime', 'warn', 'autoverify', 'lock', 'unlock', 'goodbye', 'popularity',
+  'levels', 'unixtime', 'warn', 'autoverify', 'lock', 'unlock', 'goodbye', 'popularity',
   'broadcast', 'shorten', 'generatepassword', 'randomuser',
   // Standalone slash names replaced by /random, /math, and /time.
   // Retained as internal implementations and prefix handlers, not slash commands.
@@ -203,13 +205,18 @@ async function upsertEconomyGuildCommand(client,guildId,commandName,options={}){
  if(!guildId)throw new Error('Guild ID is required for economy guild registration');
  if(!client.rest?.post)throw new Error('Discord REST client unavailable for economy guild registration');
  const command=client.commands?.get(commandName);
- if(!command?.data?.toJSON)throw new Error('Missing economy command /'+commandName);
+ if(!command?.data?.toJSON)throw new Error('Missing immediate guild command /'+commandName);
  const {dm_permission,contexts,integration_types,...payload}=command.data.toJSON();
  validateCommands([payload]);
  const route=`/applications/${clientId}/guilds/${guildId}/commands`;
  const result=await client.rest.post(route,{body:payload});
  if(!result||result.name!==commandName||!result.id||(result.guild_id&&result.guild_id!==guildId))
   throw new Error('Discord did not confirm /'+commandName+' in guild '+guildId);
+ // Validate Discord's actual stored definition, not just the posted payload.
+ // An old guild-scoped /rank can otherwise hide a working global /rank card.
+ if(commandName==='rank' && !result.options?.some(option=>
+  option.name==='card' && option.options?.some(field=>field.name==='server_id')))
+  throw new Error('Discord did not confirm /rank card server_id in guild '+guildId);
  logger.info('Verified immediate /'+commandName+' guild registration in '+guildId);
  return result;
 }
@@ -220,9 +227,9 @@ export function registerDailyGuildCommand(client,guildId,options={}){
  return upsertEconomyGuildCommand(client,guildId,'daily',options);
 }
 export async function registerGuildCommands(client,guildId,options={}){
- for(const name of GUILD_ECONOMY_COMMANDS)
+ for(const name of GUILD_IMMEDIATE_COMMANDS)
   await upsertEconomyGuildCommand(client,guildId,name,options);
- return GUILD_ECONOMY_COMMANDS.length;
+ return GUILD_IMMEDIATE_COMMANDS.length;
 }
 export async function registerSandCoinsAllGuilds(client,options={}){
  const guilds=[...(client.guilds?.cache?.values()||[])];
@@ -234,10 +241,10 @@ export async function registerSandCoinsAllGuilds(client,options={}){
    registered++;
   }catch(error){
    failed.push(guild.id);
-   logger.error('Economy command registration failed for guild '+guild.id+': '+error.message);
+   logger.error('Immediate command registration failed for guild '+guild.id+': '+error.message);
   }
  }
- logger.info('Sand Coins + Daily guild sync: '+registered+'/'+guilds.length+' registered'+
+ logger.info('Sand Coins + Daily + Rank guild sync: '+registered+'/'+guilds.length+' registered'+
   (failed.length?' (failed: '+failed.join(', ')+')':''));
  return {registered,total:guilds.length,failed};
 }

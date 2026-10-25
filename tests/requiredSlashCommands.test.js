@@ -14,7 +14,7 @@ function mockClient({guildIds=[g1,g2],failGuild=null}={}){
  const client={
   commands:new Map(REQUIRED_V11_COMMANDS.map(name=>[name,{data:{
    name,toJSON:()=>({name,description:'Test command',
-    ...(name==='sandcoins'?{dm_permission:false,options:[{type:1,name:'wallet',description:'Show wallet'},{type:1,name:'daily',description:'Claim daily bonus'}]}:{})
+    ...(name==='sandcoins'?{dm_permission:false,options:[{type:1,name:'wallet',description:'Show wallet'},{type:1,name:'daily',description:'Claim daily bonus'}]}:name==='rank'?{options:[{type:1,name:'card',description:'Cross-server card',options:[{type:3,name:'server_id',description:'Server ID',required:true}]},{type:1,name:'server',description:'Local stats'}]}:{})
    }),
   }}])),
   config:{bot:{clientId:appId}},
@@ -24,7 +24,7 @@ function mockClient({guildIds=[g1,g2],failGuild=null}={}){
    async post(route,{body}){
     calls.push({verb:'POST',route,body});
     if(failGuild&&route.includes('/guilds/'+failGuild+'/'))throw Error('Simulated Discord error');
-    return {id:'123456789012345679',guild_id:route.split('/guilds/')[1].split('/')[0],name:body.name};
+    return {id:'123456789012345679',guild_id:route.split('/guilds/')[1].split('/')[0],name:body.name,options:body.options||[]};
    },
   },
  };
@@ -32,9 +32,9 @@ function mockClient({guildIds=[g1,g2],failGuild=null}={}){
 }
 
 test('v1.1 requires /daily and /sandcoins locally; rest register globally',()=>{
- assert.deepEqual(REQUIRED_V11_COMMANDS,['diagnose','roleaudit','ticket','giveaway','time','sandcoins','daily']);
- assert.deepEqual(REQUIRED_GLOBAL_COMMANDS,['diagnose','roleaudit','ticket','giveaway','time']);
- assert.deepEqual(getMissingRequiredCommands(['help','diagnose','roleaudit','ticket','giveaway']),['time','sandcoins','daily']);
+ assert.deepEqual(REQUIRED_V11_COMMANDS,['diagnose','roleaudit','ticket','giveaway','time','sandcoins','daily','rank']);
+ assert.deepEqual(REQUIRED_GLOBAL_COMMANDS,['diagnose','roleaudit','ticket','giveaway','time','rank']);
+ assert.deepEqual(getMissingRequiredCommands(['help','diagnose','roleaudit','ticket','giveaway']),['time','sandcoins','daily','rank']);
  assert.throws(()=>assertRequiredCommandsPresent(['diagnose','ticket'],'loaded'),/roleaudit/);
  assert.doesNotThrow(()=>assertRequiredCommandsPresent(REQUIRED_V11_COMMANDS));
 });
@@ -46,8 +46,10 @@ test('all guilds get both economy commands immediately, without global duplicate
  assert.deepEqual(posts.map(call=>[call.route,call.body.name]),[
   [`/applications/${appId}/guilds/${g1}/commands`,'sandcoins'],
   [`/applications/${appId}/guilds/${g1}/commands`,'daily'],
+  [`/applications/${appId}/guilds/${g1}/commands`,'rank'],
   [`/applications/${appId}/guilds/${g2}/commands`,'sandcoins'],
   [`/applications/${appId}/guilds/${g2}/commands`,'daily'],
+  [`/applications/${appId}/guilds/${g2}/commands`,'rank'],
  ]);
  for(const post of posts)assert.equal('dm_permission' in post.body,false);
  assert.deepEqual(posts[0].body.options.map(x=>x.name),['wallet','daily']);
@@ -55,6 +57,9 @@ test('all guilds get both economy commands immediately, without global duplicate
  assert.equal(global.verb,'PUT');
  assert.equal(global.route,`/applications/${appId}/commands`);
  assert.ok(global.body.some(cmd=>cmd.name==='giveaway'));
+ assert.ok(global.body.some(cmd=>cmd.name==='rank'));
+ assert.deepEqual(posts[2].body.options.map(option=>option.name),['card','server']);
+ assert.equal(posts[2].body.options[0].options[0].name,'server_id');
  assert.ok(global.body.every(cmd=>!['sandcoins','daily'].includes(cmd.name)));
  assert.ok(calls.every(call=>!call.route.includes('/guilds/')||call.verb==='POST'));
 });
@@ -70,9 +75,9 @@ test('a failed guild registration retains both global economy command fallbacks'
 
 test('new guild command registration only upserts, never deletes existing commands',async()=>{
  const {client,calls}=mockClient({guildIds:[]});
- assert.equal(await registerGuildCommands(client,g1),2);
- assert.deepEqual(calls.map(x=>x.body.name),['sandcoins','daily']);
- assert.deepEqual(calls.map(x=>x.verb),['POST','POST']);
+ assert.equal(await registerGuildCommands(client,g1),3);
+ assert.deepEqual(calls.map(x=>x.body.name),['sandcoins','daily','rank']);
+ assert.deepEqual(calls.map(x=>x.verb),['POST','POST','POST']);
 });
 
 test('individual economy guild registration helpers preserve their names',async()=>{

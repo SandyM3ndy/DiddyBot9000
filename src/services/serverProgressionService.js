@@ -409,7 +409,7 @@ function rebalanceExistingWeekly(weekly){
  return weekly;
 }
 
-export const FOUNDING_CAP=25;
+export const FOUNDING_CAP=10;
 const FOUNDERS_KEY='beacon:founders:v1';
 export function getWeeklyCatalog(){return WEEKLY_POOL.map(q=>({...q}));}
 export function utcWeekKey(date=new Date()){
@@ -1009,7 +1009,7 @@ export async function registerFoundingServers(client){
 export async function getFoundingBadge(client,guildId){
  const raw=await client.db.get(FOUNDERS_KEY,{entries:[]});
  const entry=(raw?.entries||[]).find(x=>x.guildId===guildId);
- if(!entry)return null;
+ if(!entry||!Number.isSafeInteger(entry.number)||entry.number<1||entry.number>FOUNDING_CAP)return null;
  // Immediately hide a revoked badge even if registry repair is pending.
  const progression=await client.db.get('guild:'+guildId+':progression',null);
  return progression?.leaderboardExcluded===true?null:entry;
