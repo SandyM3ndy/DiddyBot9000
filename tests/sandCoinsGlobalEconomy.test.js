@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { SAND_CATALOG,SAND_DAILY_LIMIT,SAND_WEEKLY_LIMIT,
  getSandWallet,getSandServer,getSandAppearance,getSandLimitedStock,
+ getSandGlobalLeaderboard,setSandLeaderboardHidden,
  grantQuestSandCoins,buySandDecoration,equipSandDecoration,deliverSandPurchaseLogs } from '../src/services/sandCoinsService.js';
 import { eligibleSandContributors,recordQuestContribution,queueSharedSandRewards } from '../src/services/sandQuestRewards.js';
 import { renderProgressionRankPng } from '../src/utils/progressionRankCard.js';
@@ -97,7 +98,7 @@ test('contributor eligibility limits payouts to meaningful quest participants',(
 test('command only contains sandboxed server shop and does not expose purchases as admin controls',()=>{
  assert.equal(sandCommand.data.toJSON().name,'sandcoins');
  const names=sandCommand.data.toJSON().options.map(x=>x.name);
- assert.deepEqual(names,['wallet','shop','inventory','buy','equip','unequip']);
+ assert.deepEqual(names,['wallet','leaderboard','privacy','shop','inventory','buy','equip','unequip']);
  assert.ok(SAND_CATALOG.every(item=>['background','border','tag'].includes(item.type)));
 });
 
@@ -141,4 +142,15 @@ test('failed audit delivery leaves the purchase notification queued for recovery
  const result=await deliverSandPurchaseLogs(client,g2);
  assert.equal(result.delivered,0);
  assert.equal((await getSandServer(client,g2)).pendingLogs.length,1);
+});
+
+test('global lifetime coin rankings preserve earned status after spending and honour opt-out',async()=>{
+ const {db,values}=mockDatabase(),v='444444444444444444';
+ values.set(walletKey(u),{balance:20,lifetime:1000});
+ values.set(walletKey(v),{balance:800,lifetime:800});
+ const board=await getSandGlobalLeaderboard({db});
+ assert.deepEqual(board.map(x=>x.userId),[u,v]);
+ await setSandLeaderboardHidden({db},u,true);
+ assert.deepEqual((await getSandGlobalLeaderboard({db})).map(x=>x.userId),[v]);
+ assert.equal((await getSandWallet({db},u)).balance,20);
 });
