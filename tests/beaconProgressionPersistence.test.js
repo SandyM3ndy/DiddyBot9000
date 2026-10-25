@@ -35,7 +35,7 @@ test('founder badge registry persists and does not duplicate after a simulated r
  assert.equal((await second.db.get('beacon:founders:v1')).entries.length,2);
 });
 
-test('leaderboard exclusion recycles the exact Founder number to the next oldest eligible server',async()=>{
+test('leaderboard exclusion closes Founder gaps and gives the new server the last numbered badge',async()=>{
  const ids=Array.from({length:27},(_,i)=>String(BigInt('111111111111111111')+BigInt(i)));
  const store=new Map();
  const client=mockClient(store,ids);
@@ -49,10 +49,14 @@ test('leaderboard exclusion recycles the exact Founder number to the next oldest
  const changed=await registerFoundingServers(client);
  assert.equal(changed.length,10);
  assert.equal(changed.filter(x=>x.number===removed.number).length,1);
- assert.equal(changed.find(x=>x.number===removed.number).guildId,oldestWaiting);
+ assert.equal(changed.find(x=>x.number===removed.number).guildId,ids[3],
+  'previous #4 must become #3');
+ assert.equal(changed.find(x=>x.number===4).guildId,ids[4]);
+ assert.equal(changed.find(x=>x.number===10).guildId,oldestWaiting,
+  'oldest eligible successor gets the last Founder number');
  assert.equal(changed.some(x=>x.guildId===removed.guildId),false);
  assert.equal(await getFoundingBadge(client,removed.guildId),null);
- assert.equal((await getFoundingBadge(client,oldestWaiting)).number,removed.number);
+ assert.equal((await getFoundingBadge(client,oldestWaiting)).number,10);
  assert.equal(store.get('guild:'+removed.guildId+':progression').xp,xpBefore);
  // Restart and repeated re-registration cannot duplicate a badge or promote
  // a banned server again, even with a spare Founder number.
@@ -82,7 +86,9 @@ test('shrinking Founder slots from 25 to 10 removes old numbers 11–25 and neve
  // Recycle one old slot to the next oldest non-founder, not the youngest.
  store.set('guild:'+ids[0]+':progression',{xp:900,leaderboardExcluded:true});
  const recycled=await registerFoundingServers(restarted);
- assert.equal(recycled.find(x=>x.number===1).guildId,ids[10]);
+ assert.equal(recycled.find(x=>x.number===1).guildId,ids[1],
+  'all existing badges shift left');
+ assert.equal(recycled.find(x=>x.number===10).guildId,ids[10]);
  assert.equal(recycled.length,10);
  assert.equal(await getFoundingBadge(restarted,ids[0]),null);
  assert.equal(store.get('guild:'+ids[0]+':progression').xp,900);
@@ -96,12 +102,30 @@ test('previously excluded test servers lose Founder badge and empty slots remain
  store.set('guild:'+ids[0]+':progression',{xp:1999,leaderboardExcluded:true});
  const reassigned=await registerFoundingServers(client);
  assert.equal(reassigned.some(x=>x.guildId===ids[0]),false);
- assert.deepEqual(reassigned.map(x=>x.number),[2,3]);
+ assert.deepEqual(reassigned.map(x=>x.number),[1,2]);
  // Its Founder badge is hidden immediately after the exclusion flag is saved,
  // even before the registry reallocation pass.
  assert.equal(await getFoundingBadge(client,ids[0]),null);
  const again=await registerFoundingServers(mockClient(store,ids));
  assert.deepEqual(again,reassigned);
+});
+
+test('removing a middle Founder badge shifts all higher numbers down and remains stable',async()=>{
+ const ids=Array.from({length:13},(_,i)=>String(BigInt('333333333333333333')+BigInt(i)));
+ const store=new Map(),client=mockClient(store,ids);
+ const initial=await registerFoundingServers(client);
+ assert.equal(initial.length,FOUNDING_CAP);
+ const removed=ids[4];
+ store.set('guild:'+removed+':progression',{xp:999,leaderboardExcluded:true});
+ const next=await registerFoundingServers(client);
+ assert.deepEqual(next.map(x=>x.number),Array.from({length:10},(_,i)=>i+1));
+ for(let i=0;i<4;i++)assert.equal(next[i].guildId,ids[i]);
+ for(let i=4;i<9;i++)assert.equal(next[i].guildId,ids[i+1]);
+ assert.equal(next[9].guildId,ids[10]);
+ assert.equal(await getFoundingBadge(client,removed),null);
+ assert.equal((await getFoundingBadge(client,ids[5])).number,5);
+ assert.deepEqual(await registerFoundingServers(mockClient(store,ids)),next);
+ assert.equal(store.get('guild:'+removed+':progression').xp,999);
 });
 
 test('Founder registry refuses to claim reassignment if persistent save failed',async()=>{
