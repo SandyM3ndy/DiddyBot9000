@@ -164,6 +164,7 @@ test('global rankings are deterministic on tied XP and never show excluded serve
  const a='111111111111111111',b='222222222222222222',c='333333333333333333';
  const store=new Map(),client=mockClient(store,[a,b,c]);
  for(const [id,excluded] of [[a,false],[b,false],[c,true]]){
+  store.set('guild:'+id+':config',{serverProgression:{enabled:true}});
   await mutateServerProgression(client,id,data=>{
    data.xp=5000;data.leaderboardExcluded=excluded;return {changed:true};
   });
@@ -175,7 +176,10 @@ test('global rankings are deterministic on tied XP and never show excluded serve
 test('large leaderboard requests have bounded concurrent database reads',async()=>{
  const ids=Array.from({length:31},(_,i)=>String(BigInt('111111111111111111')+BigInt(i)));
  const store=new Map(),client=mockClient(store,ids);
- for(const id of ids)store.set('guild:'+id+':progression',{xp:10,level:1});
+ for(const id of ids){
+  store.set('guild:'+id+':config',{serverProgression:{enabled:true}});
+  store.set('guild:'+id+':progression',{xp:10,level:1});
+ }
  let current=0,peak=0;
  const original=client.db.get;
  client.db.get=async(key,def)=>{
