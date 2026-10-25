@@ -124,7 +124,7 @@ export default {
       {name:'Quest Coins Today',value:format(w.earnedToday),inline:true},
       {name:'🔥 Daily Streak',value:'**'+d.streak+'/7** • '+(d.alreadyClaimed?'Claimed today':'Next reward: '+format(d.nextReward)),inline:true},
       {name:'Recent Activity',value:w.history.length?w.history.slice(0,5).map(h=>
-       (h.delta>=0?'🟢 +':'🔴 ')+format(h.delta)+' • '+(h.kind==='quest'?'Quest reward':h.kind==='daily'?'Daily streak reward':'Rank-card purchase')).join('\n'):'No transactions yet.'},
+       (h.delta>=0?'🟢 +':'🔴 ')+format(h.delta)+' • '+(h.kind==='quest'?'Quest reward':h.kind==='daily'?'Daily streak reward':h.kind==='payment_sent'?'Payment sent':h.kind==='payment_received'?'Payment received':'Rank-card purchase')).join('\n'):'No transactions yet.'},
      ],color:'primary',footer:'Beacon • Sand Coins • Daily claims reset at 00:00 UTC',
     })]});
    }
