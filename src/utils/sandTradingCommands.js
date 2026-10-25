@@ -17,7 +17,11 @@ const tradeId=value=>/^\d{17,20}$/.test(String(value||''));
 
 async function guildById(client,id){
  if(!tradeId(id))return null;
- return client.guilds.cache.get(id)||await client.guilds.fetch(id).catch(()=>null);
+ // Check current ownership against Discord, not only a potentially stale cache.
+ try{
+  const cached=client.guilds.cache.get(id);
+  return cached?.fetch ? await cached.fetch() : await client.guilds.fetch({guild:id,force:true});
+ }catch{return null;}
 }
 async function auditChannel(client,guild){
  const config=await getGuildConfig(client,guild.id);
@@ -36,10 +40,6 @@ async function notifyTradeServers(client,offer){
    {guildId:id,error:error.message}));
  }
 }
-function ownerOnly(interaction){
- return interaction.user.id===interaction.guild?.ownerId;
-}
-
 export async function respondSandPay(interaction){
  const recipient=interaction.options.getUser('member',true);
  const amount=interaction.options.getInteger('amount',true);
@@ -85,11 +85,12 @@ export async function respondSandPay(interaction){
 }
 
 export async function respondSandTrade(interaction){
- if(!ownerOnly(interaction))return reply(interaction,
-  '🔒 **Only the actual server owner** can create, accept, decline, cancel or view server-inventory trades.');
  const client=interaction.client;
+ const home=await guildById(client,interaction.guildId);
+ if(!home)return reply(interaction,'⚠️ Unable to confirm the current server owner with Discord. Try again.');
+ if(interaction.user.id!==home.ownerId)return reply(interaction,
+  '🔒 **Only the actual server owner** can create, accept, decline, cancel or view server-inventory trades.');
  const sub=interaction.options.getSubcommand();
- const home=interaction.guild;
  if(sub==='inbox'){
   const offers=await getSandServerTradeOffers(client,home.id);
   const visible=offers.filter(o=>o.fromGuildId===home.id||o.toGuildId===home.id);
