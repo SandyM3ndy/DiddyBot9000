@@ -18,13 +18,14 @@ export const SAND_CATALOG=Object.freeze([
   {id:'emerald',name:'Emerald Horizon',type:'background',price:500,description:'Rich green background accents.',palette:'emerald'},
   {id:'gold',name:'Golden Frame',type:'border',price:650,description:'Golden border around the rank card.',palette:'gold'},
   {id:'diamond',name:'Diamond Frame',type:'border',price:1600,description:'Icy diamond-inspired highlights.',palette:'diamond'},
-  {id:'royal',name:'Royal Sands',type:'tag',price:950,description:'Limited-edition ROYAL SANDS rank-card title.',palette:'royal',limited:true},
+  {id:'royal',name:'Royal Sands',type:'tag',price:950,description:'Limited-edition ROYAL SANDS rank-card title.',palette:'royal',limited:true,limit:25},
   {id:'pioneer',name:'Sand Pioneer',type:'tag',price:400,description:'PIONEER rank-card title.',palette:'pioneer'},
 ]);
 export const SAND_SLOTS=Object.freeze(['background','border','tag']);
 const walletKey=userId=>PREFIX+'wallet:'+userId;
 const serverKey=guildId=>PREFIX+'server:'+guildId;
 const claimKey=(eventId,userId)=>PREFIX+'claim:'+eventId+':'+userId;
+const stockKey=itemId=>PREFIX+'stock:'+itemId;
 const validId=value=>typeof value==='string' && /^\d{17,20}$/.test(value);
 const initialWallet=()=>({balance:0,lifetime:0,earnedToday:0,earnedWeek:0,day:'',week:'',history:[]});
 const initialServer=()=>({inventory:[],equipped:{background:null,border:null,tag:null},purchases:[],pendingLogs:[]});
@@ -96,6 +97,12 @@ export async function getSandServer(client,guildId){
  return readServer(await client.db.get(serverKey(guildId),null));
 }
 export function getSandCatalogItem(id){return SAND_CATALOG.find(item=>item.id===id)||null;}
+export async function getSandLimitedStock(client,itemId){
+ const item=getSandCatalogItem(itemId);
+ if(!item?.limit)return null;
+ const purchased=await client.db.get(stockKey(itemId),0);
+ return {total:item.limit,remaining:Math.max(0,item.limit-(Number(purchased)||0))};
+}
 export function getSandAppearance(server){
  const s=readServer(server);
  return Object.fromEntries(SAND_SLOTS.map(slot=>[slot,
@@ -133,10 +140,12 @@ export async function buySandDecoration(client,{userId,guildId,itemId,purchaseId
  const item=getSandCatalogItem(itemId);
  if(!item)throw new Error('Unknown shop item');
  const wk=walletKey(userId),sk=serverKey(guildId),pk=PREFIX+'purchase:'+purchaseId;
- return atomic(client,[wk,sk,pk],async tx=>{
+ const stock=item.limit?stockKey(itemId):null;
+ return atomic(client,[wk,sk,pk,...(stock?[stock]:[])],async tx=>{
   if(tx.get(pk))return {duplicate:true,...tx.get(pk)};
   const wallet=withWindow(readWallet(tx.get(wk)),new Date()),server=readServer(tx.get(sk));
   if(server.inventory.includes(itemId))return {error:'ALREADY_OWNED'};
+  if(stock && Number(tx.get(stock)||0)>=item.limit)return {error:'SOLD_OUT'};
   if(wallet.balance<item.price)return {error:'INSUFFICIENT_FUNDS',balance:wallet.balance,price:item.price};
   const now=new Date().toISOString(),balance=wallet.balance-item.price;
   wallet.balance=balance;
@@ -146,6 +155,7 @@ export async function buySandDecoration(client,{userId,guildId,itemId,purchaseId
   server.purchases=[purchase,...server.purchases].slice(0,50);
   server.pendingLogs.push(purchase); // durable audit outbox
   tx.put(wk,wallet);tx.put(sk,server);tx.put(pk,{purchase,balance});
+  if(stock)tx.put(stock,Number(tx.get(stock)||0)+1);
   return {purchase,balance,duplicate:false};
  });
 }
