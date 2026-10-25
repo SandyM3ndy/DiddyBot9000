@@ -157,7 +157,7 @@ function normalizeCommandData(command) {
 const COMMAND_REGISTRY_CACHE_MS = 60_000;
 
 // Cache registered command mentions to avoid an API request on every help menu page.
-async function getRegisteredCommands(client) {
+export async function getRegisteredCommands(client) {
     const cached = client?._beaconHelpCommandCache;
     if (cached && cached.expiresAt > Date.now()) return cached.commands;
 
