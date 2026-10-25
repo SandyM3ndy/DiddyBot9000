@@ -7,7 +7,7 @@ import {
  SAND_CATALOG,SAND_SLOTS,getSandWallet,getSandServer,getSandCatalogItem,
  getSandAppearance,buySandDecoration,equipSandDecoration,deliverSandPurchaseLogs,getSandLimitedStock,
  getSandGlobalLeaderboard,setSandLeaderboardHidden,getSandDailyStatusFromWallet,
- getSandInventoryBackupStatus,
+ getSandInventoryProtectedSnapshot,
 } from '../../services/sandCoinsService.js';
 import { logger } from '../../utils/logger.js';
 import { respondSandDaily } from '../../utils/sandDailyReply.js';
@@ -106,8 +106,7 @@ export default {
     const guild=await interaction.guild.fetch().catch(()=>null);
     if(!guild||guild.ownerId!==interaction.user.id)return InteractionHelper.safeEditReply(interaction,{
      content:'🔒 Only the verified server owner can export inventory backups.'});
-    const state=await getSandServer(interaction.client,guild.id);
-    const health=await getSandInventoryBackupStatus(interaction.client,guild.id);
+    const {server:state,backup:health}=await getSandInventoryProtectedSnapshot(interaction.client,guild.id);
     const exported={format:'beacon-sandcoins-inventory-v1',serverId:guild.id,
      exportedAt:new Date().toISOString(),revision:health.revision,
      items:[...state.inventory],equipped:{...state.equipped},
@@ -157,10 +156,9 @@ export default {
     })]});
    }
    if(sub==='shop'||sub==='inventory'){
-    const server=await getSandServer(interaction.client,interaction.guildId);
+    const {server,backup:saved}=await getSandInventoryProtectedSnapshot(interaction.client,interaction.guildId);
     if(server.pendingLogs.length)await deliverSandPurchaseLogs(interaction.client,interaction.guildId).catch(()=>{});
     if(sub==='inventory'){
-     const saved=await getSandInventoryBackupStatus(interaction.client,interaction.guildId);
      const savedFields=ownedDescription(server);
      savedFields.push({name:'🛡️ Protected PostgreSQL Save',value:
       '**'+saved.items+' items** • revision **'+saved.revision+'** • **'+
