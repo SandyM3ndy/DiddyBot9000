@@ -6,7 +6,7 @@ import { createSelectMenu } from '../../utils/components.js';
 import { formatCategoryName, getCategoryIcon } from '../../config/commands/commandCategories.js';
 import { searchBeaconCommandsByIntent } from '../../utils/helpSearch.js';
 import { getRegisteredCommands } from '../../handlers/help/helpSelectMenus.js';
-import { BEACON_TEAM_NAME } from '../../config/bot.js';
+import { BEACON_TEAM_NAME, BEACON_VERSION_LABEL } from '../../config/bot.js';
 import { getBeaconInviteUrl } from './invite.js';
 
 const SUPPORT_URL = 'https://discord.gg/76N2EM6v6k';
@@ -36,7 +36,7 @@ export async function createInitialHelpMenu(client) {
   ].slice(0, 25);
 
   const embed = createEmbed({
-    title: '✦ Beacon | Command Center',
+    title: '✦ Beacon ' + BEACON_VERSION_LABEL + ' | Command Center',
     description: [
       '**Your community\'s all-in-one Discord assistant.**',
       'Global server rankings, rotating quests, moderation, tickets and security — all in Beacon.', 
