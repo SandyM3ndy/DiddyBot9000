@@ -45,7 +45,7 @@ function chunk(type,data){
  size.writeUInt32BE(data.length,0);crc.writeUInt32BE(crc32(Buffer.concat([name,data])),0);
  return Buffer.concat([size,name,data,crc]);
 }
-export function renderProgressionRankPng({name='COMMUNITY',rank=null,level=1,xp=0,progress=0,founder=null,appearance={}}={}){
+export function renderProgressionRankPng({name='COMMUNITY',rank=null,level=1,xp=0,progress=0,founder=null,appearance={},fastPreview=false}={}){
  const theme=THEMES[appearance?.background]||THEMES.default;
  const frame=BORDERS[appearance?.border]||theme.outline;
  const data=Buffer.alloc(WIDTH*HEIGHT*4);
@@ -105,5 +105,5 @@ export function renderProgressionRankPng({name='COMMUNITY',rank=null,level=1,xp=
  const ihdr=Buffer.alloc(13);ihdr.writeUInt32BE(WIDTH,0);ihdr.writeUInt32BE(HEIGHT,4);
  ihdr[8]=8;ihdr[9]=6;ihdr[10]=0;ihdr[11]=0;ihdr[12]=0;
  return Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]),chunk('IHDR',ihdr),
-  chunk('IDAT',deflateSync(scan,{level:7})),chunk('IEND',Buffer.alloc(0))]);
+  chunk('IDAT',deflateSync(scan,{level:fastPreview?1:7})),chunk('IEND',Buffer.alloc(0))]);
 }

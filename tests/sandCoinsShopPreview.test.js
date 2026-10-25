@@ -86,7 +86,7 @@ test('render cache reuses the same PNG and reacts correctly to equipped changes'
  assert.strictEqual(first.files[0].attachment,second.files[0].attachment);
  const expected=renderProgressionRankPng({
   name:'Test Castle',rank:42,level:14,xp:48500,progress:74,
-  appearance:{background:'galaxy',border:'diamond',tag:'royal'},
+  appearance:{background:'galaxy',border:'diamond',tag:'royal'},fastPreview:true,
  });
  assert.equal(digest(first.files[0].attachment),digest(expected));
  const changed=structuredClone(server);

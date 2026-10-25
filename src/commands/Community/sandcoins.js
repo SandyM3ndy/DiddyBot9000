@@ -88,7 +88,7 @@ export function buildSandShopItemPreview(itemId,server,serverName){
   previewPngCache.set(key,png);
  }else{
   png=renderProgressionRankPng({
-   name:cleanServerName,rank:42,level:14,xp:48500,progress:74,appearance,
+   name:cleanServerName,rank:42,level:14,xp:48500,progress:74,appearance,fastPreview:true,
   });
   previewPngCache.set(key,png);
   if(previewPngCache.size>PREVIEW_CACHE_MAX)
