@@ -16,13 +16,13 @@ export const SAND_WEEKLY_LIMIT=600;
 // Daily streak rewards are separate from quest-only earning caps.
 export const SAND_DAILY_STREAK_REWARDS=Object.freeze([35,45,55,65,75,85,100]);
 export const SAND_CATALOG=Object.freeze([
-  {id:'sunset',name:'Sunset Glow',type:'background',price:300,description:'Warm sunset colour palette for the rank card.',palette:'sunset'},
-  {id:'galaxy',name:'Galaxy Night',type:'background',price:1200,description:'A deep cosmic gradient for your community.',palette:'galaxy'},
-  {id:'emerald',name:'Emerald Horizon',type:'background',price:500,description:'Rich green background accents.',palette:'emerald'},
-  {id:'gold',name:'Golden Frame',type:'border',price:650,description:'Golden border around the rank card.',palette:'gold'},
-  {id:'diamond',name:'Diamond Frame',type:'border',price:1600,description:'Icy diamond-inspired highlights.',palette:'diamond'},
-  {id:'royal',name:'Royal Sands',type:'tag',price:950,description:'Limited-edition ROYAL SANDS rank-card title.',palette:'royal',limited:true,limit:5},
-  {id:'pioneer',name:'Sand Pioneer',type:'tag',price:400,description:'PIONEER rank-card title.',palette:'pioneer'},
+  {id:'sunset',name:'Sunset Glow',type:'background',price:300,description:'Cinematic amber sunset, horizon glow and rose-tinted dusk.',palette:'sunset'},
+  {id:'galaxy',name:'Galaxy Night',type:'background',price:1200,description:'Luminous violet nebula clouds against a star-filled galaxy.',palette:'galaxy'},
+  {id:'emerald',name:'Emerald Horizon',type:'background',price:500,description:'Misty emerald woodland with layered hills and glowing fireflies.',palette:'emerald'},
+  {id:'gold',name:'Golden Frame',type:'border',price:650,description:'Polished gold bevels, bright trim and metallic corner details.',palette:'gold'},
+  {id:'diamond',name:'Diamond Frame',type:'border',price:1600,description:'Crystal-blue bevels, icy highlights and diamond sparkles.',palette:'diamond'},
+  {id:'royal',name:'Royal Sands',type:'tag',price:950,description:'Limited royal purple-and-gold enamel nameplate with jewel accents.',palette:'royal',limited:true,limit:5},
+  {id:'pioneer',name:'Sand Pioneer',type:'tag',price:400,description:'Brushed teal-silver nameplate with luminous polished edges.',palette:'pioneer'},
 ]);
 export const SAND_SLOTS=Object.freeze(['background','border','tag']);
 const walletKey=userId=>PREFIX+'wallet:'+userId;
