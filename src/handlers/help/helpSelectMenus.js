@@ -305,7 +305,7 @@ export function createHelpQuickStartMenu() {
                 value: '**1. /dashboard** — Configure your server in one control center.\n'
                     + '**2. /diagnose** — Check permissions, roles and missing channels.\n'
                     + '**3. /progression overview** — Optionally enable XP, quests and world rankings.\n'
-                    + '**4. /ticket dashboard** — Set up your support panel and staff workflow.',
+                    + '**4. /ticket panel** — Configure support tickets and staff workflows.',
                 inline: false,
             },
             {
