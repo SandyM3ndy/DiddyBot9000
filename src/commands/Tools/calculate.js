@@ -166,7 +166,7 @@ export default {
             collector.on("collect", async (i) => {
                 try {
                     if (i.user.id !== interaction.user.id) {
-                        await i.reply({ content: 'This calculator belongs to someone else. Use /calculate to make your own.', flags: MessageFlags.Ephemeral });
+                        await i.reply({ content: 'This calculator belongs to someone else. Use /math calculate to make your own.', flags: MessageFlags.Ephemeral });
                         return;
                     }
                     const operation = i.customId.split("_")[2];
