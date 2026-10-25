@@ -49,7 +49,7 @@ export async function createInitialHelpMenu(client) {
       { name: '🗂️ Categories', value: String(categories.size), inline: true },
       { name: '🛡️ Security', value: 'Moderation & Anti-Nuke', inline: true },
       { name: '🚀 Get started', value: '**/progression overview** — Explore quests, rankings and server XP\n**/dashboard** — Configure your community\n**/diagnose** — Check setup and permissions', inline: false },
-      { name: '🎯 Community Progression', value: '**/progression quests** — Daily challenges\n**/progression weekly** — Weekly goals\n**/progression leaderboard** — Global server rankings', inline: false },
+      { name: '🎯 Community Progression', value: '**/progression quests** — Daily challenges\n**/progression weekly** — Weekly goals\n**/progression leaderboard** — Global server rankings\n**/sandcoins wallet** — Global quest earnings\n**/sandcoins shop** — Server rank-card decorations', inline: false },
       { name: '🧰 Administration', value: '**/roleaudit** — Review powerful server roles\n**/ticketstats** — Track your support workload', inline: false },
       { name: '👑 Developer tools', value: 'The **Bot Owner** category contains commands reserved for Beacon’s creator. Server owners and moderators can manage their own communities normally.', inline: false },
       { name: '💜 Thank You', value: 'Thank you for making Beacon part of your server. Your feedback helps us keep improving. — **' + BEACON_TEAM_NAME + '**', inline: false },
