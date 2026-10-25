@@ -10,7 +10,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const MAX_COMMANDS = 100;
 const COMMAND_COUNT_WARN_THRESHOLD = 90;
-export const REQUIRED_V11_COMMANDS = Object.freeze(['diagnose', 'roleaudit', 'ticket', 'giveaway', 'time']);
+export const REQUIRED_V11_COMMANDS = Object.freeze(['diagnose', 'roleaudit', 'ticket', 'giveaway', 'time', 'sandcoins']);
 
 export function getMissingRequiredCommands(names) {
     const available = new Set(names);
@@ -226,7 +226,13 @@ async function registerGlobalCommands(client, clientId, commands, totalSubcomman
     assertRequiredCommandsPresent(registered.map(command => command.name), 'Discord-registered');
     logger.info(`Registered ${registered.length} global commands; confirmed required v1.1 features`);
     client._beaconHelpCommandCache = null;
-    await clearGuildScopedCommands(client, clientId);
+    // Clearing guild commands on every restart can temporarily hide commands
+    // while Discord propagates global registrations to individual servers.
+    // Run legacy cleanup only if explicitly enabled for a migration.
+    if (process.env.BEACON_CLEAN_LEGACY_GUILD_COMMANDS === 'true') {
+        logger.warn('Legacy guild command cleanup explicitly enabled for this startup');
+        await clearGuildScopedCommands(client, clientId);
+    }
 }
 
 export async function registerCommands(client, options = {}) {
