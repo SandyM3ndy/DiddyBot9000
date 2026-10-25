@@ -5,6 +5,7 @@ import { createEmbed } from '../../utils/embeds.js';
 import { createSelectMenu } from '../../utils/components.js';
 import { formatCategoryName, getCategoryIcon } from '../../config/commands/commandCategories.js';
 import { searchBeaconCommandsByIntent } from '../../utils/helpSearch.js';
+import { getRegisteredCommands } from '../../handlers/help/helpSelectMenus.js';
 
 const SUPPORT_URL = 'https://discord.gg/76N2EM6v6k';
 
@@ -89,17 +90,19 @@ export default {
     try {
       const query = interaction.options?.getString?.('search')?.trim();
       if (query) {
-        const matched = searchBeaconCommands(client || interaction.client, query);
+        const activeClient = client || interaction.client;
+        const matched = searchBeaconCommands(activeClient, query);
         const items = matched.slice(0, 15);
+        const registered = await getRegisteredCommands(activeClient);
         const embed = createEmbed({
           title: '🔎 Beacon • Command Search',
           description: matched.length
             ? '**' + matched.length + ' match(es)** for "' + query.replace(/@/g,'@\u200b') + '"\n' +
-              (matched.length > items.length ? 'Showing the first 15. Try a more specific search.' : 'Select a command from the list below.')
+              (matched.length > items.length ? 'Showing the first 15. Try a more specific search.' : 'Run a command below or click its Discord slash-command mention.')
             : 'No command matched "' + query.replace(/@/g,'@\u200b') + '". Try searching for a goal such as "support queue", "daily goals" or "reaction roles".',
           color: 'primary',
           fields: items.map(x => ({
-            name: ('/' + x.name + ' • ' + x.category).slice(0,256),
+            name: ((registered.get(x.baseName)?.id ? '</' + x.name + ':' + registered.get(x.baseName).id + '>' : '/' + x.name) + ' • ' + x.category).slice(0,256),
             value: (x.description + (x.ownerOnly ? '\n👑 Bot Owner Only' : '')).slice(0,1024),
             inline: false,
           })),
