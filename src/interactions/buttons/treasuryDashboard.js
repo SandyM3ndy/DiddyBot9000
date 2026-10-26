@@ -66,6 +66,33 @@ export async function handleTreasuryButton(i,client,args=[],confirmed=false){
   return modal(i,action);
  }
  if(action==='cancel')return i.update({content:'Cancelled. No treasury funds moved.',components:[]});
+ // Modal previews carry no authority to move funds. A second explicit
+ // confirmation is required. Message ID is the idempotency transaction key.
+ if(confirmed&&['donateamount','payamount'].includes(action)){
+  const amountText=args[2],recipientId=args[3];
+  if(!/^[1-9]\d{0,6}$/.test(amountText))
+   return privateMsg(i,'Invalid transfer amount.');
+  if(action==='payamount'&&!owner(i))
+   return privateMsg(i,'Only the server owner can make payouts.');
+  if(action==='payamount'){
+   if(!/^\d{17,20}$/.test(recipientId))return privateMsg(i,'Invalid recipient.');
+   const member=await i.guild.members.fetch(recipientId).catch(()=>null);
+   if(!member||member.user?.bot)return privateMsg(i,'Recipient is not a valid server member.');
+  }
+  await i.deferUpdate();
+  try{
+   const amount=Number(amountText);
+   const result=action==='donateamount'
+    ?await treasuryDonate(client,{guildId:i.guildId,userId:i.user.id,amount,requestId:i.message.id})
+    :await treasuryPayout(client,{guildId:i.guildId,ownerId:i.user.id,recipientId,amount,requestId:i.message.id});
+   await audit(i,(action==='donateamount'?'Donation':'Owner payout')+': '+amount+' SC • <@'+i.user.id+'>');
+   return i.editReply({content:'✅ Transfer confirmed: '+amount.toLocaleString()+
+    ' SC. Treasury now holds '+result.balance.toLocaleString()+' SC.',components:[],embeds:[]});
+  }catch(error){
+   logger.warn('Treasury transfer failed',{guildId:i.guildId,error:error.message});
+   return i.editReply({content:'⚠️ '+errMessage(error),components:[],embeds:[]});
+  }
+ }
  if(['payout','toggle'].includes(action)&&!owner(i))return privateMsg(i,'Only the server owner can perform this action.');
  if(['buycoins','buyxp','usecoins','usexp','upgrade'].includes(action)&&!manager(i))
   return privateMsg(i,'Only server administrators or the owner can buy or activate treasury upgrades.');
@@ -113,19 +140,19 @@ export async function handleTreasuryForm(i,client,args=[]){
   const user=await i.guild.members.fetch(recipientId).catch(()=>null);
   if(!user||user.user?.bot)return privateMsg(i,'Recipient must be a non-bot member of this server.');
  }
- await i.deferReply({flags:MessageFlags.Ephemeral});
- try{
-  const result=type==='donate'
-   ?await treasuryDonate(client,{guildId:i.guildId,userId:i.user.id,amount,requestId:i.id})
-   :await treasuryPayout(client,{guildId:i.guildId,ownerId:i.user.id,recipientId,amount,requestId:i.id});
-  await audit(i,type==='donate'?'**Donation: +'+amount+' SC** from <@'+i.user.id+'>':
-   '**Owner payout: '+amount+' SC** from <@'+i.user.id+'> to <@'+recipientId+'>');
-  return i.editReply('✅ '+(type==='donate'?'Donated':'Paid')+' '+amount.toLocaleString()+
-   ' Sand Coins. New treasury balance: '+result.balance.toLocaleString()+' SC. Open /treasury to refresh.');
- }catch(error){
-  logger.warn('Treasury transfer failed',{guildId:i.guildId,error:error.message});
-  return i.editReply('⚠️ '+errMessage(error));
- }
+ const action=type==='donate'?'donateamount':'payamount';
+ return i.reply({content:'**Confirm the treasury transfer:**\n'+
+  (type==='donate'?'Donate **'+amount.toLocaleString()+' SC** from your wallet to this server.':
+   'Pay **'+amount.toLocaleString()+' SC** from the shared treasury to <@'+recipientId+'>.')+
+  '\nFunds only move after you press Confirm.',
+  flags:MessageFlags.Ephemeral,
+  allowedMentions:{parse:[]},
+  components:[new ActionRowBuilder().addComponents(
+   new ButtonBuilder().setCustomId('treasury_confirm:'+action+':'+i.user.id+':'+amount+
+    (recipientId?':'+recipientId:'')).setLabel('Confirm Transfer').setStyle(ButtonStyle.Success),
+   new ButtonBuilder().setCustomId('treasury_confirm:cancel:'+i.user.id)
+    .setLabel('Cancel').setStyle(ButtonStyle.Secondary))]});
+
 }
 export default [
  {name:'treasury',execute:(i,c,args)=>handleTreasuryButton(i,c,args,false)},
