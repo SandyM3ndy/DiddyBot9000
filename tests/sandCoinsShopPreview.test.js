@@ -43,17 +43,18 @@ function fakeButton(id,messageId,seen,client){
 test('shop categories show only the correct existing cosmetics and preserve global buttons',()=>{
  const rows=buildSandShopPreviewButtons();
  const buttons=rows.flatMap(row=>row.toJSON().components);
- assert.equal(buttons.length,SAND_CATALOG.length+SAND_SHOP_CATEGORIES.length+1);
+ assert.equal(buttons.length,SAND_CATALOG.length+SAND_SHOP_CATEGORIES.length+2);
  assert.ok(rows.every(row=>row.toJSON().components.length<=5));
  assert.deepEqual(buttons.slice(0,4).map(button=>button.custom_id),
   ['sand_shop_category:all','sand_shop_category:border','sand_shop_category:tag','sand_shop_category:background']);
- assert.deepEqual(buttons.slice(4,-1).map(button=>button.custom_id),
+ assert.deepEqual(buttons.slice(4,-2).map(button=>button.custom_id),
   SAND_CATALOG.map(item=>'sand_shop_preview:all:'+item.id));
- assert.equal(buttons.at(-1).custom_id,'sand_shop_back');
- assert.deepEqual(buttons.slice(4,-1).map(button=>button.label),
+ assert.equal(buttons.at(-2).custom_id,'sand_shop_back');
+ assert.equal(buttons.at(-1).custom_id,'sand_shop_treasury');
+ assert.deepEqual(buttons.slice(4,-2).map(button=>button.label),
   SAND_CATALOG.map(item=>'Preview '+item.name));
  assert.ok(buttons.every(button=>button.disabled!==true));
- assert.deepEqual(shopHandlers.map(x=>x.name),['sand_shop_preview','sand_shop_category','sand_shop_back']);
+ assert.deepEqual(shopHandlers.map(x=>x.name),['sand_shop_preview','sand_shop_category','sand_shop_back','sand_shop_treasury']);
  for(const [category,expected] of [
   ['border',['gold','diamond']],
   ['tag',['royal','pioneer']],
