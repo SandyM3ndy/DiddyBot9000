@@ -1,6 +1,7 @@
 import { createEmbed } from '../utils/embeds.js';
 import { logger } from '../utils/logger.js';
 import { grantQuestSandCoins } from './sandCoinsService.js';
+import { getTreasuryEffects } from './treasuryService.js';
 import { recordQuestContribution, queueSharedSandRewards } from './sandQuestRewards.js';
 
 const KEY_PREFIX = 'guild:';
@@ -652,9 +653,9 @@ function completeQuests(data) {
   return completedNow;
 }
 
-function addBaseXp(data, amount) {
+function addBaseXp(data, amount, treasuryMultiplier=1) {
   const before = data.level;
-  data.xp += Math.floor(amount * getXpMultiplier(data.level));
+  data.xp += Math.floor(amount * getXpMultiplier(data.level) * treasuryMultiplier);
   data.level = levelFromXp(data.xp);
   return { before, after: data.level };
 }
@@ -668,6 +669,8 @@ async function recordActivity(client, guildId, metric, options = {}) {
       const data = await load(client, guildId);
       const previousLevel = data.level;
       const previousXp = data.xp;
+      const treasuryBonus=['message','command'].includes(metric)
+        ? (await getTreasuryEffects(client,guildId)).xpMultiplier:1;
       const dailyBefore = Object.fromEntries(data.dailyQuests.map(q=>[q.id,q.progress]));
       const now = Date.now();
 
@@ -698,14 +701,14 @@ async function recordActivity(client, guildId, metric, options = {}) {
             quest.progress = Math.min(quest.target, quest._members.length);
           }
         }
-        addBaseXp(data, 5);
+        addBaseXp(data, 5,treasuryBonus);
       } else if (metric === 'command') {
         const bucketKey = `${guildId}:${options.userId}`;
         if (!options.userId || now - (commandBuckets.get(bucketKey) || 0) < 30_000) return null;
         commandBuckets.set(bucketKey, now);
         data.totalCommands += 1;
         applyMetric(data, 'commands', 1);
-        addBaseXp(data, 10);
+        addBaseXp(data, 10,treasuryBonus);
       } else if (metric === 'channel') {
         const channels = new Set(data.dailyQuests.flatMap(q => q._channels || []));
         channels.add(options.channelId);
@@ -829,7 +832,7 @@ export async function recordMessageActivity(client, message, config = null) {
 
 export async function recordCommandActivity(client, interaction, config = null) {
   if (!interaction?.guild || interaction.user?.bot) return null;
-  if (['progression', 'sandcoins', 'rank', 'levels', 'giveexp', 'removeexp', 'removeleaderboard', 'restoreleaderboard'].includes(interaction.commandName)) return null;
+  if (['progression', 'sandcoins', 'rank', 'treasury', 'heist', 'levels', 'giveexp', 'removeexp', 'removeleaderboard', 'restoreleaderboard'].includes(interaction.commandName)) return null;
 
   const effectiveConfig = config || await (async () => {
     const { getGuildConfig } = await import('./config/guildConfig.js');

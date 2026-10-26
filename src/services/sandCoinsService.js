@@ -300,11 +300,13 @@ export async function grantQuestSandCoins(client,{userId,guildId,eventId,amount,
  if(!/^\d{17,20}:(daily|weekly):\d{4}-\d{2}-\d{2}:[a-z0-9_]{1,64}$/.test(eventId))
   throw new Error('Invalid Sand Coins quest event');
  if(!safeNumber(amount)||amount===0||amount>200)throw new Error('Invalid Sand Coins reward');
+ const {getTreasuryEffects}=await import('./treasuryService.js');
+ const multiplier=(await getTreasuryEffects(client,guildId)).sandMultiplier;
  const wk=walletKey(userId),ck=claimKey(eventId,userId);
  return atomic(client,[wk,ck],async tx=>{
   if(tx.get(ck))return {credited:0,duplicate:true};
   const now=new Date(),wallet=withWindow(readWallet(tx.get(wk)),now);
-  const allowance=Math.min(amount,Math.max(0,SAND_DAILY_LIMIT-wallet.earnedToday),
+  const allowance=Math.min(amount*multiplier,Math.max(0,SAND_DAILY_LIMIT-wallet.earnedToday),
     Math.max(0,SAND_WEEKLY_LIMIT-wallet.earnedWeek));
   if(allowance && (!safeNumber(wallet.balance+allowance)||!safeNumber(wallet.lifetime+allowance)))
    throw new Error('Wallet overflow');

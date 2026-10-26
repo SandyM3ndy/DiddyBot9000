@@ -82,11 +82,15 @@ export default async (client) => {
     'ticket_queue_view','rr_studio_edit','error_rescue',
     'dashboard_undo_confirm','dashboard_undo_cancel',
     'sand_shop_preview','sand_shop_category','sand_shop_back','rank_card',
+    'treasury','treasury_confirm','heist_launch','heist_hit','heist_refresh',
   ];
   const missing = requiredButtons.filter(name => !client.buttons?.has(name));
   if (missing.length) {
     throw new Error('Required Beacon interface buttons failed to register: ' + missing.join(', '));
   }
+  const requiredModal=['treasury_form'];
+  const missingModal=requiredModal.filter(name=>!client.modals?.has(name));
+  if(missingModal.length)throw new Error('Required treasury forms failed to register: '+missingModal.join(', '));
   const requiredMenus=['dashboard_fave_pin','rr_studio_select'];
   const missingMenus=requiredMenus.filter(name=>!client.selectMenus?.has(name));
   if(missingMenus.length)throw new Error('Required Beacon interface menus failed to register: '+missingMenus.join(', '));

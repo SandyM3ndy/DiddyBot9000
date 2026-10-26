@@ -10,7 +10,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const MAX_COMMANDS = 100;
 const COMMAND_COUNT_WARN_THRESHOLD = 90;
-export const REQUIRED_V11_COMMANDS = Object.freeze(['diagnose', 'roleaudit', 'ticket', 'giveaway', 'time', 'sandcoins', 'daily', 'rank']);
+export const REQUIRED_V11_COMMANDS = Object.freeze(['diagnose', 'roleaudit', 'ticket', 'giveaway', 'time', 'sandcoins', 'daily', 'rank', 'treasury', 'heist']);
 // Economy commands appear immediately in every guild; account state stays global.
 const GUILD_ECONOMY_COMMANDS = Object.freeze(['sandcoins','daily']);
 // /rank card is published per guild only. The global duplicate is deleted on sync.

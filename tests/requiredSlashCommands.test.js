@@ -32,9 +32,9 @@ function mockClient({guildIds=[g1,g2],failGuild=null}={}){
 }
 
 test('v1.1 requires /daily and /sandcoins locally; rest register globally',()=>{
- assert.deepEqual(REQUIRED_V11_COMMANDS,['diagnose','roleaudit','ticket','giveaway','time','sandcoins','daily','rank']);
- assert.deepEqual(REQUIRED_GLOBAL_COMMANDS,['diagnose','roleaudit','ticket','giveaway','time']);
- assert.deepEqual(getMissingRequiredCommands(['help','diagnose','roleaudit','ticket','giveaway']),['time','sandcoins','daily','rank']);
+ assert.deepEqual(REQUIRED_V11_COMMANDS,['diagnose','roleaudit','ticket','giveaway','time','sandcoins','daily','rank','treasury','heist']);
+ assert.deepEqual(REQUIRED_GLOBAL_COMMANDS,['diagnose','roleaudit','ticket','giveaway','time','treasury','heist']);
+ assert.deepEqual(getMissingRequiredCommands(['help','diagnose','roleaudit','ticket','giveaway']),['time','sandcoins','daily','rank','treasury','heist']);
  assert.throws(()=>assertRequiredCommandsPresent(['diagnose','ticket'],'loaded'),/roleaudit/);
  assert.doesNotThrow(()=>assertRequiredCommandsPresent(REQUIRED_V11_COMMANDS));
 });
@@ -57,6 +57,8 @@ test('all guilds get both economy commands immediately, without global duplicate
  assert.equal(global.verb,'PUT');
  assert.equal(global.route,`/applications/${appId}/commands`);
  assert.ok(global.body.some(cmd=>cmd.name==='giveaway'));
+ assert.ok(global.body.some(cmd=>cmd.name==='treasury'));
+ assert.ok(global.body.some(cmd=>cmd.name==='heist'));
  assert.ok(global.body.every(cmd=>cmd.name!=='rank'),'guild and global /rank must never coexist');
  assert.deepEqual(posts[2].body.options.map(option=>option.name),['card','server']);
  assert.equal(posts[2].body.options[0].options[0].name,'server_id');
