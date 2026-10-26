@@ -90,8 +90,10 @@ test('donations and owner payouts conserve coins and reject idempotent replays',
   treasuryDonate(client,{guildId:guildA,userId:member,amount:20000,requestId:requestId()}),
   treasuryDonate(client,{guildId:guildA,userId:member,amount:20000,requestId:requestId()}),
   ]);
- assert.ok(errors.some(x=>x.status==='rejected'));
- assert.equal((await getSandWallet(client,member)).balance,26000);
+ assert.equal(errors.filter(x=>x.status==='fulfilled').length,1,'only one simultaneous transfer can spend the same wallet funds');
+ assert.equal(errors.filter(x=>x.status==='rejected').length,1);
+ assert.equal((await getSandWallet(client,member)).balance,6000);
+ assert.equal((await getTreasury(client,guildA)).balance,23500);
 });
 test('500 SC required for heist opt-in; 24h toggle cooldown and minimum bonus balance',async()=>{
  const {client}=fixture();
