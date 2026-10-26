@@ -9,6 +9,7 @@ import { loadLockdownStates } from "../services/lockdownService.js";
 import { loadAllPersistedAntiNukeConfigs } from "../services/antinukeService.js";
 import { startTicketSlaMonitor } from '../services/ticketSlaService.js';
 import { startSandCoinsMaintenance } from '../services/sandCoinsMaintenance.js';
+import { settleExpiredTreasuryHeists } from '../services/treasuryService.js';
 
 export default {
   name: Events.ClientReady,
@@ -31,6 +32,13 @@ export default {
       await loadAllPersistedAntiNukeConfigs(client);
       startTicketSlaMonitor(client);
       startSandCoinsMaintenance(client);
+      settleExpiredTreasuryHeists(client).then(count=>{
+        if(count)startupLog('Recovered '+count+' expired treasury heist(s)');
+      }).catch(error=>logger.warn('Treasury Wars startup sweep failed',error));
+      const treasurySweep=setInterval(()=>
+        settleExpiredTreasuryHeists(client).catch(error=>
+          logger.warn('Treasury Wars expiry sweep failed',error)),60_000);
+      treasurySweep.unref?.();
       // Global command sync runs once after login, not during the ready event.
       // Never race it with a second guild command cleanup.
 
