@@ -184,11 +184,12 @@ export async function createTreasuryHeist(client,{guildId,actorId,raidId,now=Dat
  const attacking=await getTreasury(client,guildId);
  if(!attacking.enabled||attacking.balance<TREASURY_MIN_HEIST)throw new Error('HEIST_NOT_ELIGIBLE');
  if(attacking.raidCooldownUntil>now)throw new Error('HEIST_COOLDOWN');
+ if(attacking.balance>=attacking.capacity)throw new Error('TREASURY_CAPACITY_REACHED');
  const guilds=[...(client.guilds?.cache?.values()||[])];
  const attackerOwner=client.guilds.cache.get(guildId)?.ownerId;
  const options=[];
  for(const guild of guilds){
-  if(guild.id===guildId||!guild.id||guild.ownerId===attackerOwner)continue;
+  if(guild.id===guildId||!guild.id||(attackerOwner&&guild.ownerId===attackerOwner))continue;
   const state=await getTreasury(client,guild.id);
   if(state.enabled&&state.balance>=TREASURY_MIN_HEIST&&state.shieldUntil<=now&&
      (!state.pending||state.pending.endsAt<=now))options.push(guild);
@@ -221,6 +222,8 @@ export async function resolveTreasuryHeist(client,{guildId,raidId,actorId,column
  const current=parse(await client.db.get(treasuryStorageKey(guildId),null));
  if(current.raid?.id!==raidId)throw new Error('HEIST_NOT_FOUND');
  const dk=treasuryStorageKey(current.raid.targetId),tk=treasuryStorageKey(guildId);
+ const attackerCap=(await getTreasury(client,guildId)).capacity;
+ const defenderCap=(await getTreasury(client,current.raid.targetId)).capacity;
  return atomicSandTransaction(client,[tk,dk],async tx=>{
   const atk=parse(tx.get(tk)),def=parse(tx.get(dk)),raid=atk.raid;
   if(!raid||raid.id!==raidId)throw new Error('HEIST_NOT_FOUND');
@@ -231,13 +234,15 @@ export async function resolveTreasuryHeist(client,{guildId,raidId,actorId,column
   const success=hit&&randomInt(100)<level.chance;
   let amount=0;
   if(success){
-   amount=Math.min(500,Math.floor(def.balance*level.loot/100));
+   amount=Math.min(500,Math.floor(def.balance*level.loot/100),Math.max(0,attackerCap-atk.balance));
    def.balance-=amount;atk.balance+=amount;atk.won+=amount;def.lost+=amount;
    def.shieldUntil=now+TREASURY_SHIELD_MS;
   }else{
    amount=Math.min(atk.balance,Math.ceil(atk.balance*0.03));
-   atk.balance-=amount;def.balance+=amount;
-   atk.lost+=amount;def.won+=amount;
+   atk.balance-=amount;
+   const received=Math.min(amount,Math.max(0,defenderCap-def.balance));
+   def.balance+=received;
+   atk.lost+=amount;def.won+=received;
    def.shieldUntil=now+TREASURY_FAILED_SHIELD_MS;
   }
   if(def.pending?.raidId===raidId)def.pending=null;
