@@ -1,6 +1,7 @@
 import { MessageFlags } from 'discord.js';
 import { getSandServer, getSandCatalogItem } from '../../services/sandCoinsService.js';
 import { buildSandShopItemPreview,buildSandShopPanel,normalizeSandShopCategory } from '../../commands/Community/sandcoins.js';
+import { buildTreasuryPanel } from '../../commands/Community/treasury.js';
 import { logger } from '../../utils/logger.js';
 
 // A global button handler replaces short-lived collectors. Buttons survive
@@ -50,7 +51,9 @@ export async function handleSandShopButton(interaction,client,args=[],action='pr
   if(revision!==state.revision)return;
   try{
    let payload;
-   if(action==='back' || action==='category'){
+   if(action==='treasury'){
+    payload=await buildTreasuryPanel(client,interaction.guildId,'shop');
+   }else if(action==='back' || action==='category'){
     payload=await buildSandShopPanel(client,interaction.guildId,interaction.guild.name,
      action==='back'?'all':category);
    }else{
@@ -84,5 +87,8 @@ export default [
  }},
  {name:'sand_shop_back',async execute(interaction,client){
   return handleSandShopButton(interaction,client,[],'back');
+ }},
+ {name:'sand_shop_treasury',async execute(interaction,client){
+  return handleSandShopButton(interaction,client,[],'treasury');
  }},
 ];
