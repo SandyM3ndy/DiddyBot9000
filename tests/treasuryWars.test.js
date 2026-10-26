@@ -144,6 +144,24 @@ test('only two purchasable potions; boosts persist and expire at 2h without stac
  assert.equal((await getTreasury(client,guildA)).potions.coins,0);
  await assert.rejects(purchaseTreasuryItem(client,{guildId:guildA,actorId:owner,kind:'potion',itemId:'fake',requestId:requestId()}),/INVALID_POTION/);
 });
+test('expired raid reconciliation applies a 3% loss exactly once after restart',async()=>{
+ const {client}=fixture();
+ await treasuryDonate(client,{guildId:guildA,userId:member,amount:10000,requestId:requestId()});
+ await treasuryDonate(client,{guildId:guildB,userId:peer,amount:30000,requestId:requestId()});
+ const current=await getTreasury(client,guildB);
+ await client.db.set(treasuryStorageKey(guildB),{...current,balance:60000});
+ const now=Date.now();
+ await toggleTreasuryHeists(client,{guildId:guildA,actorId:owner,now});
+ await toggleTreasuryHeists(client,{guildId:guildB,actorId:peer,now});
+ const raid=await createTreasuryHeist(client,{guildId:guildA,actorId:owner,raidId:requestId(),now:now+1000});
+ const {settleExpiredTreasuryHeists}=await import('../src/services/treasuryService.js');
+ assert.equal(await settleExpiredTreasuryHeists(client,raid.raid.endsAt+2000),1);
+ assert.equal((await getTreasury(client,guildB)).balance,60000,'target capacity never overflows');
+ assert.equal((await getTreasury(client,guildA)).balance,9700,'caught heist costs 3%');
+ assert.equal(await settleExpiredTreasuryHeists(client,raid.raid.endsAt+4000),0);
+ assert.equal((await getTreasury(client,guildA)).balance,9700,'penalty applied once');
+});
+
 test('one moving wall, three buttons, one hit; caught raid takes 3% with persistent target shield',async()=>{
  const {client}=fixture();
  await treasuryDonate(client,{guildId:guildA,userId:member,amount:5000,requestId:requestId()});
