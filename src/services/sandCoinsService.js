@@ -115,6 +115,8 @@ function recordHistory(wallet,item){
 }
 function getPool(client){return client?.db?.db?.pool && client.db.db.isAvailable?.()?client.db.db.pool:null;}
 /** Transactionally mutate multiple temp_data keys, including idempotency claims. */
+export const sandWalletStorageKey=walletKey;
+export const atomicSandTransaction=(client,keys,fn)=>atomic(client,keys,fn);
 async function atomic(client,keys,fn){
  const pool=getPool(client);
  if(!pool)throw new Error('Sand Coins require a persistent PostgreSQL connection');
