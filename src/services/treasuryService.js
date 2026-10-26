@@ -256,3 +256,22 @@ export async function resolveTreasuryHeist(client,{guildId,raidId,actorId,column
   return raid.result;
  });
 }
+
+/** Recover unfinished timed raids after restarts so penalties cannot be dodged. */
+export async function settleExpiredTreasuryHeists(client,now=Date.now()){
+ let recovered=0;
+ for(const guild of client.guilds?.cache?.values()||[]){
+  try{
+   const state=await getTreasury(client,guild.id);
+   if(state.raid?.status==='active'&&state.raid.endsAt<=now){
+    const result=await resolveTreasuryHeist(client,{
+     guildId:guild.id,raidId:state.raid.id,actorId:null,now});
+    if(!result.duplicate)recovered++;
+   }
+  }catch(error){
+   const {logger}=await import('../utils/logger.js');
+   logger.warn('Treasury timeout reconciliation failed',{guildId:guild.id,error:error.message});
+  }
+ }
+ return recovered;
+}
