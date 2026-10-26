@@ -32,7 +32,25 @@ function fixture(){
   }
   throw new Error('Unsupported PostgreSQL query: '+sql);
  };
- const pool={options:{max:8},connect:async()=>({query,release(){}})};
+ // Simulate PostgreSQL transaction serialization so concurrent transfers
+ // observe committed balances, not stale reads from a naive mock.
+ let last=Promise.resolve();
+ const pool={options:{max:8},connect:async()=>{
+  let releaseSlot=null;
+  return {async query(sql,args=[]){
+   if(sql==='BEGIN'){
+    const prior=last;
+    last=new Promise(resolve=>{releaseSlot=resolve;});
+    await prior;
+    return {rows:[]};
+   }
+   if(sql==='COMMIT'||sql==='ROLLBACK'){
+    releaseSlot?.();
+    return {rows:[]};
+   }
+   return query(sql,args);
+  },release(){}};
+ }};
  const db={db:{pool,isAvailable:()=>true},
   async get(key,other=null){return values.has(key)?structuredClone(values.get(key)):other;},
   async set(key,val){values.set(key,structuredClone(val));return true;},
