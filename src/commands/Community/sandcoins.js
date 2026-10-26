@@ -87,7 +87,9 @@ export function buildSandShopPreviewButtons(category='all'){
   .setCustomId('sand_shop_back')
   .setLabel('Shop Overview')
   .setEmoji('🛒')
-  .setStyle(ButtonStyle.Secondary)));
+  .setStyle(ButtonStyle.Secondary),
+  new ButtonBuilder().setCustomId('sand_shop_treasury')
+   .setLabel('Treasury Shop').setEmoji('🏦').setStyle(ButtonStyle.Primary)));
  return rows;
 }
 
