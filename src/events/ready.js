@@ -1,4 +1,5 @@
 import { Events } from "discord.js";
+import { getRegisteredCommandCount } from '../utils/commandCounts.js';
 import { registerFoundingServers,FOUNDING_CAP } from '../services/serverProgressionService.js';
 import { logger, startupLog } from "../utils/logger.js";
 import config from "../config/application.js";
@@ -22,7 +23,7 @@ export default {
 
       startupLog(`Ready! Logged in as ${client.user.tag}`);
       startupLog(`Serving ${client.guilds.cache.size} guild(s)`);
-      startupLog(`Loaded ${client.commands.size} commands`);
+      startupLog(`${getRegisteredCommandCount(client)} slash entrypoints, ${client.commands.size} handlers including legacy`);
 
       try {
         const founders=await registerFoundingServers(client);

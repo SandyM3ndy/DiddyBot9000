@@ -228,23 +228,48 @@ export function registerSandCoinsGuildCommand(client,guildId,options={}){
 export function registerDailyGuildCommand(client,guildId,options={}){
  return upsertEconomyGuildCommand(client,guildId,'daily',options);
 }
-/** Only remove obsolete guild /daily; never wipe current guild commands. */
-export async function removeLegacyDailyGuildCommand(client,guildId,options={}){
+/**
+ * Application guild scope is reserved for /sandcoins and /rank.
+ * Prune stale CHAT_INPUT registrations one by one; never use bulk overwrite
+ * or touch context menu commands. Verify the actual Discord response afterward.
+ */
+export async function reconcileGuildSlashCommands(client,guildId,options={}){
  const id=options.clientId||client.config?.bot?.clientId;
- if(!id||!guildId||!client.rest?.get||!client.rest?.delete)return false;
+ if(!id||!guildId)throw new Error('Cannot verify guild slash commands without application and guild IDs');
+ if(!client.rest?.get||!client.rest?.delete){
+  logger.warn('Guild slash command verification unavailable in guild '+guildId);
+  return {verified:false,removed:[]};
+ }
  const route=`/applications/${id}/guilds/${guildId}/commands`;
  const records=await client.rest.get(route);
- if(!Array.isArray(records))throw new Error('Could not confirm guild commands before cleanup');
- const obsolete=records.filter(x=>x.name==='daily'&&x.id);
- for(const item of obsolete)await client.rest.delete(route+'/'+item.id);
- if(obsolete.length)logger.info('Retired redundant /daily from guild '+guildId);
- return obsolete.length>0;
+ if(!Array.isArray(records))throw new Error('Discord did not return a guild slash command list');
+ const intended=new Set(GUILD_IMMEDIATE_COMMANDS);
+ const stale=records.filter(cmd=>(cmd.type===undefined||cmd.type===1)&&!intended.has(cmd.name));
+ for(const cmd of stale){
+  if(!cmd.id)throw new Error('Stale guild command /'+cmd.name+' has no ID; refusing unsafe cleanup');
+  await client.rest.delete(route+'/'+cmd.id);
+ }
+ const verified=await client.rest.get(route);
+ if(!Array.isArray(verified))throw new Error('Discord did not confirm guild cleanup');
+ const unexpected=verified.filter(cmd=>(cmd.type===undefined||cmd.type===1)&&!intended.has(cmd.name));
+ const missing=[...intended].filter(name=>!verified.some(cmd=>
+  (cmd.type===undefined||cmd.type===1)&&cmd.name===name));
+ if(unexpected.length||missing.length)
+  throw new Error('Guild slash registry mismatch '+guildId+': stale '+
+   unexpected.map(cmd=>cmd.name).join(',')+'; missing '+missing.join(','));
+ if(stale.length)logger.info('Removed '+stale.length+' stale guild slash command(s) in '+guildId+
+  ': '+stale.map(cmd=>'/'+cmd.name).join(', '));
+ return {verified:true,removed:stale.map(cmd=>cmd.name)};
+}
+/** Compatibility API for callers that previously only cleaned /daily. */
+export async function removeLegacyDailyGuildCommand(client,guildId,options={}){
+ const result=await reconcileGuildSlashCommands(client,guildId,options);
+ return result.removed.includes('daily');
 }
 export async function registerGuildCommands(client,guildId,options={}){
  for(const name of GUILD_IMMEDIATE_COMMANDS)
   await upsertEconomyGuildCommand(client,guildId,name,options);
- try{await removeLegacyDailyGuildCommand(client,guildId,options);}
- catch(error){logger.warn('Unable to retire redundant guild /daily: '+error.message);}
+ await reconcileGuildSlashCommands(client,guildId,options);
  return GUILD_IMMEDIATE_COMMANDS.length;
 }
 export async function registerSandCoinsAllGuilds(client,options={}){
@@ -293,7 +318,15 @@ async function registerGlobalCommands(client, clientId, commands, totalSubcomman
         throw new Error('Discord did not return a command list to confirm global registration.');
     }
     assertRequiredCommandsPresent(registered.map(command => command.name), 'Discord-registered', REQUIRED_GLOBAL_COMMANDS);
-    logger.info(`Registered ${registered.length} global commands; confirmed required v1.1 features`);
+    const expectedNames=new Set(commandsToRegister.map(command=>command.name));
+    const confirmedNames=new Set(registered.map(command=>command.name));
+    const obsolete=registered.filter(command=>!expectedNames.has(command.name));
+    const missing=commandsToRegister.filter(command=>!confirmedNames.has(command.name));
+    if(obsolete.length||missing.length||registered.length!==commandsToRegister.length)
+      throw new Error('Discord global slash registry mismatch: extra '+
+        obsolete.map(command=>'/'+command.name).join(',')+'; missing '+
+        missing.map(command=>'/'+command.name).join(','));
+    logger.info(`Registered ${registered.length} global commands; no stale global slash entries`);
     client._beaconHelpCommandCache = null;
 }
 

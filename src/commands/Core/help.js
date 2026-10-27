@@ -4,7 +4,7 @@ import { InteractionHelper } from '../../utils/interactionHelper.js';
 import { createEmbed } from '../../utils/embeds.js';
 import { createSelectMenu } from '../../utils/components.js';
 import { formatCategoryName, getCategoryIcon } from '../../config/commands/commandCategories.js';
-import { searchBeaconCommandsByIntent } from '../../utils/helpSearch.js';
+import { searchBeaconCommandsByIntent, resolveMovedSlashCommand } from '../../utils/helpSearch.js';
 import { getRegisteredCommands } from '../../handlers/help/helpSelectMenus.js';
 import { BEACON_TEAM_NAME, BEACON_VERSION_LABEL } from '../../config/bot.js';
 import { getBeaconInviteUrl } from './invite.js';
@@ -52,6 +52,7 @@ export async function createInitialHelpMenu(client) {
       { name: '🚀 Get started', value: '**/progression overview** — Explore quests, rankings and server XP\n**/dashboard** — Configure your community (including Welcome & Goodbye)\n**/diagnose** — Check setup and permissions', inline: false },
       { name: '🎯 Community Progression', value: '**/progression quests** — Daily challenges\n**/progression weekly** — Weekly goals\n**/progression leaderboard** — Global server rankings\n**/sandcoins wallet** — Global quest earnings\n**/sandcoins shop** — Server rank-card decorations', inline: false },
       { name: '🧰 Administration', value: '**/roleaudit** — Review powerful server roles\n**/ticket stats** — Track your support workload', inline: false },
+      { name: '🧭 Moved Commands', value: 'Looking for an old shortcut? Use **/help search** and enter its old name, such as `heist`, `daily` or `play`.', inline: false },
       { name: '👑 Developer tools', value: 'The **Bot Owner** category contains commands reserved for Beacon’s creator. Server owners and moderators can manage their own communities normally.', inline: false },
       { name: '💜 Thank You', value: 'Thank you for making Beacon part of your server. Your feedback helps us keep improving. — **' + BEACON_TEAM_NAME + '**', inline: false },
     ],
@@ -102,6 +103,19 @@ export default {
       const query = interaction.options?.getString?.('search')?.trim();
       if (query) {
         const activeClient = client || interaction.client;
+        const moved=resolveMovedSlashCommand(query);
+        if(moved){
+          return InteractionHelper.safeEditReply(interaction,{
+            embeds:[createEmbed({
+              title:'🧭 This command moved',
+              description:'The standalone **'+query.replace(/[@*_~<>|]/g,'').slice(0,70)+
+                '** was retired to reduce slash-menu clutter.\n\n**Use '+moved.command+' instead.**\n'+moved.steps,
+              color:'info',
+              footer:'Beacon • Features were merged, not deleted',
+            })],
+            components:[],
+          });
+        }
         const matched = searchBeaconCommands(activeClient, query);
         const items = matched.slice(0, 15);
         const registered = await getRegisteredCommands(activeClient);

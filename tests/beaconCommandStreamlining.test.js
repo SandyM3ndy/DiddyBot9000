@@ -4,6 +4,7 @@ import music from '../src/commands/Music/music.js';
 import botinfo from '../src/commands/Core/botinfo.js';
 import sandcoins from '../src/commands/Community/sandcoins.js';
 import {LEGACY_SLASH_COMMANDS} from '../src/handlers/loaders/commandLoader.js';
+import {resolveMovedSlashCommand} from '../src/utils/helpSearch.js';
 import {readFile} from 'node:fs/promises';
 test('music operations share one slash namespace without losing options',()=>{
  const names=music.data.toJSON().options.map(x=>x.name);
@@ -20,4 +21,16 @@ test('status, ping and daily claims live in existing feature commands',()=>{
 test('heist panel provides a way back to the Treasury',async()=>{
  const code=await readFile('src/commands/Community/heist.js','utf8');
  assert.match(code,/setCustomId\('treasury:home'\)/);
+});
+
+test('retired slash shortcuts point to existing functional destinations',()=>{
+ const expected={
+  heist:'/treasury',daily:'/sandcoins daily',play:'/music play',
+  queue:'/music queue',nowplaying:'/music nowplaying',join:'/music join',
+  ping:'/botinfo ping',status:'/botinfo status',support:'/help',
+ };
+ for(const [oldName,newCommand] of Object.entries(expected)){
+  assert.equal(resolveMovedSlashCommand('/'+oldName)?.command,newCommand);
+ }
+ assert.equal(resolveMovedSlashCommand('/lockdown'),null);
 });

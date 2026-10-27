@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
  REQUIRED_V11_COMMANDS,REQUIRED_GLOBAL_COMMANDS,getMissingRequiredCommands,
  assertRequiredCommandsPresent,registerCommands,registerSandCoinsGuildCommand,
- removeLegacyDailyGuildCommand,registerGuildCommands,
+ removeLegacyDailyGuildCommand,reconcileGuildSlashCommands,registerGuildCommands,
 } from '../src/handlers/loaders/commandLoader.js';
 
 const appId='123456789012345678';
@@ -106,12 +106,41 @@ test('per-guild sandcoins registration still works',async()=>{
  assert.equal((await registerSandCoinsGuildCommand(client,g1)).name,'sandcoins');
  assert.equal(calls.length,1);
 });
-test('guild cleanup deletes only a stale /daily, not rank or sandcoins',async()=>{
+test('guild cleanup selectively removes all redundant slash names, preserving context menus and active commands',async()=>{
  const {client,calls}=mockClient({guildIds:[]});
- client.rest.get=async()=>[{name:'daily',id:'old'},{name:'rank',id:'keep1'},{name:'sandcoins',id:'keep2'}];
- client.rest.delete=async route=>calls.push({verb:'DELETE',route});
+ const records=[
+  {name:'daily',id:'old1',type:1},{name:'heist',id:'old2',type:1},
+  {name:'play',id:'old3',type:1},{name:'status',id:'old4',type:1},
+  {name:'dashboard',id:'old5',type:1},
+  {name:'rank',id:'keep1',type:1},{name:'sandcoins',id:'keep2',type:1},
+  {name:'User menu action',id:'keep3',type:2},
+ ];
+ client.rest.get=async()=>records.map(x=>({...x}));
+ client.rest.delete=async route=>{
+  calls.push({verb:'DELETE',route});
+  const id=route.split('/').at(-1),index=records.findIndex(x=>x.id===id);
+  if(index>=0)records.splice(index,1);
+ };
+ const result=await reconcileGuildSlashCommands(client,g1);
+ assert.equal(result.verified,true);
+ assert.deepEqual(result.removed,['daily','heist','play','status','dashboard']);
+ assert.deepEqual(calls.filter(c=>c.verb==='DELETE').map(c=>c.route.split('/').at(-1)),
+  ['old1','old2','old3','old4','old5']);
+ assert.deepEqual(records.map(x=>x.id),['keep1','keep2','keep3']);
+});
+test('guild slash command verification catches a failed removal',async()=>{
+ const {client}=mockClient({guildIds:[]});
+ client.rest.get=async()=>[{id:'old1',name:'daily',type:1},
+  {id:'keep1',name:'rank',type:1},{id:'keep2',name:'sandcoins',type:1}];
+ client.rest.delete=async()=>{};
+ await assert.rejects(reconcileGuildSlashCommands(client,g1),/Guild slash registry mismatch/);
+});
+test('guild cleanup compatibility helper still reports whether daily was removed',async()=>{
+ const {client}=mockClient({guildIds:[]});
+ const records=[{id:'old',name:'daily'},{id:'keep1',name:'rank'},{id:'keep2',name:'sandcoins'}];
+ client.rest.get=async()=>records.map(x=>({...x}));
+ client.rest.delete=async()=>{records.splice(0,1);};
  assert.equal(await removeLegacyDailyGuildCommand(client,g1),true);
- assert.deepEqual(calls.map(c=>c.route),[`/applications/${appId}/guilds/${g1}/commands/old`]);
 });
 
 test('startup fails before sync if /sandcoins is missing',async()=>{

@@ -13,6 +13,7 @@ import { logger, startupLog, shutdownLog } from './utils/logger.js';
 import { checkGiveaways } from './services/giveawayService.js';
 import { closeInactiveTickets } from './services/ticket.js';
 import { loadCommands, registerCommands as registerSlashCommands } from './handlers/loaders/commandLoader.js';
+import { getRegisteredCommandCount } from './utils/commandCounts.js';
 import { runSafeTask, handleTaskError, ErrorCodes } from './utils/errorHandler.js';
 import { initializeMusic } from './services/music/riffySetup.js';
 import { shutdownMusic } from './services/music/playerHandler.js';
@@ -79,7 +80,7 @@ class BeaconClient extends Client {
       
       startupLog('Loading commands...');
       await loadCommands(this);
-      startupLog(`Commands loaded: ${this.commands.size}`);
+      startupLog(`Loaded ${this.commands.size} handlers (${getRegisteredCommandCount(this)} active slash entrypoints)`);
       
       startupLog('Loading handlers...');
       await this.loadHandlers();
@@ -100,7 +101,7 @@ class BeaconClient extends Client {
         : 'Connected (persistent data enabled)';
       const handlerSummary = `${this.buttons.size} buttons, ${this.selectMenus.size} menus, ${this.modals.size} modals`;
       startupLog(
-        `ONLINE ✅ | ${this.commands.size} commands loaded | ${handlerSummary} | Database: ${databaseMode}`
+        `ONLINE ✅ | ${getRegisteredCommandCount(this)} slash entrypoints (${this.commands.size} handlers incl. legacy) | ${handlerSummary} | Database: ${databaseMode}`
       );
       
       this.setupCronJobs();

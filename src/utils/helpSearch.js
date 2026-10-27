@@ -3,6 +3,22 @@
  * not a static hard-coded command list, so results never advertise features
  * that are no longer installed.
  */
+/** Old slash names are removed, not silently resurrected in search. */
+export const MOVED_SLASH_COMMANDS = Object.freeze({
+  heist:{command:'/treasury',steps:'Open Treasury and select **Treasury Wars**.'},
+  daily:{command:'/sandcoins daily',steps:'Claim your daily Sand Coins from the Sand Coins group.'},
+  play:{command:'/music play',steps:'Use the Music group to search or play tracks.'},
+  queue:{command:'/music queue',steps:'The music queue is inside Music (ticket queues remain under /ticket queue).'},
+  nowplaying:{command:'/music nowplaying',steps:'See the currently playing song inside Music.'},
+  join:{command:'/music join',steps:'Join your voice channel using Music.'},
+  ping:{command:'/botinfo ping',steps:'Measure latency using Bot Info.'},
+  status:{command:'/botinfo status',steps:'Review the live Beacon system status inside Bot Info.'},
+  support:{command:'/help',steps:'Open Help and select **Official Support Server**.'},
+});
+export function resolveMovedSlashCommand(query){
+ const name=String(query||'').trim().replace(/^\\/,'').replace(/^\\//,'').toLowerCase();
+ return MOVED_SLASH_COMMANDS[name]||null;
+}
 const CONCEPTS = Object.freeze({
   support: ['ticket', 'report'],
   tickets: ['ticket'],
@@ -33,16 +49,16 @@ const CONCEPTS = Object.freeze({
   goals: ['progression quests', 'progression weekly'],
   challenges: ['progression quests', 'progression weekly'],
   missions: ['progression quests', 'progression weekly'],
-  daily: ['progression quests'],
+  daily: ['sandcoins daily', 'progression quests'],
   weekly: ['progression weekly'],
   ranking: ['progression leaderboard', 'progression rank', 'rank'],
   leaderboard: ['progression leaderboard', 'rank'],
   server: ['serverinfo', 'dashboard'],
-  games: ['flip', 'roll', 'count'],
-  game: ['flip', 'roll'],
-  fun: ['flip', 'roll'],
-  music: ['music', 'play', 'queue'],
-  songs: ['play', 'music'],
+  games: ['random coin', 'random dice', 'count'],
+  game: ['random coin', 'random dice'],
+  fun: ['random coin', 'random dice'],
+  music: ['music play', 'music queue', 'music nowplaying'],
+  songs: ['music play', 'music nowplaying'],
   raffle: ['giveaway', 'gcreate'],
   giveaway: ['giveaway', 'gcreate'],
   announcement: ['announcement'],
