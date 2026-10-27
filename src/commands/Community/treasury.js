@@ -91,7 +91,7 @@ export async function buildTreasuryPanel(client,guildId,view='home',page=0){
    B('payout','Owner Payout','🎁'),
    B('toggle',state.enabled?'Disable Heists':'Enable Heists','⚔️',false,
     (!state.enabled&&state.balance<TREASURY_MIN_HEIST)||
-    (Boolean(state.changedAt)&&now-state.changedAt<TREASURY_TOGGLE_COOLDOWN_MS))),
+    (Boolean(state.changedAt)&&now-state.changedAt<TREASURY_TOGGLE_COOLDOWN_MS)),
    B('raids','Treasury Wars','⚔️')));
  }
  const embed=createEmbed({title,description,fields,color:'primary',
