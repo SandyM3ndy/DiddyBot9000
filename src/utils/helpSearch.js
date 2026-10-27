@@ -16,7 +16,8 @@ export const MOVED_SLASH_COMMANDS = Object.freeze({
   support:{command:'/help',steps:'Open Help and select **Official Support Server**.'},
 });
 export function resolveMovedSlashCommand(query){
- const name=String(query||'').trim().replace(/^\\/,'').replace(/^\\//,'').toLowerCase();
+ const entered=String(query||'').trim().toLowerCase();
+ const name=entered.startsWith('/')?entered.slice(1):entered;
  return MOVED_SLASH_COMMANDS[name]||null;
 }
 const CONCEPTS = Object.freeze({
