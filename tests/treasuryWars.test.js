@@ -190,3 +190,57 @@ test('one moving wall, three buttons, one hit; caught raid takes 3% with persist
  assert.equal((await getTreasury(client,guildA)).balance,4850);
  await assert.rejects(createTreasuryHeist(client,{guildId:guildA,actorId:owner,raidId:requestId(),now:now+3000}),/HEIST_COOLDOWN/);
 });
+
+test('raid locks in defence odds and prevents moving funds or toggling while active',async()=>{
+ const {client}=fixture();
+ await treasuryDonate(client,{guildId:guildA,userId:member,amount:10000,requestId:requestId()});
+ await treasuryDonate(client,{guildId:guildB,userId:peer,amount:10000,requestId:requestId()});
+ const now=Date.now();
+ const earlier=now-26*60*60*1000;
+ await toggleTreasuryHeists(client,{guildId:guildA,actorId:owner,now:earlier});
+ await toggleTreasuryHeists(client,{guildId:guildB,actorId:peer,now:earlier});
+ const started=await createTreasuryHeist(client,{guildId:guildA,actorId:owner,raidId:requestId(),now});
+ assert.equal(started.raid.defence,1);
+ await assert.rejects(treasuryDonate(client,{guildId:guildA,userId:member,amount:1,requestId:requestId()}),/TREASURY_LOCKED_DURING_HEIST/);
+ await assert.rejects(treasuryPayout(client,{guildId:guildB,ownerId:peer,recipientId:peer,amount:1,requestId:requestId()}),/TREASURY_LOCKED_DURING_HEIST/);
+ await assert.rejects(purchaseTreasuryItem(client,{guildId:guildB,actorId:peer,kind:'defence',requestId:requestId()}),/TREASURY_LOCKED_DURING_HEIST/);
+ await assert.rejects(toggleTreasuryHeists(client,{guildId:guildA,actorId:owner,now:now+1000}),/ACTIVE_HEIST/);
+ // Even if a saved defence value changes due to a concurrent legacy action, the raid keeps its original chance.
+ const defender=await getTreasury(client,guildB);
+ await client.db.set(treasuryStorageKey(guildB),{...defender,defence:5});
+ const right=wallAt(started.raid,now+500);
+ const result=await resolveTreasuryHeist(client,{guildId:guildA,raidId:started.raid.id,actorId:owner,column:(right+1)%3,now:now+500});
+ assert.equal(result.hit,false);
+ assert.equal(result.chance,60);
+ assert.equal((await getTreasury(client,guildB)).pending,null);
+ assert.equal((await toggleTreasuryHeists(client,{guildId:guildA,actorId:owner,now:now+1000})).enabled,false);
+});
+test('full target treasury never overflows and reports exactly how much of a caught penalty was forfeited',async()=>{
+ const {client}=fixture();
+ await treasuryDonate(client,{guildId:guildA,userId:member,amount:10000,requestId:requestId()});
+ await treasuryDonate(client,{guildId:guildB,userId:peer,amount:30000,requestId:requestId()});
+ const def=await getTreasury(client,guildB);
+ await client.db.set(treasuryStorageKey(guildB),{...def,balance:60000});
+ const now=Date.now();
+ await toggleTreasuryHeists(client,{guildId:guildA,actorId:owner,now});
+ await toggleTreasuryHeists(client,{guildId:guildB,actorId:peer,now});
+ const r=await createTreasuryHeist(client,{guildId:guildA,actorId:owner,raidId:requestId(),now:now+1000});
+ const result=await resolveTreasuryHeist(client,{guildId:guildA,raidId:r.raid.id,actorId:owner,column:null,now:now+2000});
+ assert.equal(result.amount,300);
+ assert.equal(result.received,0);
+ assert.equal(result.forfeited,300);
+ assert.equal((await getTreasury(client,guildB)).balance,60000);
+ assert.equal((await getTreasury(client,guildB)).history[0].amount,0);
+ assert.equal((await getTreasury(client,guildA)).balance,9700);
+});
+test('treasury purchases with the same confirmation request are charged once',async()=>{
+ const {client}=fixture();
+ await treasuryDonate(client,{guildId:guildA,userId:member,amount:15000,requestId:requestId()});
+ const id=requestId();
+ const first=await purchaseTreasuryItem(client,{guildId:guildA,actorId:owner,kind:'potion',itemId:'coins',requestId:id});
+ const replay=await purchaseTreasuryItem(client,{guildId:guildA,actorId:owner,kind:'potion',itemId:'coins',requestId:id});
+ assert.equal(first.balance,10000);
+ assert.equal(replay.duplicate,true);
+ assert.equal((await getTreasury(client,guildA)).potions.coins,1);
+ assert.equal((await getTreasury(client,guildA)).balance,10000);
+});

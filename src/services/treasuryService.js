@@ -27,6 +27,11 @@ const VALID_ID=/^\d{17,20}$/;
 export const treasuryStorageKey=id=>'beacon:treasury:v1:'+id;
 const transactionKey=id=>'beacon:treasury:tx:'+id;
 const clampMoney=n=>Number.isSafeInteger(n)&&n>=0;
+// A raid locks both communities' balances and defence for its 12-second window.
+// Normal activity resumes as soon as the raid completes or its window expires.
+const activeRaid=(state,now=Date.now())=>
+ Boolean((state.pending?.endsAt>now)||
+ (state.raid?.status==='active'&&state.raid.endsAt>now));
 function validId(id){if(!VALID_ID.test(String(id)))throw new Error('INVALID_ID');}
 const empty=()=>({
  version:1,balance:0,enabled:false,changedAt:0,defence:1,
@@ -94,6 +99,7 @@ export async function treasuryDonate(client,{guildId,userId,amount,requestId}){
  return atomicSandTransaction(client,[tk,wk,ik],async tx=>{
   if(tx.get(ik))return {...tx.get(ik),duplicate:true};
   const state=parse(tx.get(tk));
+  if(activeRaid(state))throw new Error('TREASURY_LOCKED_DURING_HEIST');
   if(state.balance+amount>treasuryCapacity(level))throw new Error('TREASURY_CAPACITY_REACHED');
   const wallet=applyWallet(tx.get(wk),-amount,guildId,'treasury_donation',Date.now());
   state.balance+=amount;state.donated+=amount;entry(state,'donation',amount,userId);
@@ -108,6 +114,7 @@ export async function treasuryPayout(client,{guildId,ownerId,recipientId,amount,
  return atomicSandTransaction(client,[tk,wk,ik],async tx=>{
   if(tx.get(ik))return {...tx.get(ik),duplicate:true};
   const state=parse(tx.get(tk));
+  if(activeRaid(state))throw new Error('TREASURY_LOCKED_DURING_HEIST');
   if(amount>state.balance)throw new Error('INSUFFICIENT_TREASURY_FUNDS');
   if(state.enabled&&state.balance-amount<TREASURY_MIN_HEIST)
    throw new Error('HEIST_RESERVE_REQUIRED');
@@ -125,7 +132,7 @@ export async function toggleTreasuryHeists(client,{guildId,actorId,now=Date.now(
  return atomicSandTransaction(client,[tk],async tx=>{
   const state=parse(tx.get(tk));
   if(now-state.changedAt<TREASURY_TOGGLE_COOLDOWN_MS)throw new Error('HEIST_TOGGLE_COOLDOWN');
-  if(state.pending&&state.pending.endsAt>now)throw new Error('ACTIVE_HEIST');
+  if(activeRaid(state,now))throw new Error('ACTIVE_HEIST');
   if(!state.enabled&&state.balance<TREASURY_MIN_HEIST)throw new Error('MINIMUM_500_TREASURY');
   state.enabled=!state.enabled;state.changedAt=now;
   entry(state,state.enabled?'heists_enabled':'heists_disabled',0,actorId,'',now);
@@ -139,6 +146,7 @@ export async function purchaseTreasuryItem(client,{guildId,actorId,kind,itemId,r
  return atomicSandTransaction(client,[tk,ik],async tx=>{
   if(tx.get(ik))return {...tx.get(ik),duplicate:true};
   const state=parse(tx.get(tk));
+  if(activeRaid(state))throw new Error('TREASURY_LOCKED_DURING_HEIST');
   let price,description;
   if(kind==='defence'){
    const next=TREASURY_DEFENCES.find(x=>x.level===state.defence+1);
@@ -201,12 +209,15 @@ export async function createTreasuryHeist(client,{guildId,actorId,raidId,now=Dat
   const tk=treasuryStorageKey(guildId),dk=treasuryStorageKey(target.id);
   const result=await atomicSandTransaction(client,[tk,dk],async tx=>{
    const atk=parse(tx.get(tk)),def=parse(tx.get(dk));
-   if(!atk.enabled||atk.balance<TREASURY_MIN_HEIST||atk.raidCooldownUntil>now)
+   if(!atk.enabled||atk.balance<TREASURY_MIN_HEIST||atk.raidCooldownUntil>now||
+      atk.balance>=treasuryCapacity((await client.db.get('guild:'+guildId+':progression',null))?.level||1)||
+      activeRaid(atk,now))
     throw new Error('HEIST_COOLDOWN_OR_INELIGIBLE');
    if(!def.enabled||def.balance<TREASURY_MIN_HEIST||def.shieldUntil>now||
      def.pending&&def.pending.endsAt>now)return null;
    const raid={id:raidId,targetId:target.id,actorId,startedAt:now,
-    endsAt:now+TREASURY_RAID_WINDOW_MS,seed:randomInt(3),status:'active'};
+    endsAt:now+TREASURY_RAID_WINDOW_MS,seed:randomInt(3),status:'active',
+    defence:def.defence};
    atk.raid=raid;atk.raidCooldownUntil=now+TREASURY_RAID_COOLDOWN_MS;
    def.pending={raidId,attackerId:guildId,endsAt:raid.endsAt};
    entry(atk,'raid_started',0,actorId,target.id,now);
@@ -229,29 +240,36 @@ export async function resolveTreasuryHeist(client,{guildId,raidId,actorId,column
   if(!raid||raid.id!==raidId)throw new Error('HEIST_NOT_FOUND');
   if(raid.status==='completed')return {...raid.result,duplicate:true};
   if(actorId!==null&&raid.actorId!==actorId)throw new Error('HEIST_NOT_YOURS');
-  const level=TREASURY_DEFENCES[def.defence-1];
+  // Defence is snapshotted at launch so changing it mid-raid cannot alter odds.
+  // Older in-flight raids created before this change retain their original behaviour.
+  const level=TREASURY_DEFENCES[(raid.defence??def.defence)-1];
+  if(!level)throw new Error('INVALID_RAID_DEFENCE');
   const hit=actorId!==null&&Number.isInteger(column)&&column===wallAt(raid,now);
-  const success=hit&&randomInt(100)<level.chance;
-  let amount=0;
+  const loot=Math.min(500,Math.floor(def.balance*level.loot/100),Math.max(0,attackerCap-atk.balance));
+  // Full attacking vaults cannot record a misleading zero-coin win.
+  const success=hit&&loot>0&&randomInt(100)<level.chance;
+  let amount=0,received=0,forfeited=0;
   if(success){
-   amount=Math.min(500,Math.floor(def.balance*level.loot/100),Math.max(0,attackerCap-atk.balance));
+   amount=loot;
    def.balance-=amount;atk.balance+=amount;atk.won+=amount;def.lost+=amount;
+   received=amount;
    def.shieldUntil=now+TREASURY_SHIELD_MS;
   }else{
    amount=Math.min(atk.balance,Math.ceil(atk.balance*0.03));
    atk.balance-=amount;
-   const received=Math.min(amount,Math.max(0,defenderCap-def.balance));
+   received=Math.min(amount,Math.max(0,defenderCap-def.balance));
+   forfeited=amount-received; // Excess penalty is forfeited, never credited past capacity.
    def.balance+=received;
    atk.lost+=amount;def.won+=received;
    def.shieldUntil=now+TREASURY_FAILED_SHIELD_MS;
   }
   if(def.pending?.raidId===raidId)def.pending=null;
   raid.status='completed';
-  raid.result={success,caught:!success,hit,amount,
+  raid.result={success,caught:!success,hit,amount,received,forfeited,
    chance:level.chance,targetId:raid.targetId,targetName:client.guilds.cache.get(raid.targetId)?.name||'Target Server',
    shieldUntil:def.shieldUntil};
   entry(atk,success?'raid_success':'raid_caught',success?amount:-amount,raid.actorId,raid.targetId,now);
-  entry(def,success?'raid_defended_loss':'raid_defended_win',success?-amount:amount,raid.actorId,guildId,now);
+  entry(def,success?'raid_defended_loss':'raid_defended_win',success?-amount:received,raid.actorId,guildId,now);
   tx.put(tk,atk);tx.put(dk,def);
   return raid.result;
  });

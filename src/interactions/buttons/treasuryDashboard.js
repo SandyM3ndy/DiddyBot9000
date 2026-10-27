@@ -15,7 +15,8 @@ const errMessage=err=>({
  TREASURY_CAPACITY_REACHED:'Your treasury is full. Level up your server to raise capacity.',
  MINIMUM_500_TREASURY:'You must have at least 500 Sand Coins in your treasury before opting in.',
  HEIST_TOGGLE_COOLDOWN:'You can only change heist participation once every 24 hours.',
- ACTIVE_HEIST:'You cannot opt out during an active heist.',
+ ACTIVE_HEIST:'You cannot change heist participation while a raid is active.',
+ TREASURY_LOCKED_DURING_HEIST:'Treasury balances and defences are locked during an active 12-second raid. Try again when it ends.',
  MAXIMUM_DEFENCE:'Your vault is already fully upgraded.',
  NO_POTION:'No potion of that type is in your treasury inventory.',
  POTION_ALREADY_ACTIVE:'That potion is already active for your server.',
@@ -85,7 +86,7 @@ export async function handleTreasuryButton(i,client,args=[],confirmed=false){
    const result=action==='donateamount'
     ?await treasuryDonate(client,{guildId:i.guildId,userId:i.user.id,amount,requestId:i.message.id})
     :await treasuryPayout(client,{guildId:i.guildId,ownerId:i.user.id,recipientId,amount,requestId:i.message.id});
-   await audit(i,(action==='donateamount'?'Donation':'Owner payout')+': '+amount+' SC • <@'+i.user.id+'>');
+   if(!result.duplicate)await audit(i,(action==='donateamount'?'Donation':'Owner payout')+': '+amount+' SC • <@'+i.user.id+'>');
    return i.editReply({content:'✅ Transfer confirmed: '+amount.toLocaleString()+
     ' SC. Treasury now holds '+result.balance.toLocaleString()+' SC.',components:[],embeds:[]});
   }catch(error){
@@ -110,15 +111,15 @@ export async function handleTreasuryButton(i,client,args=[],confirmed=false){
   let result;
   if(action==='toggle')result=await toggleTreasuryHeists(client,{guildId:i.guildId,actorId:i.user.id});
   else if(action==='upgrade')result=await purchaseTreasuryItem(client,{
-   guildId:i.guildId,actorId:i.user.id,kind:'defence',requestId:i.id});
+   guildId:i.guildId,actorId:i.user.id,kind:'defence',requestId:i.message.id});
   else if(action==='buycoins'||action==='buyxp')result=await purchaseTreasuryItem(client,{
-   guildId:i.guildId,actorId:i.user.id,kind:'potion',itemId:action==='buycoins'?'coins':'xp',requestId:i.id});
+   guildId:i.guildId,actorId:i.user.id,kind:'potion',itemId:action==='buycoins'?'coins':'xp',requestId:i.message.id});
   else result=await activateTreasuryPotion(client,{
    guildId:i.guildId,actorId:i.user.id,itemId:action==='usecoins'?'coins':'xp'});
   const label=action==='toggle'?(result.enabled?'Heists enabled • 1.2× eligible activity XP bonus':'Heists disabled'):
    action==='upgrade'||action.startsWith('buy')?result.description+' purchased for '+result.price.toLocaleString()+' SC':
    'Server-wide '+(action==='usecoins'?'Sand Coins':'XP')+' boost active for two hours';
-  await audit(i,'**'+label+'** • <@'+i.user.id+'>');
+  if(!result.duplicate)await audit(i,'**'+label+'** • <@'+i.user.id+'>');
   return await i.editReply({content:'✅ '+label,components:[],embeds:[]});
  }catch(error){
   logger.warn('Treasury confirmed action failed',{guildId:i.guildId,error:error.message});
