@@ -1,6 +1,7 @@
 import { SlashCommandBuilder,ActionRowBuilder,ButtonBuilder,ButtonStyle,MessageFlags } from 'discord.js';
 import { createEmbed } from '../../utils/embeds.js';
 import { getTreasury,wallAt,TREASURY_DEFENCES } from '../../services/treasuryService.js';
+import { logger } from '../../utils/logger.js';
 
 const timers=new Map();
 export function stopHeistTicker(raidId){
@@ -43,6 +44,7 @@ export function startHeistTicker(message,client,guildId,raid,targetName,defence)
     await message.edit(heistOutcome(result));
    }else await message.edit(buildHeistChallenge(raid,targetName,defence,now));
   }catch(error){
+   logger.warn('Treasury heist ticker update failed',{guildId,raidId:raid.id,error:error.message});
    if(Date.now()>=raid.endsAt)stopHeistTicker(raid.id);
   }finally{editing=false;}
  },1000);
@@ -54,7 +56,8 @@ export function heistOutcome(result){
   description:result.success?
    '**'+result.amount.toLocaleString('en-US')+' Sand Coins** were transferred to your server treasury from **'+result.targetName+'**!':
    'The security team caught the attackers. Your server lost **'+result.amount.toLocaleString('en-US')+
-   ' Sand Coins (3% of its treasury)** to the defending community.\n'+
+   ' Sand Coins (3% of its treasury)** in the penalty.'+
+   (result.forfeited?' **'+result.forfeited.toLocaleString('en-US')+' SC** was forfeited because the target treasury is full.':'')+'\n'+
    (!result.hit?'You missed the moving wall or ran out of time.':'You hit the wall, but the defence roll caught you.'),
   fields:[{name:'Target Defence',value:'Success chance: '+result.chance+'%',inline:true},
    {name:'Defender Shield',value:'Protection ends <t:'+Math.floor(result.shieldUntil/1000)+':R>',inline:true}],

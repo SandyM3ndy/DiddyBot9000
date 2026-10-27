@@ -4,6 +4,9 @@
  * All prices and cooldowns live here: views never authorise a transfer.
  */
 import { randomInt } from 'node:crypto';
+import { getGuildConfig } from './config/guildConfig.js';
+import { resolveLogChannel } from './loggingService.js';
+import { logger } from '../utils/logger.js';
 import { atomicSandTransaction, sandWalletStorageKey } from './sandCoinsService.js';
 
 export const TREASURY_MIN_HEIST=500;
@@ -27,11 +30,9 @@ const VALID_ID=/^\d{17,20}$/;
 export const treasuryStorageKey=id=>'beacon:treasury:v1:'+id;
 const transactionKey=id=>'beacon:treasury:tx:'+id;
 const clampMoney=n=>Number.isSafeInteger(n)&&n>=0;
-// A raid locks both communities' balances and defence for its 12-second window.
-// Normal activity resumes as soon as the raid completes or its window expires.
-const activeRaid=(state,now=Date.now())=>
- Boolean((state.pending?.endsAt>now)||
- (state.raid?.status==='active'&&state.raid.endsAt>now));
+// Never release funds before an expired raid is actually SETTLED.
+// The expiry sweep can run after the 12-second window following a restart.
+const activeRaid=state=>Boolean(state.pending||state.raid?.status==='active');
 function validId(id){if(!VALID_ID.test(String(id)))throw new Error('INVALID_ID');}
 const empty=()=>({
  version:1,balance:0,enabled:false,changedAt:0,defence:1,
@@ -132,7 +133,7 @@ export async function toggleTreasuryHeists(client,{guildId,actorId,now=Date.now(
  return atomicSandTransaction(client,[tk],async tx=>{
   const state=parse(tx.get(tk));
   if(now-state.changedAt<TREASURY_TOGGLE_COOLDOWN_MS)throw new Error('HEIST_TOGGLE_COOLDOWN');
-  if(activeRaid(state,now))throw new Error('ACTIVE_HEIST');
+  if(activeRaid(state))throw new Error('ACTIVE_HEIST');
   if(!state.enabled&&state.balance<TREASURY_MIN_HEIST)throw new Error('MINIMUM_500_TREASURY');
   state.enabled=!state.enabled;state.changedAt=now;
   entry(state,state.enabled?'heists_enabled':'heists_disabled',0,actorId,'',now);
@@ -200,7 +201,7 @@ export async function createTreasuryHeist(client,{guildId,actorId,raidId,now=Dat
   if(guild.id===guildId||!guild.id||(attackerOwner&&guild.ownerId===attackerOwner))continue;
   const state=await getTreasury(client,guild.id);
   if(state.enabled&&state.balance>=TREASURY_MIN_HEIST&&state.shieldUntil<=now&&
-     (!state.pending||state.pending.endsAt<=now))options.push(guild);
+     !activeRaid(state))options.push(guild);
  }
  if(!options.length)throw new Error('NO_ELIGIBLE_TARGETS');
  // Shuffle targets, then revalidate under both treasury locks.
@@ -211,10 +212,10 @@ export async function createTreasuryHeist(client,{guildId,actorId,raidId,now=Dat
    const atk=parse(tx.get(tk)),def=parse(tx.get(dk));
    if(!atk.enabled||atk.balance<TREASURY_MIN_HEIST||atk.raidCooldownUntil>now||
       atk.balance>=treasuryCapacity((await client.db.get('guild:'+guildId+':progression',null))?.level||1)||
-      activeRaid(atk,now))
+      activeRaid(atk))
     throw new Error('HEIST_COOLDOWN_OR_INELIGIBLE');
    if(!def.enabled||def.balance<TREASURY_MIN_HEIST||def.shieldUntil>now||
-     def.pending&&def.pending.endsAt>now)return null;
+     activeRaid(def))return null;
    const raid={id:raidId,targetId:target.id,actorId,startedAt:now,
     endsAt:now+TREASURY_RAID_WINDOW_MS,seed:randomInt(3),status:'active',
     defence:def.defence};
@@ -235,7 +236,7 @@ export async function resolveTreasuryHeist(client,{guildId,raidId,actorId,column
  const dk=treasuryStorageKey(current.raid.targetId),tk=treasuryStorageKey(guildId);
  const attackerCap=(await getTreasury(client,guildId)).capacity;
  const defenderCap=(await getTreasury(client,current.raid.targetId)).capacity;
- return atomicSandTransaction(client,[tk,dk],async tx=>{
+ const result=await atomicSandTransaction(client,[tk,dk],async tx=>{
   const atk=parse(tx.get(tk)),def=parse(tx.get(dk)),raid=atk.raid;
   if(!raid||raid.id!==raidId)throw new Error('HEIST_NOT_FOUND');
   if(raid.status==='completed')return {...raid.result,duplicate:true};
@@ -273,6 +274,33 @@ export async function resolveTreasuryHeist(client,{guildId,raidId,actorId,column
   tx.put(tk,atk);tx.put(dk,def);
   return raid.result;
  });
+ // Logging failures must never roll back an already committed raid transfer.
+ if(!result.duplicate)await postTreasuryRaidLogs(client,guildId,result);
+ return result;
+}
+async function postTreasuryRaidLogs(client,attackerId,result){
+ const attacker=client.guilds?.cache?.get(attackerId);
+ const defender=client.guilds?.cache?.get(result.targetId);
+ const overflow=result.forfeited?(' '+result.forfeited+' SC forfeited (defender at capacity).'):'';
+ const notices=[
+  {guild:attacker,content:result.success?
+   '🏆 **Treasury heist won!** '+result.amount+' SC transferred from **'+result.targetName+'**.':
+   '🚨 **Treasury heist failed!** Your server lost '+result.amount+' SC (3% penalty).'+overflow},
+  {guild:defender,content:result.success?
+   '🚨 **Treasury attacked!** '+result.amount+' SC was taken by **'+(attacker?.name||'another server')+'**. Your 24-hour shield is active.':
+   '🛡️ **Treasury defended!** A raid from **'+(attacker?.name||'another server')+'** failed. You received '+result.received+' SC.'+overflow},
+ ];
+ for(const item of notices){
+  if(!item.guild)continue;
+  try{
+   const config=await getGuildConfig(client,item.guild.id);
+   const channelId=resolveLogChannel(config,'audit');
+   const channel=item.guild.channels?.cache?.get(channelId);
+   if(channel?.send)await channel.send({content:item.content,allowedMentions:{parse:[]}});
+  }catch(error){
+   logger.warn('Treasury raid audit delivery failed',{guildId:item.guild.id,error:error.message});
+  }
+ }
 }
 
 /** Recover unfinished timed raids after restarts so penalties cannot be dodged. */

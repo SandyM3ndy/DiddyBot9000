@@ -15,7 +15,8 @@ COPY . .
 # at startup. Keep the full unit suite in GitHub CI to avoid Railway build
 # timeouts while still stopping faulty deployments before startup.
 RUN NODE_ENV=test node scripts/check.js \
-    && NODE_ENV=test node --test tests/runtimeHandlerImportIntegrity.test.js
+    && NODE_ENV=test node --test tests/runtimeHandlerImportIntegrity.test.js \
+    && NODE_ENV=test node --test tests/treasuryWars.test.js
 
 # Run as the unprivileged Node user, while granting it ownership of runtime-write directories.
 RUN mkdir -p /usr/src/app/logs /usr/src/app/backups \

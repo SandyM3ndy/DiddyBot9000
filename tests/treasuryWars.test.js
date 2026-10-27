@@ -244,3 +244,20 @@ test('treasury purchases with the same confirmation request are charged once',as
  assert.equal((await getTreasury(client,guildA)).potions.coins,1);
  assert.equal((await getTreasury(client,guildA)).balance,10000);
 });
+
+test('expired but unsettled raids keep funds locked until reconciliation',async()=>{
+ const {client}=fixture();
+ await treasuryDonate(client,{guildId:guildA,userId:member,amount:5000,requestId:requestId()});
+ await treasuryDonate(client,{guildId:guildB,userId:peer,amount:5000,requestId:requestId()});
+ const now=Date.now(),startedAt=now-20000;
+ await toggleTreasuryHeists(client,{guildId:guildA,actorId:owner,now:startedAt-1000});
+ await toggleTreasuryHeists(client,{guildId:guildB,actorId:peer,now:startedAt-1000});
+ const raid=await createTreasuryHeist(client,{guildId:guildA,actorId:owner,raidId:requestId(),now:startedAt});
+ assert.ok(raid.raid.endsAt<Date.now());
+ await assert.rejects(treasuryPayout(client,{guildId:guildA,ownerId:owner,recipientId:owner,amount:1,requestId:requestId()}),/TREASURY_LOCKED_DURING_HEIST/);
+ await assert.rejects(treasuryDonate(client,{guildId:guildB,userId:peer,amount:1,requestId:requestId()}),/TREASURY_LOCKED_DURING_HEIST/);
+ const {settleExpiredTreasuryHeists}=await import('../src/services/treasuryService.js');
+ assert.equal(await settleExpiredTreasuryHeists(client),1);
+ const after=await treasuryPayout(client,{guildId:guildA,ownerId:owner,recipientId:owner,amount:1,requestId:requestId()});
+ assert.ok(after.balance>=500);
+});

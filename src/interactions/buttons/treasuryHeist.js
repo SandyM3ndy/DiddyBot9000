@@ -2,19 +2,7 @@ import {MessageFlags,PermissionFlagsBits} from 'discord.js';
 import {buildHeistPanel,buildHeistChallenge,startHeistTicker,stopHeistTicker,heistOutcome} from '../../commands/Community/heist.js';
 import {createTreasuryHeist,resolveTreasuryHeist,getTreasury} from '../../services/treasuryService.js';
 import {logger} from '../../utils/logger.js';
-import { getGuildConfig } from '../../services/config/guildConfig.js';
-import { resolveLogChannel } from '../../services/loggingService.js';
 function manager(i){return i.guild?.ownerId===i.user.id||i.memberPermissions?.has(PermissionFlagsBits.ManageGuild);}
-async function reportRaid(i,result){
- try{
-  const config=await getGuildConfig(i.client,i.guildId);
-  const channel=i.guild?.channels?.cache?.get(resolveLogChannel(config,'audit'));
-  await channel?.send?.({content:result.success?
-   '🏆 **Treasury heist won!** '+result.amount+' SC transferred from **'+result.targetName+'**.':
-   '🚨 **Treasury heist failed!** Your server lost '+result.amount+' SC (3% penalty).',
-   allowedMentions:{parse:[]}});
- }catch(error){logger.warn('Treasury heist audit delivery failed',{error:error.message});}
-}
 export async function handleHeistDashboard(i,c,launch=false){
  if(!i.guildId)return i.reply({content:'Use /heist in a server.',flags:MessageFlags.Ephemeral});
  if(launch&&!manager(i))return i.reply({content:'Only the server owner or administrators can launch treasury heists.',
@@ -50,7 +38,6 @@ export async function handleHeistHit(i,c,args=[]){
   const result=await resolveTreasuryHeist(c,{guildId:i.guildId,raidId,actorId:i.user.id,column});
   stopHeistTicker(raidId);
   await i.editReply(heistOutcome(result));
-  if(!result.duplicate)await reportRaid(i,result);
  }catch(error){
   logger.warn('Heist resolution failed',{guildId:i.guildId,error:error.message});
   return i.followUp({content:'⚠️ Failed to resolve raid. Treasury balances remain protected by the database.',
