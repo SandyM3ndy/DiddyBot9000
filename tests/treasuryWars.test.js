@@ -63,7 +63,7 @@ function fixture(){
  for(const name of names)values.set('guild:'+name.id+':progression',{level:50});
  return {client,values};
 }
-test('only two slash entrypoints, with interaction-driven dashboards',async()=>{
+test('treasury and heist features share a main slash entrypoint',async()=>{
  assert.equal(treasuryCommand.data.name,'treasury');
  assert.equal(heistCommand.data.name,'heist');
  assert.deepEqual(treasuryButtons.map(x=>x.name),['treasury','treasury_confirm']);
@@ -79,6 +79,10 @@ test('only two slash entrypoints, with interaction-driven dashboards',async()=>{
  assert.match(shop.embeds[0].toJSON().description,/2× Server XP/);
  const raids=await buildHeistPanel(client,guildA);
  assert.equal(raids.components[0].toJSON().components[0].disabled,true);
+ assert.ok(panel.components[1].toJSON().components.some(b=>b.custom_id==='treasury:raids'));
+ const fromTreasury=await buildTreasuryPanel(client,guildA,'raids');
+ assert.equal(fromTreasury.embeds[0].toJSON().title,raids.embeds[0].toJSON().title);
+ assert.ok(fromTreasury.components[0].toJSON().components.some(b=>b.custom_id==='treasury:home'));
 });
 test('server-level capacity scales automatically without modifying personal inventory',()=>{
  assert.equal(treasuryCapacity(1),2500);

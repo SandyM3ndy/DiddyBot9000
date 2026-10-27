@@ -30,4 +30,6 @@ test('old slash names are retained only as prefix command handlers', () => {
   assert.ok(REQUIRED_V11_COMMANDS.includes('ticket'));
   assert.equal(LEGACY_SLASH_COMMANDS.has('rank'),false,'/rank card must be registered, not retired');
   assert.ok(REQUIRED_V11_COMMANDS.includes('rank'));
+  for(const name of ['daily','heist','play','queue','nowplaying','join','ping','status','support'])
+    assert.ok(LEGACY_SLASH_COMMANDS.has(name),name);
 });

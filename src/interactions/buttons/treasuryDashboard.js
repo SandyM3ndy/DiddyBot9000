@@ -100,7 +100,7 @@ export async function handleTreasuryButton(i,client,args=[],confirmed=false){
  const changes=['toggle','buycoins','buyxp','usecoins','usexp','upgrade'];
  if(!confirmed&&changes.includes(action))return confirm(i,action);
  if(!confirmed){
-  const view=['home','shop','defence','history','stats'].includes(action)?action:'home';
+  const view=['home','shop','defence','history','stats','raids'].includes(action)?action:'home';
   const page=view==='history'&&/^\d{1,3}$/.test(args[1]||'')?Number(args[1]):0;
   await i.deferUpdate();
   try{return await i.editReply(await buildTreasuryPanel(client,i.guildId,view,page));}

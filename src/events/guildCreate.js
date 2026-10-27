@@ -25,7 +25,7 @@ export default {
       logger.error(`Error initializing guild ${guild.id} on join:`, error);
     }
 
-    // /daily and /sandcoins are added as per-guild upserts on join.
+    // /sandcoins and /rank are upserted on join; stale /daily is retired.
     await registerGuildCommands(client, guild.id).catch(error =>
       logger.error(`Could not publish economy commands to new guild ${guild.id}: ${error.message}`)
     );

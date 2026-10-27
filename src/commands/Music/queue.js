@@ -16,7 +16,7 @@ export default {
     async execute(interaction, config, client) {
         if (!(await InteractionHelper.safeDefer(interaction))) return;
         if (!interaction.guildId) {
-            return InteractionHelper.safeEditReply(interaction, { content: 'Use /queue inside a server.' });
+            return InteractionHelper.safeEditReply(interaction, { content: 'Use /music queue inside a server.' });
         }
         const page = (interaction.options.getInteger('page') || 1) - 1;
         const payload = buildQueueReply(client || interaction.client, interaction.guildId, page);

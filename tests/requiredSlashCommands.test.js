@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
  REQUIRED_V11_COMMANDS,REQUIRED_GLOBAL_COMMANDS,getMissingRequiredCommands,
  assertRequiredCommandsPresent,registerCommands,registerSandCoinsGuildCommand,
- registerDailyGuildCommand,registerGuildCommands,
+ removeLegacyDailyGuildCommand,registerGuildCommands,
 } from '../src/handlers/loaders/commandLoader.js';
 
 const appId='123456789012345678';
@@ -31,24 +31,22 @@ function mockClient({guildIds=[g1,g2],failGuild=null}={}){
  return {client,calls};
 }
 
-test('v1.1 requires /daily and /sandcoins locally; rest register globally',()=>{
- assert.deepEqual(REQUIRED_V11_COMMANDS,['diagnose','roleaudit','ticket','giveaway','time','sandcoins','daily','rank','treasury','heist']);
- assert.deepEqual(REQUIRED_GLOBAL_COMMANDS,['diagnose','roleaudit','ticket','giveaway','time','treasury','heist']);
- assert.deepEqual(getMissingRequiredCommands(['help','diagnose','roleaudit','ticket','giveaway']),['time','sandcoins','daily','rank','treasury','heist']);
+test('v1.1 requires consolidated economy and Treasury commands',()=>{
+ assert.deepEqual(REQUIRED_V11_COMMANDS,['diagnose','roleaudit','ticket','giveaway','time','sandcoins','rank','treasury']);
+ assert.deepEqual(REQUIRED_GLOBAL_COMMANDS,['diagnose','roleaudit','ticket','giveaway','time','treasury']);
+ assert.deepEqual(getMissingRequiredCommands(['help','diagnose','roleaudit','ticket','giveaway']),['time','sandcoins','rank','treasury']);
  assert.throws(()=>assertRequiredCommandsPresent(['diagnose','ticket'],'loaded'),/roleaudit/);
  assert.doesNotThrow(()=>assertRequiredCommandsPresent(REQUIRED_V11_COMMANDS));
 });
 
-test('all guilds get both economy commands immediately, without global duplicates',async()=>{
+test('guilds get consolidated economy commands without global duplicates',async()=>{
  const {client,calls}=mockClient();
  await registerCommands(client,{clientId:appId});
  const posts=calls.filter(call=>call.verb==='POST');
  assert.deepEqual(posts.map(call=>[call.route,call.body.name]),[
   [`/applications/${appId}/guilds/${g1}/commands`,'sandcoins'],
-  [`/applications/${appId}/guilds/${g1}/commands`,'daily'],
   [`/applications/${appId}/guilds/${g1}/commands`,'rank'],
   [`/applications/${appId}/guilds/${g2}/commands`,'sandcoins'],
-  [`/applications/${appId}/guilds/${g2}/commands`,'daily'],
   [`/applications/${appId}/guilds/${g2}/commands`,'rank'],
  ]);
  for(const post of posts)assert.equal('dm_permission' in post.body,false);
@@ -58,21 +56,21 @@ test('all guilds get both economy commands immediately, without global duplicate
  assert.equal(global.route,`/applications/${appId}/commands`);
  assert.ok(global.body.some(cmd=>cmd.name==='giveaway'));
  assert.ok(global.body.some(cmd=>cmd.name==='treasury'));
- assert.ok(global.body.some(cmd=>cmd.name==='heist'));
+ assert.ok(global.body.every(cmd=>!['heist','daily','play','queue','nowplaying','join','ping','status','support'].includes(cmd.name)));
  assert.ok(global.body.every(cmd=>cmd.name!=='rank'),'guild and global /rank must never coexist');
- assert.deepEqual(posts[2].body.options.map(option=>option.name),['card','server']);
- assert.equal(posts[2].body.options[0].options[0].name,'server_id');
+ assert.deepEqual(posts[1].body.options.map(option=>option.name),['card','server']);
+ assert.equal(posts[1].body.options[0].options[0].name,'server_id');
  assert.ok(global.body.every(cmd=>!['sandcoins','daily'].includes(cmd.name)));
  assert.ok(calls.every(call=>!call.route.includes('/guilds/')||call.verb==='POST'));
 });
 
-test('a failed guild registration retains both global economy command fallbacks',async()=>{
+test('a failed guild registration keeps the sandcoins global fallback',async()=>{
  const {client,calls}=mockClient({failGuild:g2});
  await registerCommands(client,{clientId:appId});
  const global=calls.at(-1);
  assert.equal(global.verb,'PUT');
  assert.ok(global.body.some(x=>x.name==='sandcoins'));
- assert.ok(global.body.some(x=>x.name==='daily'));
+ assert.ok(global.body.every(x=>x.name!=='daily'));
  assert.ok(global.body.every(x=>x.name!=='rank'));
 });
 
@@ -98,21 +96,27 @@ test('the rank definition is confirmed as a nested /rank card subcommand',async(
 });
 test('new guild command registration only upserts, never deletes existing commands',async()=>{
  const {client,calls}=mockClient({guildIds:[]});
- assert.equal(await registerGuildCommands(client,g1),3);
- assert.deepEqual(calls.map(x=>x.body.name),['sandcoins','daily','rank']);
- assert.deepEqual(calls.map(x=>x.verb),['POST','POST','POST']);
+ assert.equal(await registerGuildCommands(client,g1),2);
+ assert.deepEqual(calls.map(x=>x.body.name),['sandcoins','rank']);
+ assert.deepEqual(calls.map(x=>x.verb),['POST','POST']);
 });
 
-test('individual economy guild registration helpers preserve their names',async()=>{
+test('per-guild sandcoins registration still works',async()=>{
  const {client,calls}=mockClient({guildIds:[]});
  assert.equal((await registerSandCoinsGuildCommand(client,g1)).name,'sandcoins');
- assert.equal((await registerDailyGuildCommand(client,g1)).name,'daily');
- assert.equal(calls.length,2);
+ assert.equal(calls.length,1);
+});
+test('guild cleanup deletes only a stale /daily, not rank or sandcoins',async()=>{
+ const {client,calls}=mockClient({guildIds:[]});
+ client.rest.get=async()=>[{name:'daily',id:'old'},{name:'rank',id:'keep1'},{name:'sandcoins',id:'keep2'}];
+ client.rest.delete=async route=>calls.push({verb:'DELETE',route});
+ assert.equal(await removeLegacyDailyGuildCommand(client,g1),true);
+ assert.deepEqual(calls.map(c=>c.route),[`/applications/${appId}/guilds/${g1}/commands/old`]);
 });
 
-test('startup fails before sync if /daily is missing from command files',async()=>{
+test('startup fails before sync if /sandcoins is missing',async()=>{
  const {client,calls}=mockClient();
- client.commands.delete('daily');
- await assert.rejects(registerCommands(client,{clientId:appId}),/daily/);
+ client.commands.delete('sandcoins');
+ await assert.rejects(registerCommands(client,{clientId:appId}),/sandcoins/);
  assert.equal(calls.length,0);
 });

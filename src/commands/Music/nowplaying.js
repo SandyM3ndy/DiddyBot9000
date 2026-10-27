@@ -12,7 +12,7 @@ export default {
 
     async execute(interaction, config, client) {
         if (!interaction.guildId) {
-            return InteractionHelper.safeReply(interaction, { content: 'Use /nowplaying in a server.', ephemeral: true });
+            return InteractionHelper.safeReply(interaction, { content: 'Use /music nowplaying in a server.', ephemeral: true });
         }
         await deferMusicCommand(interaction);
         const payload = buildNowPlayingReply(client || interaction.client, interaction.guildId);

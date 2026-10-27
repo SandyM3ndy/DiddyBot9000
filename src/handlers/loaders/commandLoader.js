@@ -10,9 +10,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const MAX_COMMANDS = 100;
 const COMMAND_COUNT_WARN_THRESHOLD = 90;
-export const REQUIRED_V11_COMMANDS = Object.freeze(['diagnose', 'roleaudit', 'ticket', 'giveaway', 'time', 'sandcoins', 'daily', 'rank', 'treasury', 'heist']);
+export const REQUIRED_V11_COMMANDS = Object.freeze(['diagnose', 'roleaudit', 'ticket', 'giveaway', 'time', 'sandcoins', 'rank', 'treasury']);
 // Economy commands appear immediately in every guild; account state stays global.
-const GUILD_ECONOMY_COMMANDS = Object.freeze(['sandcoins','daily']);
+const GUILD_ECONOMY_COMMANDS = Object.freeze(['sandcoins']);
 // /rank card is published per guild only. The global duplicate is deleted on sync.
 const GUILD_IMMEDIATE_COMMANDS = Object.freeze([...GUILD_ECONOMY_COMMANDS,'rank']);
 export const REQUIRED_GLOBAL_COMMANDS = Object.freeze(REQUIRED_V11_COMMANDS.filter(name => !GUILD_IMMEDIATE_COMMANDS.includes(name)));
@@ -53,6 +53,8 @@ export const LEGACY_SLASH_COMMANDS = new Set([
   // Standalone slash names replaced by /random, /math, and /time.
   // Retained as internal implementations and prefix handlers, not slash commands.
   'flip', 'roll', 'calculate', 'baseconvert', 'countdown',
+  // Consolidated into /music, /botinfo, /treasury and /sandcoins.
+  'play', 'queue', 'nowplaying', 'join', 'ping', 'status', 'support', 'heist', 'daily',
 ]);
 
 function getSubcommandInfo(commandData) {
@@ -226,9 +228,23 @@ export function registerSandCoinsGuildCommand(client,guildId,options={}){
 export function registerDailyGuildCommand(client,guildId,options={}){
  return upsertEconomyGuildCommand(client,guildId,'daily',options);
 }
+/** Only remove obsolete guild /daily; never wipe current guild commands. */
+export async function removeLegacyDailyGuildCommand(client,guildId,options={}){
+ const id=options.clientId||client.config?.bot?.clientId;
+ if(!id||!guildId||!client.rest?.get||!client.rest?.delete)return false;
+ const route=`/applications/${id}/guilds/${guildId}/commands`;
+ const records=await client.rest.get(route);
+ if(!Array.isArray(records))throw new Error('Could not confirm guild commands before cleanup');
+ const obsolete=records.filter(x=>x.name==='daily'&&x.id);
+ for(const item of obsolete)await client.rest.delete(route+'/'+item.id);
+ if(obsolete.length)logger.info('Retired redundant /daily from guild '+guildId);
+ return obsolete.length>0;
+}
 export async function registerGuildCommands(client,guildId,options={}){
  for(const name of GUILD_IMMEDIATE_COMMANDS)
   await upsertEconomyGuildCommand(client,guildId,name,options);
+ try{await removeLegacyDailyGuildCommand(client,guildId,options);}
+ catch(error){logger.warn('Unable to retire redundant guild /daily: '+error.message);}
  return GUILD_IMMEDIATE_COMMANDS.length;
 }
 export async function registerSandCoinsAllGuilds(client,options={}){
@@ -244,7 +260,7 @@ export async function registerSandCoinsAllGuilds(client,options={}){
    logger.error('Immediate command registration failed for guild '+guild.id+': '+error.message);
   }
  }
- logger.info('Sand Coins + Daily + Rank guild sync: '+registered+'/'+guilds.length+' registered'+
+ logger.info('Sand Coins + Rank guild sync: '+registered+'/'+guilds.length+' registered'+
   (failed.length?' (failed: '+failed.join(', ')+')':''));
  return {registered,total:guilds.length,failed};
 }

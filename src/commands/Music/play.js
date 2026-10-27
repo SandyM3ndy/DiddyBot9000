@@ -47,7 +47,7 @@ export default {
                     throw new TitanBotError(
                         'Music service unavailable',
                         ErrorTypes.NETWORK,
-                        'Beacon could not reach the music service right now. Lavalink may be reconnecting. Please try /play again in a few seconds.',
+                        'Beacon could not reach the music service right now. Lavalink may be reconnecting. Please try /music play again in a few seconds.',
                         { errorCode: 'MUSIC_SERVICE_UNAVAILABLE', cause: retryError?.message },
                     );
                 }

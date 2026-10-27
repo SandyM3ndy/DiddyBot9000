@@ -1,4 +1,8 @@
 import { SlashCommandBuilder } from 'discord.js';
+import playCommand from './play.js';
+import queueCommand from './queue.js';
+import nowPlayingCommand from './nowplaying.js';
+import joinCommand from './join.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 import { createEmbed } from '../../utils/embeds.js';
 import {
@@ -23,7 +27,13 @@ export default {
     category: 'Music',
     data: new SlashCommandBuilder()
         .setName('music')
-        .setDescription('Manage playback, queue, and voice session settings')
+        .setDescription('Play tracks and manage the music player')
+        .addSubcommand(s => s.setName('play').setDescription('Play a song or add it to the queue')
+            .addStringOption(o => o.setName('query').setDescription('Song name or URL').setRequired(true)))
+        .addSubcommand(s => s.setName('queue').setDescription('Show the music queue')
+            .addIntegerOption(o => o.setName('page').setDescription('Page number').setMinValue(1).setMaxValue(999)))
+        .addSubcommand(s => s.setName('nowplaying').setDescription('Show the currently playing track'))
+        .addSubcommand(s => s.setName('join').setDescription('Join your voice channel without playing a track'))
         .addSubcommand((sub) =>
             sub.setName('pause').setDescription('Pause playback'),
         )
@@ -107,8 +117,14 @@ export default {
         ),
 
     async execute(interaction, config, client) {
-        await deferMusicCommand(interaction);
         const subcommand = interaction.options.getSubcommand();
+        // Original handlers retain their retry, page and reply behaviour.
+        // Delegate before the common defer to avoid double acknowledgements.
+        if(subcommand==='play')return playCommand.execute(interaction,config,client||interaction.client);
+        if(subcommand==='queue')return queueCommand.execute(interaction,config,client||interaction.client);
+        if(subcommand==='nowplaying')return nowPlayingCommand.execute(interaction,config,client||interaction.client);
+        if(subcommand==='join')return joinCommand.execute(interaction,config,client||interaction.client);
+        await deferMusicCommand(interaction);
 
         switch (subcommand) {
             case 'status': {

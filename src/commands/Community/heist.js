@@ -88,7 +88,9 @@ export async function buildHeistPanel(client,guildId){
    new ButtonBuilder().setCustomId('heist_launch').setLabel('Launch Random Heist')
     .setEmoji('⚔️').setStyle(ButtonStyle.Danger).setDisabled(!ready||available===0),
    new ButtonBuilder().setCustomId('heist_refresh').setLabel('Refresh')
-    .setEmoji('🔄').setStyle(ButtonStyle.Secondary))],
+    .setEmoji('🔄').setStyle(ButtonStyle.Secondary),
+   new ButtonBuilder().setCustomId('treasury:home').setLabel('Back to Treasury')
+    .setEmoji('🏦').setStyle(ButtonStyle.Secondary))],
   allowedMentions:{parse:[]}};
 }
 export default {

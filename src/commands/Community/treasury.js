@@ -20,6 +20,10 @@ export async function buildTreasuryPanel(client,guildId,view='home',page=0){
    B('stats','Stats','📊',view==='stats')),
  ];
  let title='🏦 Beacon • Community Treasury',description='';
+ if(view==='raids'){
+  const {buildHeistPanel}=await import('./heist.js');
+  return buildHeistPanel(client,guildId);
+ }
  if(view==='shop'){
   title='🧪 Treasury Potion Shop';
   description='Treasury funds buy boosts for your entire community. Only the owner/admins can purchase or activate potions.\n\n'+
@@ -87,7 +91,8 @@ export async function buildTreasuryPanel(client,guildId,view='home',page=0){
    B('payout','Owner Payout','🎁'),
    B('toggle',state.enabled?'Disable Heists':'Enable Heists','⚔️',false,
     (!state.enabled&&state.balance<TREASURY_MIN_HEIST)||
-    (Boolean(state.changedAt)&&now-state.changedAt<TREASURY_TOGGLE_COOLDOWN_MS))));
+    (Boolean(state.changedAt)&&now-state.changedAt<TREASURY_TOGGLE_COOLDOWN_MS))),
+   B('raids','Treasury Wars','⚔️')));
  }
  const embed=createEmbed({title,description,fields,color:'primary',
   footer:'Beacon • Sand Coins • Shared treasury • All transfers are logged'});

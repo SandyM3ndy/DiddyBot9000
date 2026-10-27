@@ -5,6 +5,8 @@ import { getRegisteredCommandCount } from '../../utils/commandCounts.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 import { isAntiNukeAIConfigured, getAntiNukeAIModel } from '../../services/aiSecurityService.js';
 import { getBeaconInviteUrl } from './invite.js';
+import statusCommand from './status.js';
+import pingCommand from './ping.js';
 
 function displayUptime(seconds) {
   const days = Math.floor(seconds / 86400);
@@ -16,9 +18,15 @@ function displayUptime(seconds) {
 export default {
   data: new SlashCommandBuilder()
     .setName('botinfo')
-    .setDescription('Explore Beacon features, statistics and runtime information'),
+    .setDescription('View Beacon information, system status and ping')
+    .addSubcommand(s=>s.setName('about').setDescription('Beacon features and runtime information'))
+    .addSubcommand(s=>s.setName('status').setDescription('Gateway, database and uptime health'))
+    .addSubcommand(s=>s.setName('ping').setDescription('Measure response latency and gateway ping')),
   category: 'Core',
-  async execute(interaction) {
+  async execute(interaction,config,clientOverride) {
+    const sub=interaction.options?.getSubcommand?.(false)||'about';
+    if(sub==='status')return statusCommand.execute(interaction,config,clientOverride);
+    if(sub==='ping')return pingCommand.execute(interaction,config,clientOverride);
     const client = interaction.client;
     const ping = Number.isFinite(client.ws?.ping) && client.ws.ping >= 0
       ? Math.round(client.ws.ping) + ' ms' : 'Unavailable';
@@ -44,7 +52,8 @@ export default {
       ],
       footer: 'Beacon • Your community\'s all-in-one Discord assistant.',
     });
-    const actions=[];
+    const actions=[new ButtonBuilder().setLabel('Official Support Server')
+      .setEmoji('💬').setURL('https://discord.gg/76N2EM6v6k').setStyle(ButtonStyle.Link)];
     const clientId=client.user?.id || client.config?.bot?.clientId;
     if (/^\d{17,20}$/.test(String(clientId || ''))) {
       actions.push(new ButtonBuilder().setLabel('Invite Beacon').setEmoji('🚀')
