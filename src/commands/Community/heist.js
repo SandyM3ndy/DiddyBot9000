@@ -1,6 +1,6 @@
 import { SlashCommandBuilder,ActionRowBuilder,ButtonBuilder,ButtonStyle,MessageFlags } from 'discord.js';
 import { createEmbed } from '../../utils/embeds.js';
-import { getTreasury,wallAt,TREASURY_DEFENCES } from '../../services/treasuryService.js';
+import { getTreasury,getEligibleTreasuryTargets,wallAt,TREASURY_DEFENCES } from '../../services/treasuryService.js';
 import { logger } from '../../utils/logger.js';
 
 const timers=new Map();
@@ -66,10 +66,18 @@ export function heistOutcome(result){
 }
 export async function buildHeistPanel(client,guildId){
  const s=await getTreasury(client,guildId),now=Date.now();
- const ready=s.enabled&&s.balance>=500&&s.raidCooldownUntil<=now;
+ const ready=s.enabled&&s.balance>=500&&s.raidCooldownUntil<=now&&
+  s.balance<s.capacity&&s.raid?.status!=='active'&&!s.pending;
+ let available=null;
+ if(ready){
+  try{available=(await getEligibleTreasuryTargets(client,guildId,now)).length;}
+  catch(error){logger.warn('Treasury target availability lookup failed',{guildId,error:error.message});}
+ }
  const description='**Server treasury:** '+s.balance.toLocaleString('en-US')+' SC\n'+
   '**Opted into raids:** '+(s.enabled?'Yes':'No')+'\n'+
   '**1.2× XP bonus:** '+(s.enabled&&s.balance>=500?'Active':'Inactive')+'\n'+
+  '**Eligible target treasuries:** '+(available===null?'Not checked':available+' available')+'\n'+
+  (ready&&available===0?'No eligible targets are currently unshielded. Refresh to check again.\n':'')+
   (s.raidCooldownUntil>now?'**Next raid available:** <t:'+Math.floor(s.raidCooldownUntil/1000)+':R>\n':'')+
   (s.shieldUntil>now?'**Your shield expires:** <t:'+Math.floor(s.shieldUntil/1000)+':R>\n':'')+
   '\n**Raid rules:** One moving-wall stage, three buttons, 12 seconds. '+
@@ -78,7 +86,7 @@ export async function buildHeistPanel(client,guildId){
  return {embeds:[createEmbed({title:'⚔️ Beacon Treasury Wars',description,color:'primary'})],
   components:[new ActionRowBuilder().addComponents(
    new ButtonBuilder().setCustomId('heist_launch').setLabel('Launch Random Heist')
-    .setEmoji('⚔️').setStyle(ButtonStyle.Danger).setDisabled(!ready),
+    .setEmoji('⚔️').setStyle(ButtonStyle.Danger).setDisabled(!ready||available===0),
    new ButtonBuilder().setCustomId('heist_refresh').setLabel('Refresh')
     .setEmoji('🔄').setStyle(ButtonStyle.Secondary))],
   allowedMentions:{parse:[]}};

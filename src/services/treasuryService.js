@@ -38,18 +38,27 @@ const empty=()=>({
  version:1,balance:0,enabled:false,changedAt:0,defence:1,
  potions:{coins:0,xp:0},active:{coins:0,xp:0},
  shieldUntil:0,raidCooldownUntil:0,pending:null,raid:null,
- donated:0,spent:0,won:0,lost:0,history:[],
+ donated:0,spent:0,won:0,lost:0,history:[],contributors:{},
 });
 function parse(raw){
  if(raw===null||raw===undefined)return empty();
  if(!raw||typeof raw!=='object'||Array.isArray(raw)||raw.version!==1||!clampMoney(raw.balance))
   throw new Error('INVALID_TREASURY_DATA');
+ const contributors=raw.contributors??{};
+ if(!contributors||typeof contributors!=='object'||Array.isArray(contributors)||
+    Object.entries(contributors).some(([id,total])=>!VALID_ID.test(id)||!clampMoney(total)))
+  throw new Error('INVALID_TREASURY_DATA');
  const out={...empty(),...raw,
-  potions:{coins:0,xp:0,...raw.potions},active:{coins:0,xp:0,...raw.active}};
+  potions:{coins:0,xp:0,...raw.potions},active:{coins:0,xp:0,...raw.active},
+  contributors:{...contributors}};
  if(!TREASURY_DEFENCES.some(d=>d.level===out.defence)||
+    ![out.donated,out.spent,out.won,out.lost].every(clampMoney)||
     !Object.values(out.potions).every(clampMoney)||
     !Object.values(out.active).every(x=>clampMoney(x))||
-    !Array.isArray(out.history))throw new Error('INVALID_TREASURY_DATA');
+    !Array.isArray(out.history)||
+    out.history.some(item=>!item||typeof item!=='object'||typeof item.kind!=='string'||
+      !Number.isSafeInteger(item.amount)||!clampMoney(item.at)))
+  throw new Error('INVALID_TREASURY_DATA');
  out.history=out.history.slice(0,60);
  return out;
 }
@@ -103,7 +112,12 @@ export async function treasuryDonate(client,{guildId,userId,amount,requestId}){
   if(activeRaid(state))throw new Error('TREASURY_LOCKED_DURING_HEIST');
   if(state.balance+amount>treasuryCapacity(level))throw new Error('TREASURY_CAPACITY_REACHED');
   const wallet=applyWallet(tx.get(wk),-amount,guildId,'treasury_donation',Date.now());
-  state.balance+=amount;state.donated+=amount;entry(state,'donation',amount,userId);
+  const contributed=(state.contributors[userId]||0)+amount;
+  if(!clampMoney(contributed)||!clampMoney(state.donated+amount))
+   throw new Error('INVALID_TREASURY_DATA');
+  state.balance+=amount;state.donated+=amount;
+  state.contributors[userId]=contributed;
+  entry(state,'donation',amount,userId);
   const result={balance:state.balance,walletBalance:wallet.balance,amount};
   tx.put(wk,wallet);tx.put(tk,state);tx.put(ik,result);
   return result;
@@ -183,6 +197,45 @@ export async function activateTreasuryPotion(client,{guildId,actorId,itemId,now=
   return {activeUntil:state.active[itemId],itemId};
  });
 }
+/** Eligibility preview; launch rechecks both treasuries inside a transaction. */
+export async function getEligibleTreasuryTargets(client,guildId,now=Date.now()){
+ validId(guildId);
+ const source=client.guilds?.cache?.get(guildId);
+ const guilds=[...(client.guilds?.cache?.values()||[])].filter(guild=>
+  guild?.id&&guild.id!==guildId&&(!source?.ownerId||source.ownerId!==guild.ownerId));
+ const candidates=await Promise.all(guilds.map(async guild=>{
+  const state=await getTreasury(client,guild.id);
+  return state.enabled&&state.balance>=TREASURY_MIN_HEIST&&
+   state.shieldUntil<=now&&!activeRaid(state)?guild:null;
+ }));
+ return candidates.filter(Boolean);
+}
+/** Read-only Treasury checks for the existing /diagnose command. */
+export async function diagnoseTreasuryState(client,guildId,now=Date.now()){
+ validId(guildId);
+ const findings=[];
+ const raw=await client.db.get(treasuryStorageKey(guildId),null);
+ if(raw===null||raw===undefined)return {configured:false,findings};
+ let state;
+ try{state=await getTreasury(client,guildId);}
+ catch(error){
+  return {configured:true,findings:[{severity:'critical',subject:'Treasury integrity',
+   detail:'Saved Treasury data could not be validated. Review the database before moving funds.'}]};
+ }
+ if(state.balance>state.capacity)findings.push({severity:'warning',subject:'Treasury capacity',
+  detail:'Stored balance exceeds the current server-level capacity. Check for a level change or ledger issue.'});
+ if(state.raid?.status==='active'&&state.raid.endsAt<now-120000)
+  findings.push({severity:'warning',subject:'Treasury outgoing heist',
+   detail:'An expired heist remains unsettled. Check raid reconciliation and database logs.'});
+ if(state.pending&&state.pending.endsAt<now-120000)
+  findings.push({severity:'warning',subject:'Treasury incoming heist',
+   detail:'An expired incoming heist has not been cleared. Check the attacker server and reconciliation.'});
+ const donorTotal=Object.values(state.contributors).reduce((total,amount)=>total+amount,0);
+ if(!Number.isSafeInteger(donorTotal)||donorTotal>state.donated)
+  findings.push({severity:'critical',subject:'Treasury donation ledger',
+   detail:'Contributor totals exceed the recorded donated total. Investigate the ledger before payouts.'});
+ return {configured:true,findings};
+}
 export function wallAt(raid,now=Date.now()){
  const since=now-raid.startedAt;
  if(since<0||since>=TREASURY_RAID_WINDOW_MS)return -1;
@@ -194,15 +247,7 @@ export async function createTreasuryHeist(client,{guildId,actorId,raidId,now=Dat
  if(!attacking.enabled||attacking.balance<TREASURY_MIN_HEIST)throw new Error('HEIST_NOT_ELIGIBLE');
  if(attacking.raidCooldownUntil>now)throw new Error('HEIST_COOLDOWN');
  if(attacking.balance>=attacking.capacity)throw new Error('TREASURY_CAPACITY_REACHED');
- const guilds=[...(client.guilds?.cache?.values()||[])];
- const attackerOwner=client.guilds.cache.get(guildId)?.ownerId;
- const options=[];
- for(const guild of guilds){
-  if(guild.id===guildId||!guild.id||(attackerOwner&&guild.ownerId===attackerOwner))continue;
-  const state=await getTreasury(client,guild.id);
-  if(state.enabled&&state.balance>=TREASURY_MIN_HEIST&&state.shieldUntil<=now&&
-     !activeRaid(state))options.push(guild);
- }
+ const options=await getEligibleTreasuryTargets(client,guildId,now);
  if(!options.length)throw new Error('NO_ELIGIBLE_TARGETS');
  // Shuffle targets, then revalidate under both treasury locks.
  for(let i=options.length-1;i>0;i--){const j=randomInt(i+1);[options[i],options[j]]=[options[j],options[i]];}

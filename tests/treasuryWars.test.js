@@ -4,7 +4,8 @@ import { getSandWallet,sandWalletStorageKey } from '../src/services/sandCoinsSer
 import {
  getTreasury,getTreasuryEffects,treasuryStorageKey,treasuryCapacity,TREASURY_DEFENCES,
  treasuryDonate,treasuryPayout,toggleTreasuryHeists,purchaseTreasuryItem,activateTreasuryPotion,
- createTreasuryHeist,resolveTreasuryHeist,wallAt,TREASURY_MIN_HEIST,TREASURY_RAID_WINDOW_MS,
+ createTreasuryHeist,resolveTreasuryHeist,getEligibleTreasuryTargets,diagnoseTreasuryState,
+ wallAt,TREASURY_MIN_HEIST,TREASURY_RAID_WINDOW_MS,
 } from '../src/services/treasuryService.js';
 import treasuryCommand,{buildTreasuryPanel} from '../src/commands/Community/treasury.js';
 import heistCommand,{buildHeistPanel,buildHeistChallenge} from '../src/commands/Community/heist.js';
@@ -260,4 +261,84 @@ test('expired but unsettled raids keep funds locked until reconciliation',async(
  assert.equal(await settleExpiredTreasuryHeists(client),1);
  const after=await treasuryPayout(client,{guildId:guildA,ownerId:owner,recipientId:owner,amount:1,requestId:requestId()});
  assert.ok(after.balance>=500);
+});
+
+test('statistics keeps a persistent donor leaderboard while legacy totals are retained',async()=>{
+ const {client}=fixture();
+ const legacy={...(await getTreasury(client,guildA)),donated:200,history:[]};
+ delete legacy.contributors;
+ await client.db.set(treasuryStorageKey(guildA),legacy);
+ const first=requestId();
+ await treasuryDonate(client,{guildId:guildA,userId:member,amount:300,requestId:first});
+ await treasuryDonate(client,{guildId:guildA,userId:owner,amount:100,requestId:requestId()});
+ await treasuryDonate(client,{guildId:guildA,userId:member,amount:50,requestId:requestId()});
+ const duplicate=await treasuryDonate(client,{guildId:guildA,userId:member,amount:300,requestId:first});
+ assert.equal(duplicate.duplicate,true);
+ const result=await getTreasury(client,guildA);
+ assert.equal(result.donated,650);
+ assert.deepEqual(result.contributors,{[member]:350,[owner]:100});
+ const panel=(await buildTreasuryPanel(client,guildA,'stats')).embeds[0].toJSON();
+ assert.match(panel.description,/650 SC/);
+ assert.match(panel.fields[0].value,/350 SC/);
+ assert.ok(panel.fields[0].value.indexOf(member)<panel.fields[0].value.indexOf(owner));
+ assert.match(panel.fields[1].value,/older treasury donations/i);
+});
+test('history pagination is bounded and navigates the existing Treasury panel',async()=>{
+ const {client}=fixture();
+ const state=await getTreasury(client,guildA);
+ await client.db.set(treasuryStorageKey(guildA),{
+  ...state,history:Array.from({length:29},(_,n)=>({kind:'donation',amount:n+1,
+   actorId:member,detail:'',at:Date.now()-n*1000}))
+ });
+ const first=await buildTreasuryPanel(client,guildA,'history');
+ assert.match(first.embeds[0].toJSON().description,/Page 1 \/ 3/);
+ assert.equal(first.components.length,2);
+ const controls=first.components[1].toJSON().components;
+ assert.equal(controls[0].disabled,true);
+ assert.equal(controls[1].custom_id,'treasury:history:1');
+ const page2=await buildTreasuryPanel(client,guildA,'history',1);
+ assert.match(page2.embeds[0].toJSON().description,/Page 2 \/ 3/);
+ assert.equal(page2.components[1].toJSON().components[0].disabled,false);
+ assert.equal(page2.components[1].toJSON().components[1].disabled,false);
+ const last=await buildTreasuryPanel(client,guildA,'history',999);
+ assert.match(last.embeds[0].toJSON().description,/Page 3 \/ 3/);
+ assert.equal(last.components[1].toJSON().components[1].disabled,true);
+});
+test('heist availability reflects target opt-ins and active shields',async()=>{
+ const {client}=fixture();
+ await treasuryDonate(client,{guildId:guildA,userId:member,amount:5000,requestId:requestId()});
+ await treasuryDonate(client,{guildId:guildB,userId:peer,amount:5000,requestId:requestId()});
+ await toggleTreasuryHeists(client,{guildId:guildA,actorId:owner});
+ let panel=await buildHeistPanel(client,guildA);
+ assert.match(panel.embeds[0].toJSON().description,/0 available/);
+ assert.equal(panel.components[0].toJSON().components[0].disabled,true);
+ await toggleTreasuryHeists(client,{guildId:guildB,actorId:peer});
+ panel=await buildHeistPanel(client,guildA);
+ assert.match(panel.embeds[0].toJSON().description,/1 available/);
+ assert.equal(panel.components[0].toJSON().components[0].disabled,false);
+ assert.equal((await getEligibleTreasuryTargets(client,guildA)).length,1);
+ const b=await getTreasury(client,guildB);
+ await client.db.set(treasuryStorageKey(guildB),{...b,shieldUntil:Date.now()+3600000});
+ panel=await buildHeistPanel(client,guildA);
+ assert.match(panel.embeds[0].toJSON().description,/0 available/);
+ assert.equal(panel.components[0].toJSON().components[0].disabled,true);
+});
+test('diagnose detects malformed records and expired raids without changing treasury funds',async()=>{
+ const {client}=fixture();
+ let report=await diagnoseTreasuryState(client,guildA);
+ assert.equal(report.configured,false);
+ const normal=await getTreasury(client,guildA);
+ await client.db.set(treasuryStorageKey(guildA),{
+  ...normal,balance:65000,contributors:{[member]:100},donated:50,
+  raid:{status:'active',endsAt:Date.now()-180000}
+ });
+ report=await diagnoseTreasuryState(client,guildA);
+ assert.equal(report.configured,true);
+ assert.ok(report.findings.some(x=>x.subject==='Treasury capacity'));
+ assert.ok(report.findings.some(x=>x.subject==='Treasury outgoing heist'));
+ assert.ok(report.findings.some(x=>x.subject==='Treasury donation ledger'&&x.severity==='critical'));
+ assert.equal((await getTreasury(client,guildA)).balance,65000);
+ await client.db.set(treasuryStorageKey(guildA),{...normal,contributors:{[member]:-1}});
+ report=await diagnoseTreasuryState(client,guildA);
+ assert.ok(report.findings.some(x=>x.subject==='Treasury integrity'&&x.severity==='critical'));
 });

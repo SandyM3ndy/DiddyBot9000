@@ -2,6 +2,7 @@ import { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } from 'discord.
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 import { createEmbed } from '../../utils/embeds.js';
 import { diagnoseGuild, calculateServerHealth, buildDiagnosticActionPlan, summarizeConfiguredFeatures } from '../../utils/diagnostics.js';
+import { diagnoseTreasuryState } from '../../services/treasuryService.js';
 
 const ICONS = { critical: '🔴', warning: '🟠', unverified: '⚪', ok: '🟢' };
 
@@ -26,6 +27,15 @@ export default {
     if (!databaseStatus || databaseStatus.isDegraded === true || databaseStatus.connectionType !== 'postgresql') {
       findings.unshift({ severity: 'critical', subject: 'Database', detail: 'Persistent database connectivity is not confirmed healthy.' });
     }
+    let treasuryHealth;
+    try{
+      treasuryHealth=await diagnoseTreasuryState(client,interaction.guild.id);
+      findings.push(...treasuryHealth.findings);
+    }catch(error){
+      treasuryHealth={configured:true,findings:[{severity:'unverified',subject:'Treasury status',
+        detail:'Could not read Treasury health. Check persistent storage connectivity.'}]};
+      findings.push(...treasuryHealth.findings);
+    }
     const count = level => findings.filter(item => item.severity === level).length;
     const critical = count('critical');
     const warning = count('warning');
@@ -46,6 +56,12 @@ export default {
           '\n\n' + desc).slice(0, 4000),
         fields: [
           { name: '📊 Checks', value: health.checked + ' checked • ' + summary, inline: false },
+          { name: '🏦 Treasury Health', value: !treasuryHealth.configured?
+             'Not used yet — this optional feature is not a health failure.':
+             treasuryHealth.findings.length?
+             treasuryHealth.findings.length+' finding(s). See checks above for details.':
+             'No issues detected in the saved balance, donation tracking or pending raid state.',
+            inline: false },
           { name: '🛠️ Fix It • Recommended next steps', value: (plan.length
               ? plan.map((step, i) => (i + 1) + '. ' + step).join('\n')
               : 'No confirmed problems. Use /dashboard to configure optional features when needed.').slice(0,1024),
