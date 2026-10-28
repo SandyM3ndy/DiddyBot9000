@@ -82,7 +82,7 @@ export function buildDispatchMission(profile,userId,feedback=null){
   content:notice,allowedMentions:{parse:[]},attachments:[]};
 }
 export function buildDispatchResult(profile,result){
- const next=profile.level===result.newLevel?'':
+ const next=result.priorLevel===result.newLevel?'':
   '\n🎉 **LEVEL UP!** Contractor Level '+result.newLevel+' unlocked.';
  const embed=createEmbed({
   title:result.passed?'✅ Dispatch Completed':'📋 Dispatch Closed',
