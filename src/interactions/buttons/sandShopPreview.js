@@ -71,7 +71,7 @@ export async function handleSandShopButton(interaction,client,args=[],action='pr
     payload=await buildTreasuryPanel(client,interaction.guildId,'shop');
    }else if(action==='back' || action==='category' || action==='filter'){
     payload=await buildSandShopPanel(client,interaction.guildId,interaction.guild.name,
-     action==='back'?'all':category,action==='filter'?filter:'all');
+     action==='back'?'all':category,action==='back'?'all':filter);
    }else{
     const server=await getSandServer(client,interaction.guildId);
     if(revision!==state.revision)return;
