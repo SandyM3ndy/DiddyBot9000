@@ -67,21 +67,35 @@ function sandShopItems(category){
  const key=normalizeSandShopCategory(category);
  return key==='all'?SAND_CATALOG:SAND_CATALOG.filter(item=>item.type===key);
 }
+/** Shared shop filter logic for both list and preview, so previews never
+ * silently expose unavailable or unrelated items after applying a filter. */
+export function selectSandShopItems(all,server,stocks=[],filter='all',wallet=null){
+ const selected=normalizeSandShopFilter(filter);
+ return all.filter((item,i)=>{
+  const owned=server.inventory.includes(item.id);
+  const soldOut=Boolean(stocks[i]&&stocks[i].remaining===0);
+  if(selected==='owned')return owned;
+  if(selected==='unowned')return !owned;
+  if(selected==='affordable')return wallet!==null&&!owned&&!soldOut&&wallet.balance>=item.price;
+  if(selected==='limited')return Boolean(item.limited);
+  return true;
+ });
+}
 /**
  * Stable global component IDs survive restarts and repeated rapid presses.
  * Overview remains usable; per-category previews show ONLY that type.
  */
 export function buildSandShopPreviewButtons(category='all',filter='all',visibleItems=null,previewItem=null,alreadyOwned=false){
  const selected=normalizeSandShopCategory(category);
+ const activeFilter=normalizeSandShopFilter(filter);
  const rows=[new ActionRowBuilder().addComponents(
   SAND_SHOP_CATEGORIES.map(option=>new ButtonBuilder()
-   .setCustomId('sand_shop_category:'+option.id)
+   .setCustomId('sand_shop_category:'+option.id+(activeFilter==='all'?'':':'+activeFilter))
    .setLabel(option.label)
    .setEmoji(option.emoji)
    .setStyle(option.id===selected?ButtonStyle.Primary:ButtonStyle.Secondary))
  )];
  const items=visibleItems||sandShopItems(selected);
- const activeFilter=normalizeSandShopFilter(filter);
  for(let start=0;start<items.length;start+=4)
   rows.push(new ActionRowBuilder().addComponents(items.slice(start,start+4).map(item=>
    new ButtonBuilder()
@@ -111,7 +125,7 @@ export function buildSandShopPreviewButtons(category='all',filter='all',visibleI
 // million-pixel rank card repeatedly when members click preview buttons quickly.
 const PREVIEW_CACHE_MAX=64;
 const previewPngCache=new Map();
-export function buildSandShopItemPreview(itemId,server,serverName,category='all',filter='all'){
+export function buildSandShopItemPreview(itemId,server,serverName,category='all',filter='all',visibleItems=null){
  const item=getSandCatalogItem(itemId);
  if(!item)throw new Error('Shop preview item unavailable');
  const equipped=getSandAppearance(server);
@@ -147,7 +161,7 @@ export function buildSandShopItemPreview(itemId,server,serverName,category='all'
  });
  embed.setImage('attachment://'+imageName);
  return {embeds:[embed],files:[new AttachmentBuilder(png,{name:imageName})],
-  attachments:[],components:buildSandShopPreviewButtons(category,filter,null,item.id,owned)};
+  attachments:[],components:buildSandShopPreviewButtons(category,filter,visibleItems,item.id,owned)};
 }
 
 /** Public browsing hides user balances. Inventory ownership is server-wide. */
@@ -161,14 +175,7 @@ export async function buildSandShopPanel(client,guildId,guildName,category='all'
  const effectiveFilter=selectedFilter==='affordable'&&!wallet?'all':selectedFilter;
  const status=new Map(all.map((item,i)=>[item.id,{owned:server.inventory.includes(item.id),
   soldOut:Boolean(stocks[i]&&stocks[i].remaining===0)}]));
- const items=all.filter(item=>{
-  const s=status.get(item.id);
-  if(effectiveFilter==='owned')return s.owned;
-  if(effectiveFilter==='unowned')return !s.owned;
-  if(effectiveFilter==='affordable')return !s.owned&&!s.soldOut&&wallet.balance>=item.price;
-  if(effectiveFilter==='limited')return Boolean(item.limited);
-  return true;
- });
+ const items=selectSandShopItems(all,server,stocks,effectiveFilter,wallet);
  const chosen=SAND_SHOP_CATEGORIES.find(entry=>entry.id===selected);
  return {
   embeds:[createEmbed({

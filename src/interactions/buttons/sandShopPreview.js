@@ -1,6 +1,6 @@
 import { MessageFlags } from 'discord.js';
-import { getSandServer, getSandCatalogItem } from '../../services/sandCoinsService.js';
-import { buildSandShopItemPreview,buildSandShopPanel,normalizeSandShopCategory,normalizeSandShopFilter } from '../../commands/Community/sandcoins.js';
+import { getSandServer, getSandCatalogItem, getSandWallet, getSandLimitedStock, SAND_CATALOG } from '../../services/sandCoinsService.js';
+import { buildSandShopItemPreview,buildSandShopPanel,normalizeSandShopCategory,normalizeSandShopFilter,selectSandShopItems } from '../../commands/Community/sandcoins.js';
 import { buildTreasuryPanel } from '../../commands/Community/treasury.js';
 import { logger } from '../../utils/logger.js';
 
@@ -28,15 +28,17 @@ export async function handleSandShopButton(interaction,client,args=[],action='pr
   }).catch(()=>{});
  }
  const itemId=args.at(-1);
- const filter=action==='filter'?normalizeSandShopFilter(args[1]):
+ const filter=action==='filter'||action==='category'?normalizeSandShopFilter(args[1]):
    action==='preview'&&args.length>=3?normalizeSandShopFilter(args[1]):'all';
  // Previous public shop messages have item-only IDs. Preserve support.
  const category=action==='preview' && args.length===1?'all':
   normalizeSandShopCategory(args[0]);
- if(action==='filter'&&filter==='affordable'){
+ if((action==='filter'||action==='category')&&filter==='affordable'){
   try{
    // Affordability is per-user. Never edit a shared shop with private wallet data.
-   await interaction.deferReply({flags:MessageFlags.Ephemeral});
+   // Category clicks on an already private view should update it in place.
+   if(action==='category')await interaction.deferUpdate();
+   else await interaction.deferReply({flags:MessageFlags.Ephemeral});
    return interaction.editReply(await buildSandShopPanel(client,interaction.guildId,
     interaction.guild.name,category,filter,interaction.user.id));
   }catch(error){
@@ -73,7 +75,17 @@ export async function handleSandShopButton(interaction,client,args=[],action='pr
    }else{
     const server=await getSandServer(client,interaction.guildId);
     if(revision!==state.revision)return;
-    payload=buildSandShopItemPreview(itemId,server,interaction.guild.name,category,filter);
+    let visibleItems=null;
+    if(filter!=='all'){
+     const all=category==='all'?SAND_CATALOG:SAND_CATALOG.filter(item=>item.type===category);
+     const [stocks,wallet]=await Promise.all([
+      Promise.all(all.map(item=>getSandLimitedStock(client,item.id))),
+      filter==='affordable'?getSandWallet(client,interaction.user.id):Promise.resolve(null),
+     ]);
+     if(revision!==state.revision)return;
+     visibleItems=selectSandShopItems(all,server,stocks,filter,wallet);
+    }
+    payload=buildSandShopItemPreview(itemId,server,interaction.guild.name,category,filter,visibleItems);
    }
    if(revision!==state.revision)return;
    // Important: edits target the original PUBLIC shop message; no per-click
