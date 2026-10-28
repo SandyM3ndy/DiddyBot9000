@@ -4,7 +4,7 @@ import cases, { buildCaseDetail, buildCaseListPage } from '../src/commands/Moder
 import { normalizeCase } from '../src/services/moderationCaseManager.js';
 test('new case suite has list, view, status, note and evidence',()=>{
   const names=cases.data.toJSON().options.map(x=>x.name);
-  assert.deepEqual(names,['list','view','status','note','evidence']);
+  assert.deepEqual(names,['list','view','status','note','evidence','warnings','warn']);
 });
 test('old moderation cases retain their action and get safe default review metadata',()=>{
   const record=normalizeCase({caseId:7,action:'Member Kicked',target:'Example',reason:'Test'});
