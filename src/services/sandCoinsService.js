@@ -31,8 +31,9 @@ const vaultKey=guildId=>PREFIX+'inventory-vault:'+guildId;
 export const SAND_INVENTORY_SNAPSHOT_DEPTH=8;
 const claimKey=(eventId,userId)=>PREFIX+'claim:'+eventId+':'+userId;
 const stockKey=itemId=>PREFIX+'stock:'+itemId;
+export const SAND_DAILY_REMINDER_INDEX=PREFIX+'notifications:daily-users';
 const validId=value=>typeof value==='string' && /^\d{17,20}$/.test(value);
-const initialWallet=()=>({balance:0,lifetime:0,earnedToday:0,earnedWeek:0,day:'',week:'',history:[],leaderboardHidden:false,dailyStreak:0,lastDailyClaimDate:''});
+const initialWallet=()=>({balance:0,lifetime:0,earnedToday:0,earnedWeek:0,day:'',week:'',history:[],leaderboardHidden:false,dailyStreak:0,lastDailyClaimDate:'',notifications:{payments:false,purchases:false,daily:false,potions:false},lastDailyReminderDate:''});
 const initialServer=()=>({inventory:[],equipped:{background:null,border:null,tag:null},purchases:[],pendingLogs:[],tradeOffers:[],pendingTradeLogs:[],tradeHistory:[]});
 const safeNumber=value=>Number.isSafeInteger(value)&&value>=0;
 function requireId(value,label){if(!validId(value))throw new Error('Invalid '+label);}
@@ -40,6 +41,7 @@ function readWallet(value){
  const d={...initialWallet(),...(value&&typeof value==='object'?value:{})};
  if(!safeNumber(d.balance)||!safeNumber(d.lifetime))throw new Error('Invalid Sand Coins wallet');
  d.history=Array.isArray(d.history)?d.history:[];
+ d.notifications={payments:false,purchases:false,daily:false,potions:false,...(d.notifications&&typeof d.notifications==='object'&&!Array.isArray(d.notifications)?d.notifications:{})};
  return d;
 }
 function readServer(value){
@@ -121,6 +123,10 @@ async function atomic(client,keys,fn){
  const pool=getPool(client);
  if(!pool)throw new Error('Sand Coins require a persistent PostgreSQL connection');
  const c=await pool.connect();
+ // A checked-out pg client may emit a socket error before its query rejects.
+ // Installing an error listener prevents Railway database sleep from terminating the bot.
+ const onConnectionError=error=>logger.warn('Sand Coins database transaction disconnected',{error:error?.message});
+ c.on?.('error',onConnectionError);
  const table=pgConfig.tables.temp_data;
  const unique=[...new Set(keys)].sort();
  try{
@@ -145,11 +151,44 @@ async function atomic(client,keys,fn){
   await c.query('COMMIT');
   return result;
  }catch(err){await c.query('ROLLBACK').catch(()=>{});throw err;}
- finally{c.release();}
+ finally{c.removeListener?.('error',onConnectionError);c.release();}
 }
 export async function getSandWallet(client,userId){
  requireId(userId,'user ID');
  return withWindow(readWallet(await client.db.get(walletKey(userId),null)),new Date());
+}
+export const SAND_NOTIFICATION_TYPES=Object.freeze(['payments','purchases','daily','potions']);
+export async function setSandNotificationPreference(client,userId,type,enabled){
+ requireId(userId,'user ID');
+ if(!SAND_NOTIFICATION_TYPES.includes(type))throw new Error('Invalid Sand Coins notification type');
+ const key=walletKey(userId),keys=type==='daily'?[key,SAND_DAILY_REMINDER_INDEX]:[key];
+ return atomic(client,keys,async tx=>{
+  const wallet=readWallet(tx.get(key));
+  wallet.notifications[type]=enabled===true;
+  tx.put(key,wallet);
+  if(type==='daily'){
+   const raw=tx.get(SAND_DAILY_REMINDER_INDEX);
+   const users=Array.isArray(raw)?raw.filter(id=>validId(id)&&id!==userId):[];
+   if(enabled===true)users.push(userId);
+   tx.put(SAND_DAILY_REMINDER_INDEX,[...new Set(users)]);
+  }
+  return {...wallet.notifications};
+ });
+}
+export async function markSandDailyReminder(client,userId,today){
+ requireId(userId,'user ID');
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(today))throw new Error('Invalid reminder day');
+ const key=walletKey(userId);
+ return atomic(client,[key],async tx=>{
+  const wallet=readWallet(tx.get(key));
+  const status=dailyClaimState(wallet,new Date(today+'T12:00:00Z'));
+  // Only remind members with an active streak at risk, not inactive accounts.
+  if(!wallet.notifications.daily||status.alreadyClaimed||status.streak<1||
+     wallet.lastDailyReminderDate===today)return false;
+  wallet.lastDailyReminderDate=today;
+  tx.put(key,wallet);
+  return true;
+ });
 }
 export async function setSandLeaderboardHidden(client,userId,hidden){
  requireId(userId,'user ID');
