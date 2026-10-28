@@ -13,7 +13,7 @@ test('music operations share one slash namespace without losing options',()=>{
  assert.equal(music.data.toJSON().options.find(x=>x.name==='play').options.find(x=>x.name==='query').required,true);
 });
 test('status, ping and daily claims live in existing feature commands',()=>{
- assert.deepEqual(botinfo.data.toJSON().options.map(x=>x.name),['about','status','ping']);
+ assert.deepEqual(botinfo.data.toJSON().options.map(x=>x.name),['about','status','ping','server','user']);
  assert.ok(sandcoins.data.toJSON().options.some(x=>x.name==='daily'));
  for(const name of ['daily','heist','play','queue','nowplaying','join','ping','status','support'])
   assert.ok(LEGACY_SLASH_COMMANDS.has(name));
@@ -28,6 +28,7 @@ test('retired slash shortcuts point to existing functional destinations',()=>{
   heist:'/treasury',daily:'/sandcoins daily',play:'/music play',
   queue:'/music queue',nowplaying:'/music nowplaying',join:'/music join',
   ping:'/botinfo ping',status:'/botinfo status',support:'/help',
+  userinfo:'/botinfo user',serverinfo:'/botinfo server',warnings:'/cases warnings',
  };
  for(const [oldName,newCommand] of Object.entries(expected)){
   assert.equal(resolveMovedSlashCommand('/'+oldName)?.command,newCommand);

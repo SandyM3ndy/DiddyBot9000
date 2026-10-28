@@ -6,6 +6,7 @@ import ticket from '../src/commands/Ticket/ticket.js';
 import time from '../src/commands/Tools/time.js';
 import progression from '../src/commands/Community/progression.js';
 import warnings from '../src/commands/Moderation/warnings.js';
+import cases from '../src/commands/Moderation/cases.js';
 import random from '../src/commands/Fun/random.js';
 import math from '../src/commands/Tools/math.js';
 
@@ -18,6 +19,7 @@ test('streamlined command groups include every migrated operation', () => {
     [math, ['calculate', 'convert']],
     [progression, ['overview', 'quests', 'leaderboard', 'rank', 'milestones', 'weekly', 'contributors', 'privacy']],
     [warnings, ['list', 'add']],
+    [cases, ['list','view','status','note','evidence','warnings','warn']],
   ]) {
     assert.deepEqual(command.data.toJSON().options.map(x => x.name), expected, command.data.name);
   }
@@ -30,6 +32,6 @@ test('old slash names are retained only as prefix command handlers', () => {
   assert.ok(REQUIRED_V11_COMMANDS.includes('ticket'));
   assert.equal(LEGACY_SLASH_COMMANDS.has('rank'),false,'/rank card must be registered, not retired');
   assert.ok(REQUIRED_V11_COMMANDS.includes('rank'));
-  for(const name of ['daily','heist','play','queue','nowplaying','join','ping','status','support'])
+  for(const name of ['daily','heist','play','queue','nowplaying','join','ping','status','support','userinfo','serverinfo','warnings'])
     assert.ok(LEGACY_SLASH_COMMANDS.has(name),name);
 });

@@ -14,6 +14,9 @@ export const MOVED_SLASH_COMMANDS = Object.freeze({
   ping:{command:'/botinfo ping',steps:'Measure latency using Bot Info.'},
   status:{command:'/botinfo status',steps:'Review the live Beacon system status inside Bot Info.'},
   support:{command:'/help',steps:'Open Help and select **Official Support Server**.'},
+  userinfo:{command:'/botinfo user',steps:'Inspect a member profile using Bot Info.'},
+  serverinfo:{command:'/botinfo server',steps:'See the current server’s information inside Bot Info.'},
+  warnings:{command:'/cases warnings',steps:'Check member warnings inside the moderation Case Manager.'},
 });
 export function resolveMovedSlashCommand(query){
  const entered=String(query||'').trim().toLowerCase();
@@ -34,7 +37,7 @@ const CONCEPTS = Object.freeze({
   safety: ['antinuke', 'roleaudit', 'diagnose'],
   audit: ['roleaudit', 'logging', 'cases'],
   logs: ['logging', 'cases'],
-  cases: ['cases', 'warnings'],
+  cases: ['cases', 'cases warnings'],
   appeal: ['cases'],
   setup: ['dashboard', 'diagnose', 'verification', 'reactroles'],
   configuration: ['dashboard', 'diagnose'],
@@ -54,7 +57,9 @@ const CONCEPTS = Object.freeze({
   weekly: ['progression weekly'],
   ranking: ['progression leaderboard', 'progression rank', 'rank'],
   leaderboard: ['progression leaderboard', 'rank'],
-  server: ['serverinfo', 'dashboard'],
+  server: ['botinfo server', 'dashboard'],
+  member: ['botinfo user'],
+  user: ['botinfo user'],
   games: ['random coin', 'random dice', 'count'],
   game: ['random coin', 'random dice'],
   fun: ['random coin', 'random dice'],
@@ -63,6 +68,8 @@ const CONCEPTS = Object.freeze({
   raffle: ['giveaway', 'gcreate'],
   giveaway: ['giveaway', 'gcreate'],
   announcement: ['announcement'],
+  warnings: ['cases warnings', 'cases warn'],
+  warn: ['cases warn'],
   welcome: ['greet', 'autorole'],
 });
 

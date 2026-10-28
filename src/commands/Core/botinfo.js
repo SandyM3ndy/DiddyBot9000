@@ -7,6 +7,8 @@ import { isAntiNukeAIConfigured, getAntiNukeAIModel } from '../../services/aiSec
 import { getBeaconInviteUrl } from './invite.js';
 import statusCommand from './status.js';
 import pingCommand from './ping.js';
+import serverInfoCommand from '../Utility/serverinfo.js';
+import userInfoCommand from '../Utility/userinfo.js';
 
 function displayUptime(seconds) {
   const days = Math.floor(seconds / 86400);
@@ -18,15 +20,23 @@ function displayUptime(seconds) {
 export default {
   data: new SlashCommandBuilder()
     .setName('botinfo')
-    .setDescription('View Beacon information, system status and ping')
+    .setDescription('Beacon health, server information and member profiles')
     .addSubcommand(s=>s.setName('about').setDescription('Beacon features and runtime information'))
     .addSubcommand(s=>s.setName('status').setDescription('Gateway, database and uptime health'))
-    .addSubcommand(s=>s.setName('ping').setDescription('Measure response latency and gateway ping')),
+    .addSubcommand(s=>s.setName('ping').setDescription('Measure response latency and gateway ping'))
+    .addSubcommand(s=>s.setName('server').setDescription('View this server’s channels, boosts and features')
+      .addBooleanOption(o=>o.setName('private').setDescription('Show only to you (default: public)')))
+    .addSubcommand(s=>s.setName('user').setDescription('Inspect a member profile, roles and avatar')
+      .addUserOption(o=>o.setName('target').setDescription('Member to inspect (defaults to you)'))
+      .addBooleanOption(o=>o.setName('avatar').setDescription('Show full-size profile avatar'))
+      .addBooleanOption(o=>o.setName('private').setDescription('Show only to you (default: public)'))),
   category: 'Core',
   async execute(interaction,config,clientOverride) {
     const sub=interaction.options?.getSubcommand?.(false)||'about';
     if(sub==='status')return statusCommand.execute(interaction,config,clientOverride);
     if(sub==='ping')return pingCommand.execute(interaction,config,clientOverride);
+    if(sub==='server')return serverInfoCommand.execute(interaction,config,clientOverride);
+    if(sub==='user')return userInfoCommand.execute(interaction,config,clientOverride);
     const client = interaction.client;
     const ping = Number.isFinite(client.ws?.ping) && client.ws.ping >= 0
       ? Math.round(client.ws.ping) + ' ms' : 'Unavailable';

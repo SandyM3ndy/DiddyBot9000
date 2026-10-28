@@ -55,6 +55,8 @@ export const LEGACY_SLASH_COMMANDS = new Set([
   'flip', 'roll', 'calculate', 'baseconvert', 'countdown',
   // Consolidated into /music, /botinfo, /treasury and /sandcoins.
   'play', 'queue', 'nowplaying', 'join', 'ping', 'status', 'support', 'heist', 'daily',
+  // Consolidated info and moderation record commands.
+  'userinfo', 'serverinfo', 'warnings',
 ]);
 
 function getSubcommandInfo(commandData) {

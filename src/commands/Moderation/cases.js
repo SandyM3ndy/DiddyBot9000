@@ -7,6 +7,7 @@ import { InteractionHelper } from '../../utils/interactionHelper.js';
 import { getModerationCases } from '../../utils/moderation.js';
 import { getCase, normalizeCase, updateCaseReview } from '../../services/moderationCaseManager.js';
 import { logger } from '../../utils/logger.js';
+import warningRecordsCommand from './warnings.js';
 
 const PAGE_SIZE = 5;
 const clean = (value, max = 500) => String(value || 'Not specified').replaceAll('@', '@\u200b').slice(0, max);
@@ -87,7 +88,9 @@ export default {
   data: new SlashCommandBuilder().setName('cases')
     .setDescription('Private moderation case manager with review notes and evidence')
     .setDMPermission(false)
-    .setDefaultMemberPermissions(PermissionFlagsBits.ViewAuditLog)
+    // Warnings are for moderators, even if they lack View Audit Log.
+    // Enforce each action's staff permission in the handler.
+    .setDefaultMemberPermissions(null)
     .addSubcommand(sub => sub.setName('list').setDescription('Browse recent moderation cases')
       .addUserOption(o => o.setName('user').setDescription('Filter by target user'))
       .addStringOption(o => o.setName('type').setDescription('Filter by action')
@@ -109,9 +112,25 @@ export default {
       .addStringOption(o => o.setName('text').setDescription('Private note (1–900 characters)').setMaxLength(900).setRequired(true)))
     .addSubcommand(sub => sub.setName('evidence').setDescription('Attach an HTTPS evidence link to a case')
       .addIntegerOption(o => o.setName('id').setDescription('Case number').setMinValue(1).setRequired(true))
-      .addStringOption(o => o.setName('url').setDescription('Secure evidence URL').setMaxLength(600).setRequired(true))),
+      .addStringOption(o => o.setName('url').setDescription('Secure evidence URL').setMaxLength(600).setRequired(true)))
+    .addSubcommand(sub => sub.setName('warnings').setDescription('View a member’s recorded warnings (moderation staff)')
+      .addUserOption(o=>o.setName('target').setDescription('Member to check').setRequired(true)))
+    .addSubcommand(sub => sub.setName('warn').setDescription('Issue a warning to a server member')
+      .addUserOption(o=>o.setName('target').setDescription('Member to warn').setRequired(true))
+      .addStringOption(o=>o.setName('reason').setDescription('Reason for warning').setRequired(true).setMaxLength(500))),
 
   async execute(interaction, config, client) {
+    const action=interaction.options.getSubcommand();
+    if (['warnings','warn'].includes(action)) {
+      const staff=interaction.guild?.ownerId===interaction.user.id ||
+        interaction.memberPermissions?.has(PermissionFlagsBits.ModerateMembers) ||
+        interaction.memberPermissions?.has(PermissionFlagsBits.Administrator);
+      if(!staff)return InteractionHelper.safeReply(interaction,{
+        content:'Moderate Members permission is required to issue or inspect warnings.',
+        flags:MessageFlags.Ephemeral,
+      });
+      return warningRecordsCommand.execute(interaction,config,client||interaction.client);
+    }
     if (!interaction.guildId) return InteractionHelper.safeReply(interaction, {
       content:'Case records are available only in a server.',flags:MessageFlags.Ephemeral,
     });
@@ -124,7 +143,6 @@ export default {
     }
     if (!(await InteractionHelper.safeDefer(interaction,{flags:MessageFlags.Ephemeral})))return;
     try {
-      const action = interaction.options.getSubcommand();
       if (['status','note','evidence'].includes(action)) {
         if (!canReview(interaction)) return InteractionHelper.safeEditReply(interaction, {
           content:'Only moderators with Moderate Members or Manage Server may edit case records.',
