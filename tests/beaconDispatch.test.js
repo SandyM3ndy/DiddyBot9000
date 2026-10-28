@@ -94,7 +94,7 @@ test('Dispatch board is private-ready, offers both difficulties, and never expos
  const started=await startDispatch(client,{userId:uid,difficulty:'hard',now:startTime,rng});
  assert.equal(started.status,'STARTED');
  const payload=buildDispatchMission(started.profile,uid);
- assert.equal(payload.components.length,4+1);
+ assert.equal(payload.components.length,4);
  const content=JSON.stringify({embeds:payload.embeds.map(x=>x.toJSON()),components:payload.components.map(x=>x.toJSON())});
  assert.ok(!content.includes('"correct"'));
  assert.ok(!content.includes('"explanation"'));
@@ -200,8 +200,10 @@ test('tampered owner, stage or session token never pays and a foreign user canno
  const invalidStep=await answerDispatch(client,{userId:uid,token:session.token,step:2,
   choice:session.stages[0].correct,now:at(startTime,2)});
  assert.equal(invalidStep.status,'STALE');
- const foreign=await handleBeaconDispatch({guildId:'333333333333333333',user:{id:other},
-  async reply(payload){this.replyPayload=payload;}},client,['pick',uid,session.token,'0','0']);
- assert.match(foreign?.content||'',/belongs to another user/);
+ let foreignResponse;
+ await handleBeaconDispatch({guildId:'333333333333333333',user:{id:other},
+  async reply(payload){foreignResponse=payload;}},client,['pick',uid,session.token,'0','0']);
+ assert.match(foreignResponse?.content||'',/belongs to another user/);
+ assert.equal(foreignResponse.flags,MessageFlags.Ephemeral);
  assert.equal(values.has(sandWalletStorageKey(uid)),false);
 });

@@ -117,7 +117,7 @@ test('contributor eligibility limits payouts to meaningful quest participants',(
 test('command only contains sandboxed server shop and does not expose purchases as admin controls',()=>{
  assert.equal(sandCommand.data.toJSON().name,'sandcoins');
  const names=sandCommand.data.toJSON().options.map(x=>x.name);
- assert.deepEqual(names,['wallet','daily','leaderboard','privacy','shop','inventory','backup','buy','equip','unequip','pay','trade']);
+ assert.deepEqual(names,['wallet','daily','dispatch','leaderboard','privacy','shop','inventory','backup','buy','equip','unequip','pay','trade']);
  const group=sandCommand.data.toJSON().options.find(x=>x.name==='trade');
  assert.equal(group.type,2);
  assert.deepEqual(group.options.map(x=>x.name),['offer','inbox','status','accept','decline','cancel']);
