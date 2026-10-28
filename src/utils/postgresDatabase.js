@@ -87,19 +87,33 @@ class PostgreSQLDatabase {
 
                 this.pool = new pg.Pool(resolvePostgresPoolConfig());
 
-                this.pool.on('error', (error, client) => {
-                    logger.error('PostgreSQL pool error:', error);
-                    // A pool-level error can mean the connection is no longer usable.
-                    // Mark it unavailable so the wrapper can fail safely instead of
-                    // silently falling back to defaults for persistent data.
-                    if (!this.pool || client) {
+                const activePool = this.pool;
+                activePool.on('error', (error) => {
+                    // Idle client disconnects (including Railway sleep/wake) are
+                    // expected and must never become uncaught process exceptions.
+                    logger.warn('PostgreSQL idle connection lost; pool will replace it:', error?.message);
+                    if (this.pool === activePool) {
                         this.isConnected = false;
+                        this.lastFailureReason = 'POSTGRES_CONNECTION_LOST';
+                        this.lastFailureMessage = error?.message || 'PostgreSQL connection lost';
                     }
                 });
 
-                const client = await this.pool.connect();
-                await client.query('SELECT NOW()');
-                client.release();
+                // node-postgres emits an error on a CHECKED-OUT client when its
+                // socket disappears, even if the query itself is already caught.
+                // A no-op handler is required for every checked-out client.
+                const client = await activePool.connect();
+                const onClientError = error => {
+                    logger.warn('PostgreSQL checked-out connection interrupted:', error?.message);
+                    if (this.pool === activePool) this.isConnected = false;
+                };
+                client.on('error', onClientError);
+                try {
+                    await client.query('SELECT NOW()');
+                } finally {
+                    client.removeListener('error', onClientError);
+                    client.release();
+                }
 
                 this.lastFailureReason = null;
                 this.lastFailureMessage = null;
