@@ -13,6 +13,8 @@ import { logger } from '../../utils/logger.js';
 import { respondSandDaily } from '../../utils/sandDailyReply.js';
 import { respondSandPay,respondSandTrade } from '../../utils/sandTradingCommands.js';
 import { renderProgressionRankPng } from '../../utils/progressionRankCard.js';
+import { buildSandWalletPanel } from '../../utils/sandEconomyUi.js';
+import { sendSandEconomyNotice } from '../../services/sandEconomyNotifications.js';
 
 const name=item=>item?.name||'Unknown Decoration';
 const format=n=>n.toLocaleString('en-US')+' SC';
@@ -21,7 +23,7 @@ function isManager(interaction){
  return interaction.guild?.ownerId===interaction.user.id ||
    interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild);
 }
-async function verifyAuditChannel(interaction){
+export async function verifyAuditChannel(interaction){
  const config=await getGuildConfig(interaction.client,interaction.guildId);
  const id=resolveLogChannel(config,'audit');
  if(!id)return {error:'Configure a **server audit/logs channel** in /dashboard before purchasing rank-card decorations.'};
@@ -59,6 +61,8 @@ export const SAND_SHOP_CATEGORIES=Object.freeze([
 export function normalizeSandShopCategory(category){
  return SAND_SHOP_CATEGORIES.some(entry=>entry.id===category)?category:'all';
 }
+export const SAND_SHOP_FILTERS=Object.freeze(['all','owned','unowned','affordable','limited']);
+export const normalizeSandShopFilter=filter=>SAND_SHOP_FILTERS.includes(filter)?filter:'all';
 function sandShopItems(category){
  const key=normalizeSandShopCategory(category);
  return key==='all'?SAND_CATALOG:SAND_CATALOG.filter(item=>item.type===key);
@@ -67,7 +71,7 @@ function sandShopItems(category){
  * Stable global component IDs survive restarts and repeated rapid presses.
  * Overview remains usable; per-category previews show ONLY that type.
  */
-export function buildSandShopPreviewButtons(category='all'){
+export function buildSandShopPreviewButtons(category='all',filter='all',visibleItems=null,previewItem=null,alreadyOwned=false){
  const selected=normalizeSandShopCategory(category);
  const rows=[new ActionRowBuilder().addComponents(
   SAND_SHOP_CATEGORIES.map(option=>new ButtonBuilder()
@@ -76,20 +80,30 @@ export function buildSandShopPreviewButtons(category='all'){
    .setEmoji(option.emoji)
    .setStyle(option.id===selected?ButtonStyle.Primary:ButtonStyle.Secondary))
  )];
- const items=sandShopItems(selected);
+ const items=visibleItems||sandShopItems(selected);
+ const activeFilter=normalizeSandShopFilter(filter);
  for(let start=0;start<items.length;start+=4)
   rows.push(new ActionRowBuilder().addComponents(items.slice(start,start+4).map(item=>
    new ButtonBuilder()
-    .setCustomId('sand_shop_preview:'+selected+':'+item.id)
+    .setCustomId('sand_shop_preview:'+selected+':'+(activeFilter==='all'?'':activeFilter+':')+item.id)
     .setLabel('Preview '+item.name)
     .setStyle(ButtonStyle.Secondary))));
- rows.push(new ActionRowBuilder().addComponents(new ButtonBuilder()
+ rows.push(new ActionRowBuilder().addComponents(
+  SAND_SHOP_FILTERS.map(option=>new ButtonBuilder()
+   .setCustomId('sand_shop_filter:'+selected+':'+option)
+   .setLabel(option[0].toUpperCase()+option.slice(1))
+   .setStyle(option===activeFilter?ButtonStyle.Primary:ButtonStyle.Secondary))));
+ const footerButtons=[new ButtonBuilder()
   .setCustomId('sand_shop_back')
   .setLabel('Shop Overview')
   .setEmoji('🛒')
   .setStyle(ButtonStyle.Secondary),
   new ButtonBuilder().setCustomId('sand_shop_treasury')
-   .setLabel('Treasury Shop').setEmoji('🏦').setStyle(ButtonStyle.Primary)));
+   .setLabel('Treasury Shop').setEmoji('🏦').setStyle(ButtonStyle.Primary)];
+ if(previewItem)footerButtons.push(new ButtonBuilder()
+  .setCustomId('sand_shop_buy:'+previewItem).setLabel(alreadyOwned?'Already Owned':'Buy This Item')
+  .setEmoji('🪙').setStyle(ButtonStyle.Success).setDisabled(alreadyOwned));
+ rows.push(new ActionRowBuilder().addComponents(footerButtons));
  return rows;
 }
 
@@ -97,7 +111,7 @@ export function buildSandShopPreviewButtons(category='all'){
 // million-pixel rank card repeatedly when members click preview buttons quickly.
 const PREVIEW_CACHE_MAX=64;
 const previewPngCache=new Map();
-export function buildSandShopItemPreview(itemId,server,serverName,category='all'){
+export function buildSandShopItemPreview(itemId,server,serverName,category='all',filter='all'){
  const item=getSandCatalogItem(itemId);
  if(!item)throw new Error('Shop preview item unavailable');
  const equipped=getSandAppearance(server);
@@ -133,40 +147,50 @@ export function buildSandShopItemPreview(itemId,server,serverName,category='all'
  });
  embed.setImage('attachment://'+imageName);
  return {embeds:[embed],files:[new AttachmentBuilder(png,{name:imageName})],
-  attachments:[],components:buildSandShopPreviewButtons(category)};
+  attachments:[],components:buildSandShopPreviewButtons(category,filter,null,item.id,owned)};
 }
 
 /** Public browsing hides user balances. Inventory ownership is server-wide. */
-export async function buildSandShopPanel(client,guildId,guildName,category='all'){
- const selected=normalizeSandShopCategory(category);
- const items=sandShopItems(selected);
- const [server,...stocks]=await Promise.all([
-  getSandServer(client,guildId),
-  ...items.map(item=>getSandLimitedStock(client,item.id)),
- ]);
+export async function buildSandShopPanel(client,guildId,guildName,category='all',filter='all',userId=null){
+ const selected=normalizeSandShopCategory(category),selectedFilter=normalizeSandShopFilter(filter);
+ const all=sandShopItems(selected);
+ const [server,...stocks]=await Promise.all([getSandServer(client,guildId),
+  ...all.map(item=>getSandLimitedStock(client,item.id))]);
+ const wallet=selectedFilter==='affordable'&&userId?await getSandWallet(client,userId):null;
+ // Never show the affordability filter on a public message: it is personal.
+ const effectiveFilter=selectedFilter==='affordable'&&!wallet?'all':selectedFilter;
+ const status=new Map(all.map((item,i)=>[item.id,{owned:server.inventory.includes(item.id),
+  soldOut:Boolean(stocks[i]&&stocks[i].remaining===0)}]));
+ const items=all.filter(item=>{
+  const s=status.get(item.id);
+  if(effectiveFilter==='owned')return s.owned;
+  if(effectiveFilter==='unowned')return !s.owned;
+  if(effectiveFilter==='affordable')return !s.owned&&!s.soldOut&&wallet.balance>=item.price;
+  if(effectiveFilter==='limited')return Boolean(item.limited);
+  return true;
+ });
  const chosen=SAND_SHOP_CATEGORIES.find(entry=>entry.id===selected);
  return {
   embeds:[createEmbed({
    title:'🪙 Beacon Shop • '+chosen.heading,
-   description:'**'+chosen.emoji+' '+chosen.label+'**'+
-    '\nChoose a category above and use its **Preview** buttons to see real rank cards.'+
-    '\n**'+items.length+' item'+(items.length===1?'':'s')+'** in this view • No coins spent on previews.'+
-    '\n\nPurchases are owned by **'+short(guildName)+'** as server inventory.'+
-    '\nCheck balances privately with /sandcoins wallet.',
-   fields:items.map((item,index)=>({
-    name:(server.inventory.includes(item.id)?'✅ ':'▫️ ')+item.name+
-     (item.limited?' • Limited Edition':''),
-    value:item.description+'\n**'+format(item.price)+'** • ID: '+item.id+
-     (stocks[index]?' • **'+stocks[index].remaining+'/'+stocks[index].total+' left globally**':''),
-   })),
-   color:'primary',
-   footer:'Frames • Name Tags • Backgrounds • /sandcoins buy • /sandcoins equip',
+   description:'**'+chosen.emoji+' '+chosen.label+'** • Filter: **'+effectiveFilter+'**'+
+    '\nChoose a category or filter and preview any decoration.'+
+    '\n**'+items.length+' item'+(items.length===1?'':'s')+'** shown • Previews are free.'+
+    '\n\nPurchases belong to **'+short(guildName)+'** as server inventory.'+
+    '\nFor your private balance use /sandcoins wallet.',
+   fields:items.length?items.map(item=>{
+    const s=status.get(item.id);
+    return {name:(s.owned?'✅ ':s.soldOut?'🚫 ':'▫️ ')+item.name+(item.limited?' • Limited Edition':''),
+     value:item.description+'\n**'+format(item.price)+'** • ID: '+item.id+
+      (s.owned?' • **Owned**':s.soldOut?' • **Sold out**':wallet&&wallet.balance<item.price?' • **Not enough coins**':'')+
+      (item.limit?' • **'+stocks[all.indexOf(item)].remaining+'/'+stocks[all.indexOf(item)].total+' left globally**':'')};
+   }):[{name:'Nothing to show',value:'Try another category or filter. Your inventory and wallet are unchanged.'}],
+   color:'primary',footer:'Preview → Buy → Confirm • Only managers can equip',
   })],
-  components:buildSandShopPreviewButtons(selected),
+  components:buildSandShopPreviewButtons(selected,effectiveFilter,items),
   attachments:[],
  };
 }
-
 export default {
  slashOnly:true,
  category:'Community',
@@ -261,20 +285,8 @@ export default {
      '✅ Your name is visible on the global Sand Coins rankings again.'});
    }
    if(sub==='wallet'){
-    const w=await getSandWallet(interaction.client,interaction.user.id);
-    const d=getSandDailyStatusFromWallet(w);
-    return InteractionHelper.safeEditReply(interaction,{embeds:[createEmbed({
-     title:'🪙 Your Global Sand Coins Wallet',
-     description:'Your Sand Coins follow you across **all** Beacon communities. Earn coins from quests and /daily streaks.',
-     fields:[
-      {name:'Available',value:'**'+format(w.balance)+'**',inline:true},
-      {name:'Lifetime Earned',value:format(w.lifetime),inline:true},
-      {name:'Quest Coins Today',value:format(w.earnedToday),inline:true},
-      {name:'🔥 Daily Streak',value:'**'+d.streak+'/7** • '+(d.alreadyClaimed?'Claimed today':'Next reward: '+format(d.nextReward)),inline:true},
-      {name:'Recent Activity',value:w.history.length?w.history.slice(0,5).map(h=>
-       (h.delta>=0?'🟢 +':'🔴 ')+format(h.delta)+' • '+(h.kind==='quest'?'Quest reward':h.kind==='daily'?'Daily streak reward':h.kind==='payment_sent'?'Payment sent':h.kind==='payment_received'?'Payment received':'Rank-card purchase')).join('\n'):'No transactions yet.'},
-     ],color:'primary',footer:'Beacon • Sand Coins • Daily claims reset at 00:00 UTC',
-    })]});
+    return InteractionHelper.safeEditReply(interaction,
+     await buildSandWalletPanel(interaction.client,interaction.user.id));
    }
    if(sub==='shop'){
     // Public browsing; previews are globally handled and survive deploys.
@@ -311,6 +323,11 @@ export default {
      result.error==='SOLD_OUT'?'⚠️ This limited edition has sold out globally. No coins were spent.':
      result.error==='PURCHASE_ID_REUSED'?'⚠️ This purchase request was already used for another item. No coins were spent.':
      '🪙 Not enough Sand Coins. This costs **'+format(item.price)+'** and your balance is **'+format(result.balance)+'**.'});
+    if(!result.duplicate){
+     const ownerId=interaction.guild.ownerId;
+     if(ownerId&&ownerId!==interaction.user.id)await sendSandEconomyNotice(interaction.client,ownerId,'purchases',
+      '🎨 **Beacon Economy** — '+name(item)+' was purchased for **'+short(interaction.guild.name)+'** by <@'+interaction.user.id+'>. The item is in the server inventory.');
+    }
     const sent=await deliverSandPurchaseLogs(interaction.client,interaction.guildId).catch(e=>{
      logger.warn('Sand Coins purchase log pending',{guildId:interaction.guildId,error:e.message});
      return {error:'LOG_PENDING'};
