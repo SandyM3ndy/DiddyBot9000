@@ -1,3 +1,4 @@
+# Beacon production image; keep Dockerfile builds explicit on Railway.
 FROM node:20-alpine
 
 WORKDIR /usr/src/app
