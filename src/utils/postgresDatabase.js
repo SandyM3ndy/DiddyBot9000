@@ -568,6 +568,13 @@ class PostgreSQLDatabase {
     async transferEconomy(guildId, senderId, receiverId, amount) {
         if (!this.isAvailable()) throw new Error('PostgreSQL database is unavailable');
         const client = await this.pool.connect();
+        // A severed transaction connection may emit 'error' before a pending
+        // query rejects. Listen so Node does not crash the entire bot.
+        const onClientError = error => {
+            logger.warn('PostgreSQL transfer connection interrupted:', error?.message);
+            this.isConnected = false;
+        };
+        client.on('error', onClientError);
         const T = pgConfig.tables.economy;
         try {
             await client.query('BEGIN');
@@ -604,6 +611,7 @@ class PostgreSQLDatabase {
             await client.query('ROLLBACK').catch(() => {});
             throw error;
         } finally {
+            client.removeListener('error', onClientError);
             client.release();
         }
     }
