@@ -1,6 +1,6 @@
 import { MessageFlags } from 'discord.js';
 import { getSandServer, getSandCatalogItem } from '../../services/sandCoinsService.js';
-import { buildSandShopItemPreview,buildSandShopPanel,normalizeSandShopCategory } from '../../commands/Community/sandcoins.js';
+import { buildSandShopItemPreview,buildSandShopPanel,normalizeSandShopCategory,normalizeSandShopFilter } from '../../commands/Community/sandcoins.js';
 import { buildTreasuryPanel } from '../../commands/Community/treasury.js';
 import { logger } from '../../utils/logger.js';
 
@@ -28,9 +28,23 @@ export async function handleSandShopButton(interaction,client,args=[],action='pr
   }).catch(()=>{});
  }
  const itemId=args.at(-1);
+ const filter=action==='filter'?normalizeSandShopFilter(args[1]):
+   action==='preview'&&args.length>=3?normalizeSandShopFilter(args[1]):'all';
  // Previous public shop messages have item-only IDs. Preserve support.
  const category=action==='preview' && args.length===1?'all':
   normalizeSandShopCategory(args[0]);
+ if(action==='filter'&&filter==='affordable'){
+  try{
+   // Affordability is per-user. Never edit a shared shop with private wallet data.
+   await interaction.deferReply({flags:MessageFlags.Ephemeral});
+   return interaction.editReply(await buildSandShopPanel(client,interaction.guildId,
+    interaction.guild.name,category,filter,interaction.user.id));
+  }catch(error){
+   logger.warn('Sand shop affordable filter failed',{error:error.message});
+   if(interaction.deferred)return interaction.editReply({content:'Could not load affordable items.'}).catch(()=>{});
+   return;
+  }
+ }
  if(action==='preview' && !getSandCatalogItem(itemId)){
   return interaction.reply({
    content:'That decoration is not available to preview. Use /sandcoins shop to refresh.',
@@ -53,13 +67,13 @@ export async function handleSandShopButton(interaction,client,args=[],action='pr
    let payload;
    if(action==='treasury'){
     payload=await buildTreasuryPanel(client,interaction.guildId,'shop');
-   }else if(action==='back' || action==='category'){
+   }else if(action==='back' || action==='category' || action==='filter'){
     payload=await buildSandShopPanel(client,interaction.guildId,interaction.guild.name,
-     action==='back'?'all':category);
+     action==='back'?'all':category,action==='filter'?filter:'all');
    }else{
     const server=await getSandServer(client,interaction.guildId);
     if(revision!==state.revision)return;
-    payload=buildSandShopItemPreview(itemId,server,interaction.guild.name,category);
+    payload=buildSandShopItemPreview(itemId,server,interaction.guild.name,category,filter);
    }
    if(revision!==state.revision)return;
    // Important: edits target the original PUBLIC shop message; no per-click
@@ -87,6 +101,9 @@ export default [
  }},
  {name:'sand_shop_back',async execute(interaction,client){
   return handleSandShopButton(interaction,client,[],'back');
+ }},
+ {name:'sand_shop_filter',async execute(interaction,client,args){
+  return handleSandShopButton(interaction,client,args,'filter');
  }},
  {name:'sand_shop_treasury',async execute(interaction,client){
   return handleSandShopButton(interaction,client,[],'treasury');
