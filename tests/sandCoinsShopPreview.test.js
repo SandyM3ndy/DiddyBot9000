@@ -230,3 +230,46 @@ test('new shop filters retain server ownership and avoid personal balance disclo
  const already=buildSandShopItemPreview('gold',{...emptyServer,inventory:['gold']},'Sand Castle');
  assert.ok(already.components.flatMap(x=>x.toJSON().components).some(x=>x.custom_id==='sand_shop_buy:gold'&&x.disabled));
 });
+
+
+test('a filtered cosmetic preview and category switch keep the chosen filter',async()=>{
+ const {db,values}=mockDb(),client={db},seen=[],id='999999999999999971';
+ values.set('beacon:sandcoins:v1:server:'+guildId,{inventory:['gold','galaxy']});
+ const panel=await buildSandShopPanel(client,guildId,'Sand Castle','all','owned');
+ const panelButtons=panel.components.flatMap(row=>row.toJSON().components);
+ assert.ok(panelButtons.some(button=>button.custom_id==='sand_shop_category:border:owned'));
+ assert.deepEqual(panelButtons.filter(button=>button.custom_id.startsWith('sand_shop_preview:'))
+  .map(button=>button.custom_id).sort(),['sand_shop_preview:all:owned:galaxy','sand_shop_preview:all:owned:gold']);
+ await handleSandShopButton(fakeButton('owned',id,seen,client),client,['all','owned','gold'],'preview');
+ let edit=seen.find(x=>x.edited);
+ assert.ok(edit);
+ let ids=edit.payload.components.flatMap(row=>row.toJSON().components).map(x=>x.custom_id);
+ assert.ok(ids.includes('sand_shop_category:border:owned'));
+ assert.ok(ids.includes('sand_shop_preview:all:owned:galaxy'));
+ assert.ok(!ids.includes('sand_shop_preview:all:owned:diamond'));
+ seen.length=0;
+ await handleSandShopButton(fakeButton('border',id,seen,client),client,['border','owned'],'category');
+ edit=seen.find(x=>x.edited);
+ assert.equal(edit.payload.embeds[0].toJSON().fields.length,1);
+ ids=edit.payload.components.flatMap(row=>row.toJSON().components).map(x=>x.custom_id);
+ assert.ok(ids.includes('sand_shop_preview:border:owned:gold'));
+ assert.ok(!ids.includes('sand_shop_preview:border:owned:diamond'));
+});
+
+test('affordable shop filter stays private and never reveals the wallet amount',async()=>{
+ const {db,values}=mockDb(),client={db},seen=[];
+ const uid='111111111111111111';
+ values.set('beacon:sandcoins:v1:wallet:'+uid,{balance:650,lifetime:750});
+ const i=fakeButton(uid,'999999999999999972',seen,client);
+ i.deferReply=async payload=>{i.deferred=true;seen.push({deferred:payload});};
+ await handleSandShopButton(i,client,['all','affordable'],'filter');
+ const privateAck=seen.find(x=>x.deferred)?.deferred;
+ assert.equal(privateAck?.flags,64);
+ const edit=seen.find(x=>x.edited)?.payload;
+ assert.ok(edit?.embeds);
+ assert.ok(!JSON.stringify(edit.embeds[0].toJSON()).includes('650 SC available'));
+ const ids=edit.components.flatMap(row=>row.toJSON().components).map(b=>b.custom_id);
+ assert.ok(ids.includes('sand_shop_category:border:affordable'));
+ assert.ok(ids.includes('sand_shop_preview:all:affordable:gold'));
+ assert.ok(!ids.includes('sand_shop_preview:all:affordable:galaxy'));
+});
