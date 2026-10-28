@@ -43,18 +43,18 @@ function fakeButton(id,messageId,seen,client){
 test('shop categories show only the correct existing cosmetics and preserve global buttons',()=>{
  const rows=buildSandShopPreviewButtons();
  const buttons=rows.flatMap(row=>row.toJSON().components);
- assert.equal(buttons.length,SAND_CATALOG.length+SAND_SHOP_CATEGORIES.length+2);
+ assert.equal(buttons.length,SAND_CATALOG.length+SAND_SHOP_CATEGORIES.length+2+5);
  assert.ok(rows.every(row=>row.toJSON().components.length<=5));
  assert.deepEqual(buttons.slice(0,4).map(button=>button.custom_id),
   ['sand_shop_category:all','sand_shop_category:border','sand_shop_category:tag','sand_shop_category:background']);
- assert.deepEqual(buttons.slice(4,-2).map(button=>button.custom_id),
+ assert.deepEqual(buttons.filter(button=>button.custom_id.startsWith('sand_shop_preview:')).map(button=>button.custom_id),
   SAND_CATALOG.map(item=>'sand_shop_preview:all:'+item.id));
  assert.equal(buttons.at(-2).custom_id,'sand_shop_back');
  assert.equal(buttons.at(-1).custom_id,'sand_shop_treasury');
- assert.deepEqual(buttons.slice(4,-2).map(button=>button.label),
+ assert.deepEqual(buttons.filter(button=>button.custom_id.startsWith('sand_shop_preview:')).map(button=>button.label),
   SAND_CATALOG.map(item=>'Preview '+item.name));
  assert.ok(buttons.every(button=>button.disabled!==true));
- assert.deepEqual(shopHandlers.map(x=>x.name),['sand_shop_preview','sand_shop_category','sand_shop_back','sand_shop_treasury']);
+ assert.deepEqual(shopHandlers.map(x=>x.name),['sand_shop_preview','sand_shop_category','sand_shop_back','sand_shop_filter','sand_shop_treasury']);
  for(const [category,expected] of [
   ['border',['gold','diamond']],
   ['tag',['royal','pioneer']],
@@ -64,7 +64,7 @@ test('shop categories show only the correct existing cosmetics and preserve glob
   const items=current.flatMap(row=>row.toJSON().components).filter(button=>button.custom_id.startsWith('sand_shop_preview:'));
   assert.deepEqual(items.map(button=>button.custom_id),expected.map(id=>'sand_shop_preview:'+category+':'+id));
   assert.equal(items.length,expected.length);
-  assert.equal(current.length,3);
+  assert.equal(current.length,4);
   assert.equal(current[0].toJSON().components.find(x=>x.custom_id==='sand_shop_category:'+category).style,1);
  }
  assert.equal(normalizeSandShopCategory('not-real'),'all');
@@ -85,7 +85,7 @@ test('every cosmetic produces a real rank-card image without touching inventory'
   assert.match(view.description,/sample rank card/);
   assert.match(view.description,/Not owned/);
   assert.match(view.fields[1].value,/No coins spent/);
-  assert.equal(result.components.length,4);
+  assert.equal(result.components.length,5);
   hashes.set(item.id,digest(bytes));
  }
  for(const [left,right] of [
@@ -123,7 +123,7 @@ test('shop is publicly shareable and does not reveal anyone’s balance',async()
  assert.match(serialized.description,/Preview/);
  assert.doesNotMatch(serialized.description,/Your balance|remaining coins/i);
  assert.ok(serialized.fields.some(f=>/Golden Frame/.test(f.name)&&/650 SC/.test(f.value)));
- assert.equal(panel.components.length,4);
+ assert.equal(panel.components.length,5);
  assert.equal(panel.embeds.length,1);
  for(const [category,expected] of [
   ['border',['gold','diamond']],
@@ -166,7 +166,7 @@ test('back button restores the public shop without expiring after ten minutes',a
  const edits=seen.filter(x=>x.edited);
  assert.equal(edits.length,1);
  assert.match(edits[0].payload.embeds[0].toJSON().title,/Beacon Shop/);
- assert.equal(edits[0].payload.components.length,4);
+ assert.equal(edits[0].payload.components.length,5);
 });
 
 test('category button navigates publicly and preview keeps its selected category',async()=>{
@@ -211,4 +211,22 @@ test('global handler replaces fragile per-message collectors, and only money-sen
  assert.match(handler,/const revision=\+\+state\.revision/);
  assert.match(handler,/if\(revision!==state\.revision\)return/);
  assert.doesNotMatch(handler,/buySandDecoration|equipSandDecoration/);
+});
+
+test('new shop filters retain server ownership and avoid personal balance disclosure',async()=>{
+ const {db,values}=mockDb();
+ values.set('beacon:sandcoins:v1:server:'+guildId,{inventory:['gold','galaxy']});
+ const client={db};
+ const owned=await buildSandShopPanel(client,guildId,'Sand Castle','all','owned');
+ assert.deepEqual(owned.embeds[0].toJSON().fields.map(x=>x.name.includes('Golden Frame')?'gold':'galaxy').sort(),['galaxy','gold']);
+ assert.equal(owned.components.flatMap(row=>row.toJSON().components)
+  .filter(x=>x.custom_id.startsWith('sand_shop_preview:')).length,2);
+ const unowned=await buildSandShopPanel(client,guildId,'Sand Castle','all','unowned');
+ assert.equal(unowned.embeds[0].toJSON().fields.length,SAND_CATALOG.length-2);
+ const limited=await buildSandShopPanel(client,guildId,'Sand Castle','all','limited');
+ assert.equal(limited.embeds[0].toJSON().fields.length,1);
+ const first=buildSandShopItemPreview('sunset',emptyServer,'Sand Castle');
+ assert.ok(first.components.flatMap(x=>x.toJSON().components).some(x=>x.custom_id==='sand_shop_buy:sunset'));
+ const already=buildSandShopItemPreview('gold',{...emptyServer,inventory:['gold']},'Sand Castle');
+ assert.ok(already.components.flatMap(x=>x.toJSON().components).some(x=>x.custom_id==='sand_shop_buy:gold'&&x.disabled));
 });
