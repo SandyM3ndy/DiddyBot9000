@@ -51,6 +51,10 @@ export async function handleSandWalletButton(i,client,args=[]){
 export async function handleSandShopPurchase(i,client,args=[],action='buy'){
  if(!i.guildId)return privateReply(i,'Open the Sand Coins shop inside a server.');
  const itemId=action==='buy'?args[0]:args[1],item=getSandCatalogItem(itemId);
+ if(action==='cancel'){
+  if(args[0]!==i.user.id)return privateReply(i,'This confirmation belongs to another member.');
+  return i.update({content:'✅ Purchase cancelled. No coins spent.',embeds:[],components:[]});
+ }
  if(!item)return privateReply(i,'That decoration is not currently for sale.');
  if(action==='buy'){
   await i.deferReply({flags:MessageFlags.Ephemeral});
@@ -75,7 +79,6 @@ export async function handleSandShopPurchase(i,client,args=[],action='buy'){
  }
  const ownerId=args[0];
  if(ownerId!==i.user.id)return privateReply(i,'This purchase confirmation belongs to another user.');
- if(action==='cancel')return i.update({content:'✅ Purchase cancelled. No coins spent.',embeds:[],components:[]});
  if(action==='equip'){
   if(!manager(i))return privateReply(i,'Only the owner or Manage Server administrators can equip cosmetics.');
   await i.deferUpdate();

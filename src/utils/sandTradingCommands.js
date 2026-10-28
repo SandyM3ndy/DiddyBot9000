@@ -4,6 +4,7 @@ import { createEmbed } from './embeds.js';
 import { getGuildConfig } from '../services/config/guildConfig.js';
 import { resolveLogChannel } from '../services/loggingService.js';
 import { logger } from './logger.js';
+import { sendSandEconomyNotice } from '../services/sandEconomyNotifications.js';
 import {
  getSandWallet,transferSandCoins,getSandCatalogItem,
  getSandTrade,getSandServerTradeOffers,offerSandTrade,resolveSandTrade,deliverSandTradeLogs,
@@ -80,8 +81,9 @@ export async function respondSandPay(interaction){
   '⚠️ Payment could not be completed.');
  // Notification is best-effort; the committed transfer is never rolled back
  // because the recipient has DMs disabled.
- await recipient.send('🪙 **Beacon Sand Coins** — You received **'+format(amount)+
-  '** from <@'+interaction.user.id+'>! Use /sandcoins wallet in a Beacon server to view your balance.').catch(()=>{});
+ if(!result.duplicate)await sendSandEconomyNotice(interaction.client,recipient.id,'payments',
+  '🪙 **Beacon Sand Coins** — You received **'+format(amount)+
+  '** from <@'+interaction.user.id+'>! Use /sandcoins wallet to view your global balance.');
  return InteractionHelper.safeEditReply(interaction,{
   content:'✅ Sent **'+format(amount)+'** to <@'+recipient.id+'>! Your balance: **'+format(result.fromBalance)+'**.',
   embeds:[],components:[],allowedMentions:{parse:[]},

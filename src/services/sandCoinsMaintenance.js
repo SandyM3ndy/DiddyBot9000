@@ -1,6 +1,7 @@
 import { settlePendingSandPayouts } from './serverProgressionService.js';
 import { deliverSandPurchaseLogs, deliverSandTradeLogs, getSandServer } from './sandCoinsService.js';
 import { logger } from '../utils/logger.js';
+import { maintainSandEconomyNotices } from './sandEconomyNotifications.js';
 
 let started=false;
 export async function maintainSandCoins(client){
@@ -26,6 +27,8 @@ export async function maintainSandCoins(client){
    catch(error){logger.warn('Trade audits retained',{guildId:guild.id,error:error.message});}
   }
  }
+ try{await maintainSandEconomyNotices(client);}
+ catch(error){logger.warn('Economy notifications sweep deferred',{error:error.message});}
 }
 /** Replays saved coin claims and audit logs after restarts and outages. */
 export function startSandCoinsMaintenance(client){
