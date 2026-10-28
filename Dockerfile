@@ -17,7 +17,7 @@ COPY . .
 # timeouts while still stopping faulty deployments before startup.
 RUN NODE_ENV=test node scripts/check.js \
     && NODE_ENV=test node --test tests/runtimeHandlerImportIntegrity.test.js \
-    && NODE_ENV=test node --test tests/treasuryWars.test.js tests/diagnostics.test.js tests/requiredSlashCommands.test.js tests/v11CommandConsolidation.test.js tests/beaconCommandStreamlining.test.js tests/v11HelpIntentSearch.test.js
+    && NODE_ENV=test node --test tests/treasuryWars.test.js tests/diagnostics.test.js tests/requiredSlashCommands.test.js tests/v11CommandConsolidation.test.js tests/beaconCommandStreamlining.test.js tests/v11HelpIntentSearch.test.js tests/sandEconomyQoL.test.js tests/sandCoinsShopPreview.test.js
 
 # Run as the unprivileged Node user, while granting it ownership of runtime-write directories.
 RUN mkdir -p /usr/src/app/logs /usr/src/app/backups \
