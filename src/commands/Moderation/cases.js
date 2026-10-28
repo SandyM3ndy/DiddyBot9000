@@ -8,6 +8,7 @@ import { getModerationCases } from '../../utils/moderation.js';
 import { getCase, normalizeCase, updateCaseReview } from '../../services/moderationCaseManager.js';
 import { logger } from '../../utils/logger.js';
 import warningRecordsCommand from './warnings.js';
+import { memberHasConfiguredModeratorRole } from '../../utils/permissionGuard.js';
 
 const PAGE_SIZE = 5;
 const clean = (value, max = 500) => String(value || 'Not specified').replaceAll('@', '@\u200b').slice(0, max);
@@ -124,7 +125,8 @@ export default {
     if (['warnings','warn'].includes(action)) {
       const staff=interaction.guild?.ownerId===interaction.user.id ||
         interaction.memberPermissions?.has(PermissionFlagsBits.ModerateMembers) ||
-        interaction.memberPermissions?.has(PermissionFlagsBits.Administrator);
+        interaction.memberPermissions?.has(PermissionFlagsBits.Administrator) ||
+        memberHasConfiguredModeratorRole(interaction.member,config);
       if(!staff)return InteractionHelper.safeReply(interaction,{
         content:'Moderate Members permission is required to issue or inspect warnings.',
         flags:MessageFlags.Ephemeral,

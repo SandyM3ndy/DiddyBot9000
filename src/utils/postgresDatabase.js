@@ -46,6 +46,7 @@ class PostgreSQLDatabase {
         this.pool = null;
         this.isConnected = false;
         this.connectionPromise = null;
+        this.reconnectionPromise = null;
         this.allowedTableIdentifiers = new Set(Object.values(pgConfig.tables));
         this.allowedMigrationIdentifiers = new Set([pgConfig.migration.table]);
         this.lastFailureReason = null;
@@ -62,17 +63,30 @@ class PostgreSQLDatabase {
     }
 
     async reconnect() {
-        try {
-            if (this.pool) {
-                await this.pool.end().catch(() => {});
+        // Multiple interaction handlers can encounter a sleeping database at
+        // once. Only one of them may replace the pool: concurrent .end() calls
+        // can interfere with in-flight queries and multiply schema checks.
+        if (this.reconnectionPromise) return this.reconnectionPromise;
+        const promise = (async () => {
+            const previousPool = this.pool;
+            try {
+                if (previousPool) await previousPool.end().catch(error =>
+                    logger.warn('Closing unavailable PostgreSQL pool failed:', error?.message));
+            } finally {
+                if (this.pool === previousPool) {
+                    this.pool = null;
+                    this.isConnected = false;
+                    this.connectionPromise = null;
+                }
             }
+            return this.connect();
+        })();
+        this.reconnectionPromise = promise;
+        try {
+            return await promise;
         } finally {
-            this.pool = null;
-            this.isConnected = false;
-            this.connectionPromise = null;
+            if (this.reconnectionPromise === promise) this.reconnectionPromise = null;
         }
-
-        return this.connect();
     }
 
     async _establishConnection() {
@@ -91,11 +105,13 @@ class PostgreSQLDatabase {
                 activePool.on('error', (error) => {
                     // Idle client disconnects (including Railway sleep/wake) are
                     // expected and must never become uncaught process exceptions.
-                    logger.warn('PostgreSQL idle connection lost; pool will replace it:', error?.message);
+                    // node-postgres automatically removes a failed IDLE client
+                    // and creates a replacement on demand. One idle socket
+                    // closing must not invalidate the whole pool, interrupt
+                    // checked-out transactions or trigger full schema setup.
                     if (this.pool === activePool) {
-                        this.isConnected = false;
-                        this.lastFailureReason = 'POSTGRES_CONNECTION_LOST';
-                        this.lastFailureMessage = error?.message || 'PostgreSQL connection lost';
+                        logger.warn('PostgreSQL idle connection dropped; pool will replace it:',
+                            error?.message || error?.code || 'idle socket closed');
                     }
                 });
 
