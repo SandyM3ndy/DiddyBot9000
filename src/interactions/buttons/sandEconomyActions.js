@@ -9,6 +9,8 @@ import { sendSandEconomyNotice } from '../../services/sandEconomyNotifications.j
 import { buildSandWalletPanel,SAND_HISTORY_FILTERS } from '../../utils/sandEconomyUi.js';
 import { verifyAuditChannel } from '../../commands/Community/sandcoins.js';
 import { logger } from '../../utils/logger.js';
+import { getDispatchStatus } from '../../services/beaconDispatchService.js';
+import { buildDispatchBoard } from '../../utils/beaconDispatchUi.js';
 
 const money=n=>Number(n||0).toLocaleString('en-US')+' SC';
 const privateReply=(i,content)=>i.reply({content,flags:MessageFlags.Ephemeral,allowedMentions:{parse:[]}});
@@ -32,6 +34,10 @@ export async function handleSandWalletButton(i,client,args=[]){
    await setSandNotificationPreference(client,i.user.id,type,enabled);
    const panel=await buildSandWalletPanel(client,i.user.id,'alerts');
    return i.editReply({...panel,content:(enabled?'✅ Enabled ':'🔕 Disabled ')+type+' notifications.'});
+  }
+  if(action==='dispatch'){
+   const profile=await getDispatchStatus(client,i.user.id);
+   return i.editReply({...buildDispatchBoard(profile),content:''});
   }
   if(action==='shop'){
    const {buildSandShopPanel}=await import('../../commands/Community/sandcoins.js');

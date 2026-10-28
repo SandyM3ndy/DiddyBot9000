@@ -9,6 +9,7 @@ import {
 import { buildDispatchBoard,buildDispatchMission,buildDispatchResult } from '../src/utils/beaconDispatchUi.js';
 import { handleBeaconDispatch } from '../src/interactions/buttons/sandDispatch.js';
 import dispatchButton from '../src/interactions/buttons/sandDispatch.js';
+import { handleSandWalletButton } from '../src/interactions/buttons/sandEconomyActions.js';
 import sandCoinsCommand from '../src/commands/Community/sandcoins.js';
 import { sandWalletStorageKey } from '../src/services/sandCoinsService.js';
 
@@ -207,4 +208,19 @@ test('tampered owner, stage or session token never pays and a foreign user canno
  assert.match(foreignResponse?.content||'',/belongs to another user/);
  assert.equal(foreignResponse.flags,MessageFlags.Ephemeral);
  assert.equal(values.has(sandWalletStorageKey(uid)),false);
+});
+
+test('existing Wallet Dispatch button opens the contractor board, not the wallet again',async()=>{
+ const {client}=mockDb();
+ let result,acknowledged=false;
+ await handleSandWalletButton({
+  guildId:'333333333333333333',
+  user:{id:uid},
+  async deferUpdate(){acknowledged=true;},
+  async editReply(payload){result=payload;},
+ },client,['dispatch']);
+ assert.equal(acknowledged,true);
+ assert.match(result.embeds[0].toJSON().title,/Beacon Dispatch/);
+ assert.ok(result.components.flatMap(r=>r.toJSON().components)
+  .some(button=>button.custom_id==='sand_dispatch:start:hard'));
 });

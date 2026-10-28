@@ -205,7 +205,7 @@ export default {
  category:'Community',
  data:new SlashCommandBuilder()
   .setName('sandcoins')
-  .setDescription('Earn global Sand Coins from quests and daily streaks; customise rank cards')
+  .setDescription('Earn global Sand Coins with quests, daily streaks and Dispatch jobs')
   .setDMPermission(false)
   .addSubcommand(s=>s.setName('wallet').setDescription('See your global Sand Coins balance and earnings'))
   .addSubcommand(s=>s.setName('daily').setDescription('Claim daily Sand Coins; consecutive days earn more (max day 7)'))
