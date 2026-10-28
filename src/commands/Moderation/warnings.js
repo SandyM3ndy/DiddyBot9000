@@ -19,7 +19,7 @@ export default {
     .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
   category: 'Moderation',
   async execute(interaction, config, client) {
-    if (interaction.options.getSubcommand() === 'add') return warnCommand.execute(interaction, config, client);
+    if (['add','warn'].includes(interaction.options.getSubcommand())) return warnCommand.execute(interaction, config, client);
     if (!(await InteractionHelper.safeDefer(interaction, { flags: MessageFlags.Ephemeral }))) return;
     const target = interaction.options.getUser('target', true);
     try {
