@@ -22,6 +22,13 @@ const canReview = interaction => Boolean(
   interaction.memberPermissions?.has(PermissionFlagsBits.ModerateMembers)
 );
 
+export function canUseCaseWarningActions(interaction,config){
+ return Boolean(interaction.guild?.ownerId===interaction.user?.id ||
+  interaction.memberPermissions?.has(PermissionFlagsBits.ModerateMembers) ||
+  interaction.memberPermissions?.has(PermissionFlagsBits.Administrator) ||
+  memberHasConfiguredModeratorRole(interaction.member,config));
+}
+
 export function buildCaseDetail(case_) {
   const item = normalizeCase(case_);
   const notes = item.review.notes.slice(-3).reverse().map(n => '• ' + clean(n.text, 230) +
@@ -123,11 +130,7 @@ export default {
   async execute(interaction, config, client) {
     const action=interaction.options.getSubcommand();
     if (['warnings','warn'].includes(action)) {
-      const staff=interaction.guild?.ownerId===interaction.user.id ||
-        interaction.memberPermissions?.has(PermissionFlagsBits.ModerateMembers) ||
-        interaction.memberPermissions?.has(PermissionFlagsBits.Administrator) ||
-        memberHasConfiguredModeratorRole(interaction.member,config);
-      if(!staff)return InteractionHelper.safeReply(interaction,{
+      if(!canUseCaseWarningActions(interaction,config))return InteractionHelper.safeReply(interaction,{
         content:'Moderate Members permission is required to issue or inspect warnings.',
         flags:MessageFlags.Ephemeral,
       });
