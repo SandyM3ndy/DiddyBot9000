@@ -16,7 +16,7 @@ const nextWeek=now=>{
 };
 export const SAND_HISTORY_FILTERS=Object.freeze(['all','earned','spent','payments','treasury']);
 const kinds={
- quest:'🎯 Quest reward',daily:'🔥 Daily streak',purchase:'🎨 Shop purchase',
+ quest:'🎯 Quest reward',daily:'🔥 Daily streak',dispatch:'📡 Dispatch reward',purchase:'🎨 Shop purchase',
  payment_sent:'↗️ Payment sent',payment_received:'↙️ Payment received',
  treasury_donation:'🏦 Treasury donation',treasury_payout:'🏦 Treasury payout',
 };
@@ -44,6 +44,7 @@ export async function buildSandWalletPanel(client,userId,view='home',filter='all
   button('daily','Claim Daily','🎁',false,daily.alreadyClaimed),
   button('history:all:0','History','📜',view==='history'),
   button('shop','Shop','🛒'),
+  button('dispatch','Dispatch','📡'),
  ),new ActionRowBuilder().addComponents(button('alerts','Notifications','🔔',view==='alerts'))];
  let embed;
  if(view==='history'){

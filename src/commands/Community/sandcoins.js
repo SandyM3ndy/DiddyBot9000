@@ -15,6 +15,8 @@ import { respondSandPay,respondSandTrade } from '../../utils/sandTradingCommands
 import { renderProgressionRankPng } from '../../utils/progressionRankCard.js';
 import { buildSandWalletPanel } from '../../utils/sandEconomyUi.js';
 import { sendSandEconomyNotice } from '../../services/sandEconomyNotifications.js';
+import { getDispatchStatus } from '../../services/beaconDispatchService.js';
+import { buildDispatchBoard } from '../../utils/beaconDispatchUi.js';
 
 const name=item=>item?.name||'Unknown Decoration';
 const format=n=>n.toLocaleString('en-US')+' SC';
@@ -207,6 +209,7 @@ export default {
   .setDMPermission(false)
   .addSubcommand(s=>s.setName('wallet').setDescription('See your global Sand Coins balance and earnings'))
   .addSubcommand(s=>s.setName('daily').setDescription('Claim daily Sand Coins; consecutive days earn more (max day 7)'))
+  .addSubcommand(s=>s.setName('dispatch').setDescription('Play Easy or Hard dispatch jobs to earn capped Sand Coins and contractor XP'))
   .addSubcommand(s=>s.setName('leaderboard').setDescription('See the all-time global Sand Coin earners'))
   .addSubcommand(s=>s.setName('privacy').setDescription('Hide or show your identity on global coin rankings')
    .addBooleanOption(o=>o.setName('hidden').setDescription('Hide yourself from the public ranking').setRequired(true)))
@@ -294,6 +297,10 @@ export default {
    if(sub==='wallet'){
     return InteractionHelper.safeEditReply(interaction,
      await buildSandWalletPanel(interaction.client,interaction.user.id));
+   }
+   if(sub==='dispatch'){
+    const profile=await getDispatchStatus(interaction.client,interaction.user.id);
+    return InteractionHelper.safeEditReply(interaction,buildDispatchBoard(profile));
    }
    if(sub==='shop'){
     // Public browsing; previews are globally handled and survive deploys.
