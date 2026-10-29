@@ -29,6 +29,21 @@ jurisdictions or make private records global.
 
 **Beacon HQ** remains `/dashboard`, not another command. Help points to the
 live features. Keep user-facing terminology natural and familiar.
+
+**Network presence:** `🌐 Beacon Network | v1.1` (version generated from the
+configured release label). Keep this emoji status brief and consistent with
+the cyan circular motif in the existing logo.
+
+**Network journey:** Earn global Sand Coins in one server and spend them on
+a different server's rank card, while each server's cosmetics, moderation,
+preferences and progression privacy remain separate. Contractors keep their
+Dispatch career across servers. Describe the network as a genuine connection
+between opt-in systems, not as a claim that private server data is shared.
+
+**Shared identity surfaces:** `/help`, `/botinfo about`, `/dashboard`, the
+Dashboard Network panel, and the presence all reference the same identity
+module. Keep marketing copy separate from error, safety and disciplinary
+surfaces.
 Beacon Dispatch is an optional, more immersive experience; serious security
 tools stay plain and direct.
 

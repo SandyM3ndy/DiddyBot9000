@@ -9,7 +9,7 @@ test('Beacon v1.1 presence is centralized and actually used by startup',async()=
  assert.equal(BEACON_VERSION,'1.1.0');
  assert.equal(BEACON_VERSION_LABEL,'v1.1');
  assert.equal(botConfig.presence.status,'online');
- assert.equal(botConfig.presence.activities[0].name,'v1.1 | Beacon Network');
+ assert.equal(botConfig.presence.activities[0].name,'🌐 Beacon Network | v1.1');
  assert.equal(botConfig.presence.activities[0].type,4);
  const ready=await read('src/events/ready.js');
  assert.match(ready,/client\.normalPresence = structuredClone\(config\.bot\.presence\)/);

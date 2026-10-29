@@ -1,5 +1,5 @@
 import { logger } from '../utils/logger.js';
-import { BEACON_PALETTE } from './beaconIdentity.js';
+import { BEACON_PALETTE, BEACON_IDENTITY } from './beaconIdentity.js';
 
 /** Official public brand copy. Do not substitute campaign taglines for the motto. */
 export const BEACON_VERSION = '1.1.0';
@@ -32,7 +32,7 @@ export const botConfig = {
     status: "online",
     activities: [
       {
-        name: `${BEACON_VERSION_LABEL} | Beacon Network`,
+        name: `${BEACON_IDENTITY.presenceEmoji} ${BEACON_IDENTITY.network} | ${BEACON_VERSION_LABEL}`,
         type: 4,
       },
     ],

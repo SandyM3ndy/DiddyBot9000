@@ -45,7 +45,7 @@ export default {
 
     const embed = createEmbed({
       title: '✦ Beacon ' + BEACON_VERSION_LABEL + ' • About',
-      description: `**Your community's all-in-one Discord assistant.**\n${BEACON_IDENTITY.summary}\n\nBeacon Network connects server progress, global Sand Coins, rank cards and Dispatch careers.`,
+      description: `**Your community's all-in-one Discord assistant.**\n\n🌐 **${BEACON_IDENTITY.network}**\n${BEACON_IDENTITY.networkIntro}`,
       color: 'primary',
       thumbnail: client.user?.displayAvatarURL?.({ size: 256 }),
       fields: [
@@ -57,11 +57,13 @@ export default {
         { name: '⏱️ Uptime', value: displayUptime(Math.floor(process.uptime())), inline: true },
         { name: '🧠 RAM', value: Math.round(memory.rss / 1024 / 1024) + ' MB', inline: true },
         { name: '🛡️ Anti-Nuke', value: isAntiNukeAIConfigured() ? 'AI assisted • ' + getAntiNukeAIModel() : 'Local adaptive protection', inline: false },
-        { name: '🧰 Quick Start', value: '/dashboard • Main Control Center\n/help • Browse commands\n/progression overview • Quests and global rankings\n/diagnose • Check setup', inline: false },
+        { name: '🛡️ Protect · 🚀 Grow · 🪙 Reward', value: 'Protect your server with **/dashboard** and **/diagnose**. Grow through **/progression**. Reward participation with **/sandcoins wallet** and **/sandcoins dispatch**.', inline: false },
+        { name: '🔗 Part of the Beacon Network', value: BEACON_IDENTITY.networkJourney, inline: false },
+        { name: '🧰 Quick Start', value: '/dashboard • Beacon HQ\n/help • Browse commands\n/progression overview • Community goals\n/diagnose • Check setup', inline: false },
         { name: '⚙️ Runtime', value: 'Node ' + process.version + ' • discord.js ' + discordVersion, inline: false },
         { name: '💜 A Note from Our Developers', value: BEACON_TEAM_THANKS + '\n— **' + BEACON_TEAM_NAME + '**', inline: false },
       ],
-      footer: 'Beacon • Your community\'s all-in-one Discord assistant.',
+      footer: 'Beacon Network • Protect · Grow · Reward',
     });
     const actions=[new ButtonBuilder().setLabel('Official Support Server')
       .setEmoji('💬').setURL('https://discord.gg/76N2EM6v6k').setStyle(ButtonStyle.Link)];

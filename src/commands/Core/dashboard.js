@@ -129,7 +129,7 @@ export function buildDashboardEmbed(config, guild) {
         description: [
             '**' + guild.name + '**',
             '**' + BEACON_MOTTO + '**',
-            'Beacon HQ • '+BEACON_IDENTITY.summary,
+            '🌐 Beacon HQ • '+BEACON_IDENTITY.networkIntro,
             '',
             readiness,
             '',
@@ -153,12 +153,12 @@ export function buildDashboardEmbed(config, guild) {
             { name: '🎫 Support', value: config.ticketPanelChannelId
                 ? 'Panel: ' + formatChannelMention(guild, config.ticketPanelChannelId)
                 : '⚪ Panel not configured', inline: true },
-            { name: '🌐 The Beacon Network', value: '**Protect** with security and moderation. **Grow** through progression and quests. **Reward** participation with Sand Coins, careers and optional Treasury Wars. Explore the **Beacon Network** panel below.', inline: false },
+            { name: '🌐 The Beacon Network', value: '**Protect** your server. **Grow** with shared goals. **Reward** the people who take part. Your server remains independent while members can use Sand Coins and Dispatch across the network. Open **The Beacon Network** below for more.', inline: false },
             { name: '🧭 Explore Beacon', value: 'Use **Explore your Control Center** for Network, Security, Community, Tickets and the Development Team. Use **Choose a feature** to configure settings.', inline: false },
             { name: '🔍 Diagnostics', value: '**/diagnose** checks configuration and permissions. **/roleaudit** reviews risky server roles.', inline: false },
             { name: '💜 From Our Team', value: 'Thanks for choosing Beacon for your community. — **' + BEACON_TEAM_NAME + '**', inline: false },
         ],
-        footer: 'Beacon • Main Control Center • Private session ends after 10 minutes',
+        footer: 'Beacon HQ • The Beacon Network • Private session ends after 10 minutes',
     });
 }
 

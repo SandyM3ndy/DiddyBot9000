@@ -59,11 +59,12 @@ export function buildDashboardHubPanel(section, config = {}, guild = {}) {
     },
     hubNetwork: {
       title: '🌐 Beacon • The Connected Network',
-      description: '**'+name+'** is a community of its own, connected to a wider Beacon experience.\n\n'+BEACON_IDENTITY.summary,
+      description: '**'+name+'** is a community of its own, connected to a wider Beacon experience.\n\n'+BEACON_IDENTITY.networkIntro,
       fields: [
         {name:'🛡️ Protect',value:'**/dashboard** manages protection and setup. **/cases** keeps moderation records and staff notes in one place.'},
         {name:'🚀 Grow',value:'**/progression overview** tracks goals and shared progress. **/rank card** presents server achievements to the wider network.'},
-        {name:'🪙 Reward',value:'**/sandcoins wallet** stores a global balance. **/sandcoins dispatch** offers a personal career. **/sandcoins shop** buys cosmetics for this server’s rank card.'},
+        {name:'🪙 Reward',value:'**/sandcoins wallet** is global. **/sandcoins dispatch** saves a personal career. **/sandcoins shop** buys cosmetics for this server’s rank card.'},
+        {name:'🔗 How It Connects',value:BEACON_IDENTITY.networkJourney},
         {name:'🏦 Compete by Choice',value:'**/treasury** manages optional Treasury Wars. Viewing the network does not opt a server in or move its coins.'},
         {name:'Independent Communities',value:'Each server keeps its own rules, security and progression privacy. Global wallet activity does not give members extra staff permissions.'},
       ],
@@ -93,7 +94,7 @@ export function buildDashboardHubPanel(section, config = {}, guild = {}) {
   if (!data) return null;
   const embed = createEmbed({
     ...data, color: 'primary',
-    footer: 'Beacon • Read-only Control Center preview • Use the main dashboard to make changes',
+    footer: 'Beacon Network • Read-only preview • Configure from Beacon HQ',
   });
   const components = section === 'hubTeam'
     ? [new ActionRowBuilder().addComponents(
