@@ -38,7 +38,7 @@ const HIDDEN_COMMANDS = new Set([
     'jointocreate',
     // Owner/internal or superseded commands remain hidden.
     // /reactroles stays available as a standalone studio.
-    'broadcast', 'shorten', 'generatepassword', 'randomuser',
+    'shorten', 'generatepassword', 'randomuser',
     // Replaced by /help + /botinfo and /dashboard → Welcome & Goodbye.
     'invite', 'greet',
 ]);
@@ -48,8 +48,8 @@ const HIDDEN_COMMANDS = new Set([
 export const LEGACY_SLASH_COMMANDS = new Set([
   'gcreate', 'gdelete', 'gend', 'greroll',
   'ticketadd', 'ticketremove', 'ticketrename', 'claim', 'close', 'priority', 'ticketstats',
-  'levels', 'unixtime', 'warn', 'autoverify', 'lock', 'unlock', 'goodbye', 'popularity',
-  'broadcast', 'shorten', 'generatepassword', 'randomuser',
+  'levels', 'unixtime', 'warn', 'autoverify', 'lock', 'unlock', 'goodbye',
+  'shorten', 'generatepassword', 'randomuser',
   // Standalone slash names replaced by /random, /math, and /time.
   // Retained as internal implementations and prefix handlers, not slash commands.
   'flip', 'roll', 'calculate', 'baseconvert', 'countdown',

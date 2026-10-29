@@ -5,13 +5,15 @@ import { isPrimaryBotOwner } from '../src/config/bot.js';
 import { isCommandEnabledInConfig } from '../src/services/commandAccessService.js';
 
 test('restricted commands are labeled, protected and grouped', () => {
-  const names = ['announcement','broadcast','giveexp','removeexp','removeleaderboard','restoreleaderboard','popularity','ownerstats','restart'];
+  const names = ['ownerstats'];
   assert.equal(OWNER_ONLY_COMMANDS.size, names.length);
   for (const name of names) {
     assert.equal(isOwnerOnlyCommand(name), true, name);
     assert.equal(PROTECTED_COMMANDS.has(name), true, name);
     assert.equal(isCommandEnabledInConfig({ disabledCommands: { [name]: true }, disabledCategories: { botowner: true } }, name, 'BotOwner'), true);
   }
+  for(const old of ['announcement','broadcast','giveexp','removeexp','removeleaderboard','restoreleaderboard','popularity','restart'])
+    assert.equal(isOwnerOnlyCommand(old),false,'obsolete owner slash command no longer registered: '+old);
   assert.equal(isOwnerOnlyCommand('status'), false);
   assert.equal(formatCategoryName('BotOwner'), 'Bot Owner');
   assert.equal(getCategoryIcon('BotOwner'), '👑');

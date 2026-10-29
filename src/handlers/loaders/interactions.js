@@ -84,15 +84,16 @@ export default async (client) => {
     'sand_shop_preview','sand_shop_category','sand_shop_back','sand_shop_treasury','sand_shop_filter',
     'sand_shop_buy','sand_shop_confirm','sand_shop_cancel','sand_shop_equip','sand_wallet','sand_dispatch','rank_card',
     'treasury','treasury_confirm','heist_launch','heist_hit','heist_refresh',
+    'owner_action',
   ];
   const missing = requiredButtons.filter(name => !client.buttons?.has(name));
   if (missing.length) {
     throw new Error('Required Beacon interface buttons failed to register: ' + missing.join(', '));
   }
-  const requiredModal=['treasury_form'];
+  const requiredModal=['treasury_form','owner_form'];
   const missingModal=requiredModal.filter(name=>!client.modals?.has(name));
   if(missingModal.length)throw new Error('Required treasury forms failed to register: '+missingModal.join(', '));
-  const requiredMenus=['dashboard_fave_pin','rr_studio_select'];
+  const requiredMenus=['dashboard_fave_pin','rr_studio_select','owner_dashboard'];
   const missingMenus=requiredMenus.filter(name=>!client.selectMenus?.has(name));
   if(missingMenus.length)throw new Error('Required Beacon interface menus failed to register: '+missingMenus.join(', '));
 };

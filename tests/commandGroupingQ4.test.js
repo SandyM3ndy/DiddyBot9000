@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import { PermissionFlagsBits } from 'discord.js';
 import botinfo from '../src/commands/Core/botinfo.js';
 import cases from '../src/commands/Moderation/cases.js';
-import ownerstats, { OWNER_OPERATIONS } from '../src/commands/Core/ownerstats.js';
+import ownerstats from '../src/commands/Core/ownerstats.js';
+import { OWNER_OPERATIONS } from '../src/commands/Core/modules/ownerDashboardActions.js';
+import { buildOwnerDashboard } from '../src/commands/Core/modules/ownerDashboardUi.js';
 import { BEACON_PALETTE, BEACON_IDENTITY } from '../src/config/beaconIdentity.js';
 import botConfig from '../src/config/bot.js';
 import { access } from 'node:fs/promises';
@@ -64,14 +66,16 @@ test('moderation history stays restricted to View Audit Log for non-warning case
 
 // Consolidated command contracts: no data migration, no lost action handlers.
 test('owner operations use one creator-only slash command and retain internal handlers',()=>{
- const keys=ownerstats.data.toJSON().options.map(x=>x.name);
- assert.deepEqual(keys,['overview','announcement','giveexp','removeexp','exclude','restore','export']);
+ const keys=ownerstats.data.toJSON().options||[];
+ assert.deepEqual(keys,[],'Owner Dashboard must not have subcommands');
  for(const op of ['announcement','giveexp','removeexp','exclude','restore','export'])
   assert.equal(typeof OWNER_OPERATIONS[op].execute,'function');
- assert.equal(sub(ownerstats,'giveexp').options.find(x=>x.name==='amount').required,true);
+ const dashboard=buildOwnerDashboard({guilds:{cache:new Map()},commands:new Map()});
+ const menu=dashboard.components[1].toJSON().components[0];
+ assert.deepEqual(menu.options.map(x=>x.value),['giveexp','removeexp','exclude','restore','announcement','export','guilds','restart']);
  for(const name of ['announcement','giveexp','removeexp','removeleaderboard','restoreleaderboard','progressionexport']){
   assert.equal(LEGACY_SLASH_COMMANDS.has(name),false,'old handler must be deleted: '+name);
-  assert.match(resolveMovedSlashCommand('/'+name).command,/^\/ownerstats /);
+  assert.equal(resolveMovedSlashCommand('/'+name).command,'/ownerstats');
  }
 });
 test('staff notes live in /cases; unauthorised members never reach saved notes',async()=>{
