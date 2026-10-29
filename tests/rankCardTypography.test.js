@@ -41,3 +41,17 @@ test('XP thousands separators render actual commas instead of question marks',()
    'comma must use the same high-contrast white as the XP digits');
  }
 });
+
+
+test('default Beacon card uses teal and cyan with a restrained gold mark; purchased galaxy stays purple',()=>{
+ const input={name:'SAND CASTLE',rank:3,level:7,xp:4000,progress:50,fastPreview:true};
+ const branded=unpackPng(renderProgressionRankPng(input));
+ const galaxy=unpackPng(renderProgressionRankPng({...input,appearance:{background:'galaxy'}}));
+ const teal=branded(5,5),purple=galaxy(5,5);
+ assert.ok(teal[1]>teal[0]+10&&teal[2]>teal[0]+10,'Unpurchased card background is dark teal');
+ assert.ok(purple[2]>purple[1]+14,'Purchased galaxy background retains its blue-violet tone');
+ assert.notDeepEqual(teal,purple);
+ const gold=branded(346,76);
+ assert.ok(gold[0]>gold[1]&&gold[1]>gold[2]&&gold[0]>140,
+  'The approved gold accent is visible beside the Beacon wordmark');
+});

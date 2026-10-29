@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { BEACON_MOTTO, BEACON_FOOTER, formatBeaconFooter, botConfig } from '../src/config/bot.js';
 import { createEmbed, successEmbed, buildUserErrorEmbed } from '../src/utils/embeds.js';
+import { BEACON_IDENTITY, BEACON_PALETTE } from '../src/config/beaconIdentity.js';
+import { buildDispatchBoard,buildDispatchCareerPicker } from '../src/utils/beaconDispatchUi.js';
 import { buildStandardLogEmbed } from '../src/utils/logging/logEmbeds.js';
 
 test('Beacon has a single exact official motto and a consistent default footer',()=>{
@@ -46,4 +48,28 @@ test('public flagship commands and website copy use the official motto, not camp
     assert.ok(escaped.includes(BEACON_MOTTO) || code.includes('BEACON_MOTTO'),path+' should use the official motto or its shared constant');
     assert.doesNotMatch(code,/Your community\. Better protected\./,path);
   }
+});
+
+test('owner-approved Beacon slogan remains exact while Network identity is centralised',()=>{
+ assert.equal(BEACON_MOTTO,"Your community's all-in-one Discord assistant.");
+ assert.equal(BEACON_IDENTITY.network,'Beacon Network');
+ assert.deepEqual(BEACON_IDENTITY.pillars,['Protect','Grow','Reward']);
+ for(const surface of ['wallet','dispatch','shop','treasury','progression','ranking'])
+  assert.match(BEACON_IDENTITY.surfaces[surface],/Beacon/);
+ assert.match(BEACON_PALETTE.gold,/^#[0-9A-F]{6}$/i);
+ assert.match(BEACON_PALETTE.signal,/^#[0-9A-F]{6}$/i);
+ assert.equal(botConfig.presence.activities[0].name,'🌐 Beacon Network | v1.1');
+});
+test('Beacon identity extends to primary surfaces without new commands or data migration',async()=>{
+ const paths=['src/utils/sandEconomyUi.js','src/utils/beaconDispatchUi.js',
+  'src/commands/Community/sandcoins.js','src/commands/Community/treasury.js',
+  'src/commands/Community/progression.js'];
+ for(const path of paths){
+  const content=await readFile(path,'utf8');
+  assert.match(content,/BEACON_IDENTITY/,path+' should reuse the established identity');
+ }
+ const ui=await readFile('src/utils/sandEconomyUi.js','utf8');
+ assert.match(ui,/displayAvatarURL/,'The wallet should use the installed bot avatar when present');
+ const branded=await readFile('src/utils/progressionRankCard.js','utf8');
+ assert.match(branded,/approved Beacon logo/,'Default free rank card should reflect brand colours');
 });
