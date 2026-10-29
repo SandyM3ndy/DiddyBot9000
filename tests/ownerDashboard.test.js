@@ -108,3 +108,48 @@ test('legacy feature handlers still work as internal actions; no data is migrate
  assert.equal(adapter.options.getInteger('amount',true),100);
  assert.equal(adapter.client,client);
 });
+
+
+test('Connected Servers never sends duplicate custom IDs on 0, 1, 8, 12, 13, 24 or 25 servers',async()=>{
+ for(const count of [0,1,8,12,13,24,25]){
+  const serverCache=new Map(Array.from({length:count},(_,n)=>{
+   const id=String(100000000000000000n+BigInt(n));
+   return [id,{id,name:'Test Guild '+String(n).padStart(2,'0')}];
+  }));
+  const c={guilds:{cache:serverCache}};
+  const pages=Math.max(1,Math.ceil(count/12));
+  for(let page=0;page<pages;page++){
+   const view=buildOwnerGuildList(c,page);
+   const embed=view.embeds[0].toJSON();
+   assert.match(embed.title,/Connected Beacon Servers/);
+   assert.equal(view.components.length,pages===1?1:2,'No arrows on a one-page list');
+   const buttons=view.components.flatMap(row=>row.toJSON().components);
+   const ids=buttons.map(b=>b.custom_id);
+   assert.equal(new Set(ids).size,ids.length,'Duplicate Discord component custom ID at '+count+' servers, page '+page);
+   assert.ok(ids.every(id=>id.length<=100));
+   assert.ok(ids.includes('owner_action:home'));
+   if(pages>1){
+    const prev=buttons.find(b=>b.label==='Previous'),next=buttons.find(b=>b.label==='Next');
+    assert.equal(prev.disabled,page===0);
+    assert.equal(next.disabled,page===pages-1);
+    assert.match(prev.custom_id,/:previous$/);
+    assert.match(next.custom_id,/:next$/);
+   }
+  }
+ }
+});
+
+test('Connected Servers navigation works through the owner button handler',async()=>{
+ const c={guilds:{cache:new Map(Array.from({length:13},(_,n)=>{
+  const id=String(100000000000000000n+BigInt(n));
+  return [id,{id,name:'Guild '+String(n).padStart(2,'0')}];
+ }))},commands:new Map()};
+ const screen=fake();
+ screen.client=c;
+ await ownerDashboardButton(screen,['guilds','1','next']);
+ assert.match(screen.last.embeds[0].toJSON().footer.text,/Page 2 of 2/);
+ const ids=screen.last.components.flatMap(row=>row.toJSON().components).map(x=>x.custom_id);
+ assert.equal(ids.length,new Set(ids).size);
+ await ownerDashboardButton(screen,['guilds','0','previous']);
+ assert.match(screen.last.embeds[0].toJSON().footer.text,/Page 1 of 2/);
+});

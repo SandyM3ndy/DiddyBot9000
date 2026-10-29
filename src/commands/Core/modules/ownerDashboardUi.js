@@ -63,13 +63,21 @@ export function buildOwnerGuildList(client,page=0){
  const pages=Math.max(1,Math.ceil(guilds.length/12)),safe=Math.max(0,Math.min(pages-1,page));
  const lines=guilds.slice(safe*12,safe*12+12).map((g,j)=>
   String(safe*12+j+1)+'. '+g.name.replaceAll('@','@\u200b').slice(0,75)+' ('+g.id+')');
- const back=button('owner_action:guilds:'+Math.max(0,safe-1),'Previous','⬅️').setDisabled(safe===0);
- const next=button('owner_action:guilds:'+Math.min(pages-1,safe+1),'Next','➡️').setDisabled(safe+1===pages);
+ // Discord requires unique custom IDs even on DISABLED buttons.
+ // With a single page, both arrows previously targeted page 0 and Discord
+ // rejected the entire response (50035 COMPONENT_CUSTOM_ID_DUPLICATED).
+ const controls=[];
+ if(pages>1){
+  const back=button('owner_action:guilds:'+Math.max(0,safe-1)+':previous','Previous','⬅️').setDisabled(safe===0);
+  const next=button('owner_action:guilds:'+Math.min(pages-1,safe+1)+':next','Next','➡️').setDisabled(safe+1===pages);
+  controls.push(row(back,next));
+ }
+ controls.push(row(button('owner_action:home','Return to Dashboard','🏠',ButtonStyle.Primary)));
  return {content:'',allowedMentions:{parse:[]},
   embeds:[createEmbed({title:'🌐 Connected Beacon Servers',
    description:lines.join('\n')||'No connected servers.',color:'primary',
    footer:'Owner only • Page '+(safe+1)+' of '+pages})],
-  components:[row(back,next),row(button('owner_action:home','Return to Dashboard','🏠',ButtonStyle.Primary))],
+  components:controls,
  };
 }
 export function buildOwnerRestartConfirmation(){
