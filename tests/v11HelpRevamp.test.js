@@ -15,7 +15,7 @@ function mockClient() {
     command('diagnose', 'Utility', 'Check your server'),
     command('roleaudit', 'Moderation', 'Review roles'),
     command('ticket', 'Ticket', 'Support metrics'),
-    command('restart', 'BotOwner', 'Bot Owner Only • Safely restart Beacon', true),
+    command('ownerstats', 'BotOwner', 'Bot Owner Only • Open Beacon Owner Dashboard', true),
   ]) commands.set(item.data.name, item);
   return { commands, user: { username: 'Beacon', displayAvatarURL: () => 'https://cdn.discordapp.com/embed/avatars/0.png' } };
 }
@@ -42,7 +42,7 @@ test('category pages show access and do not strip owner restrictions', async () 
   const fields = view.embeds[0].toJSON().fields;
   assert.equal(fields.length, 1);
   assert.match(fields[0].value, /Bot Owner Only/);
-  assert.match(fields[0].name, /restart/);
+  assert.match(fields[0].name, /ownerstats/);
 });
 
 test('all commands view includes administrator tools', async () => {
