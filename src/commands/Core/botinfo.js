@@ -45,7 +45,7 @@ export default {
 
     const embed = createEmbed({
       title: '✦ Beacon ' + BEACON_VERSION_LABEL + ' • About',
-      description: '**Your community\\'s all-in-one Discord assistant.**\\n'+BEACON_IDENTITY.summary+'\\n\\nBeacon Network connects server progress, global Sand Coins, rank cards and Dispatch careers.',
+      description: `**Your community's all-in-one Discord assistant.**\n${BEACON_IDENTITY.summary}\n\nBeacon Network connects server progress, global Sand Coins, rank cards and Dispatch careers.`,
       color: 'primary',
       thumbnail: client.user?.displayAvatarURL?.({ size: 256 }),
       fields: [
