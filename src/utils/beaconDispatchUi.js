@@ -20,8 +20,12 @@ export function buildDispatchCareerPicker(profile,notice=''){
    (notice?'\n\n'+notice:''),
   fields:jobs.map(j=>({name:j.emoji+' '+j.name,value:j.description})),
   color:'primary',footer:'All five careers available at Level 1 • No leaderboard'});
+ const shortLabels={
+  emergency:'Emergency Response',bus:'Bus Operations',courier:'Courier Logistics',
+  relay:'Communications',systems:'Facility Operations',
+ };
  const jobButtons=jobs.map(j=>button('sand_dispatch:career:'+j.id,
-  j.name.length>25?j.name.slice(0,25):j.name,j.emoji));
+  shortLabels[j.id]||j.name,j.emoji));
  return {embeds:[embed],components:[
   row(...jobButtons.slice(0,3)),
   row(...jobButtons.slice(3)),
