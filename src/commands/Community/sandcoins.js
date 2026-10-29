@@ -1,5 +1,6 @@
 import { SlashCommandBuilder, MessageFlags, PermissionFlagsBits, AttachmentBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { createEmbed } from '../../utils/embeds.js';
+import { BEACON_IDENTITY } from '../../config/beaconIdentity.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 import { getGuildConfig } from '../../services/config/guildConfig.js';
 import { resolveLogChannel } from '../../services/loggingService.js';
@@ -181,12 +182,13 @@ export async function buildSandShopPanel(client,guildId,guildName,category='all'
  const chosen=SAND_SHOP_CATEGORIES.find(entry=>entry.id===selected);
  return {
   embeds:[createEmbed({
-   title:'🪙 Beacon Shop • '+chosen.heading,
+   title:'🎨 '+BEACON_IDENTITY.surfaces.shop+' • '+chosen.heading,
    description:'**'+chosen.emoji+' '+chosen.label+'** • Filter: **'+effectiveFilter+'**'+
     '\nChoose a category or filter and preview any decoration.'+
     '\n**'+items.length+' item'+(items.length===1?'':'s')+'** shown • Previews are free.'+
     '\n\nPurchases belong to **'+short(guildName)+'** as server inventory.'+
     '\nFor your private balance use /sandcoins wallet.',
+   thumbnail:client?.user?.displayAvatarURL?.({size:256})||null,
    fields:items.length?items.map(item=>{
     const s=status.get(item.id);
     return {name:(s.owned?'✅ ':s.soldOut?'🚫 ':'▫️ ')+item.name+(item.limited?' • Limited Edition':''),
@@ -194,7 +196,7 @@ export async function buildSandShopPanel(client,guildId,guildName,category='all'
       (s.owned?' • **Owned**':s.soldOut?' • **Sold out**':wallet&&wallet.balance<item.price?' • **Not enough coins**':'')+
       (item.limit?' • **'+stocks[all.indexOf(item)].remaining+'/'+stocks[all.indexOf(item)].total+' left globally**':'')};
    }):[{name:'Nothing to show',value:'Try another category or filter. Your inventory and wallet are unchanged.'}],
-   color:'primary',footer:'Preview → Buy → Confirm • Only managers can equip',
+   color:'economy',footer:'Beacon Network • Preview → Buy → Confirm • Managers equip',
   })],
   components:buildSandShopPreviewButtons(selected,effectiveFilter,items),
   attachments:[],

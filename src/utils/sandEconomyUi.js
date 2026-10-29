@@ -1,5 +1,6 @@
 import { ActionRowBuilder,ButtonBuilder,ButtonStyle } from 'discord.js';
 import { createEmbed } from './embeds.js';
+import { BEACON_IDENTITY } from '../config/beaconIdentity.js';
 import {
  getSandWallet,getSandDailyStatusFromWallet,SAND_DAILY_LIMIT,SAND_WEEKLY_LIMIT,
  SAND_NOTIFICATION_TYPES,
@@ -51,17 +52,17 @@ export async function buildSandWalletPanel(client,userId,view='home',filter='all
   const entries=w.history.filter(h=>sandHistoryMatches(h,effectiveFilter));
   const totalPages=Math.max(1,Math.ceil(entries.length/5));
   const currentPage=Math.max(0,Math.min(totalPages-1,Number(page)||0));
-  embed=createEmbed({title:'📜 Your Sand Coins Transactions',
+  embed=createEmbed({title:'📜 '+BEACON_IDENTITY.surfaces.wallet+' • History',
    description:'**'+entries.length+' entries** matching **'+effectiveFilter+'** • Page '+(currentPage+1)+'/'+totalPages+
     '\n\n'+(entries.slice(currentPage*5,currentPage*5+5).map(sandHistoryLabel).join('\n\n')||'No transactions in this view.'),
-   color:'primary',footer:'Private • Latest 30 wallet events retained • No currency rules changed'});
+   color:'economy',footer:'Beacon Network • Private • Latest 30 wallet events retained'});
   rows.push(new ActionRowBuilder().addComponents(
    ...SAND_HISTORY_FILTERS.map(x=>button('history:'+x+':0',x[0].toUpperCase()+x.slice(1),'🔎',effectiveFilter===x))));
   rows.push(new ActionRowBuilder().addComponents(
    button('history:'+effectiveFilter+':'+(currentPage-1),'Previous','⬅️',false,currentPage===0),
    button('history:'+effectiveFilter+':'+(currentPage+1),'Next','➡️',false,currentPage===totalPages-1)));
  }else if(view==='alerts'){
-  embed=createEmbed({title:'🔔 Economy Notifications',
+  embed=createEmbed({title:'🔔 '+BEACON_IDENTITY.surfaces.wallet+' • Alerts',
    description:'These are **optional private DMs**. Off by default. A disabled DM inbox never cancels a transaction.\n\n'+
     '• **Payments:** When you receive a transfer.\n'+
     '• **Purchases:** When a decoration is bought for a server you own.\n'+
@@ -69,7 +70,7 @@ export async function buildSandWalletPanel(client,userId,view='home',filter='all
     '• **Potions:** When your server’s treasury boost expires.',
    fields:SAND_NOTIFICATION_TYPES.map(type=>({name:type[0].toUpperCase()+type.slice(1),
     value:w.notifications?.[type]?'✅ Enabled':'🔕 Disabled',inline:true})),
-   color:'primary',footer:'Preferences are global and saved in your PostgreSQL wallet'});
+   color:'economy',footer:'Beacon Network • Preferences are global and saved'});
   rows.push(new ActionRowBuilder().addComponents(
    ...SAND_NOTIFICATION_TYPES.map(type=>button('toggle:'+type,
     (w.notifications?.[type]?'Disable ':'Enable ')+type,'🔔',Boolean(w.notifications?.[type])))));
@@ -77,8 +78,9 @@ export async function buildSandWalletPanel(client,userId,view='home',filter='all
   const today=w.day===now.toISOString().slice(0,10)?w.earnedToday:0;
   const monday=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),now.getUTCDate()-(now.getUTCDay()+6)%7)).toISOString().slice(0,10);
   const weekly=w.week===monday?w.earnedWeek:0;
-  embed=createEmbed({title:'🪙 Your Global Sand Coins Wallet',
-   description:'**'+fmt(w.balance)+' available** • Your wallet works across every Beacon server.\n'+
+  embed=createEmbed({title:'🪙 '+BEACON_IDENTITY.surfaces.wallet+' • Wallet',
+   description:'**'+fmt(w.balance)+' available** • One wallet across Beacon communities.\n'+
+    'Earn in one server and support another through its rank-card shop. Your Dispatch career travels with you.\n'+
     'Quest and daily rewards are tracked separately; daily streak claims do not use quest limits.',
    fields:[
     {name:'Lifetime earned',value:fmt(w.lifetime),inline:true},
@@ -86,7 +88,11 @@ export async function buildSandWalletPanel(client,userId,view='home',filter='all
     {name:'🎯 Quest coins today',value:fmt(today)+' / '+fmt(SAND_DAILY_LIMIT)+'\nResets <t:'+nextUtc(now)+':R>',inline:true},
     {name:'📅 Quest coins this week',value:fmt(weekly)+' / '+fmt(SAND_WEEKLY_LIMIT)+'\nResets <t:'+nextWeek(now)+':R>',inline:true},
     {name:'Recent activity',value:w.history.slice(0,3).map(x=>(x.delta>=0?'🟢 +':'🔴 −')+fmt(Math.abs(x.delta))+' • '+(kinds[x.kind]||'Activity')).join('\n')||'No transactions yet.'},
-   ],color:'primary',footer:'Your wallet and history are private • UTC resets'});
+   ],color:'economy',footer:'Beacon Network • Your wallet and history are private • UTC resets'});
  }
+ // Use the actual installed Beacon avatar (logo when configured by the owner),
+ // never invent an image URL or substitute a generic brand illustration.
+ const avatar=client?.user?.displayAvatarURL?.({size:256});
+ if(avatar)embed.setThumbnail(avatar);
  return {embeds:[embed],components:rows,allowedMentions:{parse:[]},attachments:[]};
 }

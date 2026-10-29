@@ -1,5 +1,6 @@
 import { ActionRowBuilder,ButtonBuilder,ButtonStyle } from 'discord.js';
 import { createEmbed } from './embeds.js';
+import { BEACON_IDENTITY } from '../config/beaconIdentity.js';
 import { DISPATCH_LIMITS,DISPATCH_MISSIONS,dispatchCareer,dispatchNextLevelXp,dispatchBaseReward } from '../services/beaconDispatchService.js';
 
 const row=(...buttons)=>new ActionRowBuilder().addComponents(...buttons);
@@ -13,13 +14,13 @@ const coins=n=>Number(n||0).toLocaleString('en-US')+' SC';
 export function buildDispatchCareerPicker(profile,notice=''){
  const jobs=DISPATCH_MISSIONS;
  const embed=createEmbed({
-  title:'📡 Beacon Dispatch • Choose Your Career',
+  title:'📡 '+BEACON_IDENTITY.surfaces.dispatch+' • Choose Your Career',
   description:'**Welcome to the Dispatch Network.** Pick **one permanent job** to work in.'+
    '\n\nYou will receive assignments only for your chosen career. You can resign and choose a different job later, but **switching does not reset cooldowns, earnings limits or contractor XP**.'+
    '\n\n**Easy:** 3 simple decisions • **Hard:** 4 harder decisions for 2× rewards.'+
    (notice?'\n\n'+notice:''),
   fields:jobs.map(j=>({name:j.emoji+' '+j.name,value:j.description})),
-  color:'primary',footer:'All five careers available at Level 1 • No leaderboard'});
+  color:'primary',footer:'Beacon Network • Five careers from Level 1 • No leaderboard'});
  const shortLabels={
   emergency:'Emergency Response',bus:'Bus Operations',courier:'Courier Logistics',
   relay:'Communications',systems:'Facility Operations',
@@ -76,7 +77,7 @@ export function buildDispatchBoard(profile,now=new Date(),notice=''){
  if(profile.lastResult)fields.push({name:'🧾 Last Assignment',value:profile.lastResult.missionEmoji+' '+
   profile.lastResult.missionName+' ('+profile.lastResult.difficulty.toUpperCase()+') • '+
   (profile.lastResult.passed?'+'+coins(profile.lastResult.coins):'No payment')});
- const embed=createEmbed({title:'📡 Beacon Dispatch • '+(career?career.name:'Active Contract'),
+ const embed=createEmbed({title:'📡 '+BEACON_IDENTITY.surfaces.dispatch+' • '+(career?career.name:'Active Contract'),
   description:'**Your assignment desk.** All jobs here belong to your selected career.\n'+
    '📦 **Easy:** 3 questions; get at least 2 right.\n'+
    '⚡ **Hard:** 4 tougher questions; get at least 3 right for **2× Sand Coins**.'+
@@ -84,7 +85,7 @@ export function buildDispatchBoard(profile,now=new Date(),notice=''){
     active.difficulty.toUpperCase()+' • Expires '+time(active.expiresAt):
     (restriction[profile.reason]||'**Ready for your next assignment.**'))+
    (notice?'\n\n'+notice:''),
-  fields,color:'primary',footer:'Global contractor progress • No leaderboard • Switching jobs never resets limits'});
+  fields,color:'primary',footer:'Beacon Network • Career travels across servers • No leaderboard'});
  const rows=[];
  if(active){
   rows.push(row(
@@ -112,7 +113,7 @@ export function buildDispatchMission(profile,userId,feedback=null){
  const answerButtons=stage.options.map((option,index)=>row(button(
   'sand_dispatch:pick:'+userId+':'+a.token+':'+a.stage+':'+index,
   String.fromCharCode(65+index)+' • '+option,'📍',ButtonStyle.Secondary)));
- const embed=createEmbed({title:a.missionEmoji+' '+a.missionName+' • '+a.difficulty.toUpperCase(),
+ const embed=createEmbed({title:a.missionEmoji+' '+BEACON_IDENTITY.surfaces.dispatch+' • '+a.missionName+' • '+a.difficulty.toUpperCase(),
   description:'**BDN CONTRACT #'+a.token.toUpperCase()+'**\nStage **'+(a.stage+1)+'/'+a.stages.length+
    '** • Correct answers: **'+a.correct+'**\nExpires '+time(a.expiresAt)+
    '\n\n**Your situation:** '+stage.question,
@@ -120,7 +121,7 @@ export function buildDispatchMission(profile,userId,feedback=null){
    {name:'What would you do?',value:a.difficulty==='hard'?
     'Pick the best choice. You need **3 of 4 correct** for payment.':'Pick the best choice. You need **2 of 3 correct** for payment.'}],
   color:a.difficulty==='hard'?'warning':'primary',
-  footer:'Mistakes never cost coins • Finish every question to get a payout'});
+  footer:'Beacon Dispatch • Mistakes never cost coins • Complete every stage'});
  const notice=feedback?(feedback.correct?'✅ Correct. ':'⚠️ Incorrect. ')+feedback.explanation:'';
  return {embeds:[embed],components:[...answerButtons,row(
   button('sand_dispatch:board','Assignment Board','📡'),
@@ -131,7 +132,7 @@ export function buildDispatchResult(profile,result,feedback=null){
  const next=result.priorLevel===result.newLevel?'':
   '\n🎉 **LEVEL UP!** Contractor Level '+result.newLevel+' unlocked.';
  const embed=createEmbed({
-  title:result.passed?'✅ Dispatch Completed':'📋 Dispatch Closed',
+  title:result.passed?'✅ Beacon Dispatch • Completed':'📋 Beacon Dispatch • Closed',
   description:result.missionEmoji+' **'+result.missionName+'** • '+result.difficulty.toUpperCase()+
    '\n**'+result.correct+'/'+result.total+'** verified decisions'+
    '\n\n**'+(result.passed?'+'+coins(result.coins):'No payment')+'** awarded to your global wallet.'+
@@ -142,7 +143,7 @@ export function buildDispatchResult(profile,result,feedback=null){
    {name:'XP earned',value:'+'+result.xpGain+' XP',inline:true},
    {name:'Budget Remaining',value:coins(profile.remainingToday)+' today • '+coins(profile.remainingWeek)+' this week'}],
   color:result.passed?'success':'warning',
-  footer:'Transaction confirmed in PostgreSQL • No leaderboard'});
+  footer:'Beacon Network • Saved global payout • No leaderboard'});
  return {embeds:[embed],components:[row(
   button('sand_dispatch:board','Assignment Board','📡',ButtonStyle.Primary),
   button('sand_wallet:home','Wallet','🪙'))],

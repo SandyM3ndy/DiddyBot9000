@@ -3,6 +3,7 @@ import { patchGuildConfig } from '../../services/config/guildConfig.js';
 import { renderProgressionRankPng } from '../../utils/progressionRankCard.js';
 import { getSandServer, getSandAppearance } from '../../services/sandCoinsService.js';
 import { createEmbed } from '../../utils/embeds.js';
+import { BEACON_IDENTITY } from '../../config/beaconIdentity.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 import { getGuildConfig } from '../../services/config/guildConfig.js';
 import {
@@ -67,7 +68,7 @@ function overviewEmbed(guild, data, entries, founder = null) {
   const nextRank = rank && rank > 1 ? entries[rank - 2] : null;
   const needed = nextRank ? Math.max(0, nextRank.xp - data.xp + 1) : null;
   return createEmbed({
-    title: '✨ ' + cleanName(guild.name) + ' • Progression',
+    title: '✨ ' + cleanName(guild.name) + ' • ' + BEACON_IDENTITY.surfaces.progression,
     description: '**LEVEL ' + data.level + '**  ·  **' + data.xp.toLocaleString() + ' TOTAL XP**\n' +
       meter(progress.percent) + '\n' +
       progress.progressXp.toLocaleString() + ' / ' + progress.neededXp.toLocaleString() +
@@ -82,7 +83,7 @@ function overviewEmbed(guild, data, entries, founder = null) {
       { name: '📌 Your Next Goal', value: data.dailyQuests.find(quest => !quest.completed)?.title || 'All daily quests finished — nice work!', inline: false },
       { name: '🏅 Community Status', value: founder ? `🌟 Founding Community #${founder.number} of 25` : 'Growing Community', inline: false },
     ],
-    footer: 'Every server starts somewhere. Progress is saved between days.',
+    footer: 'Beacon Network • Each server keeps its own progress',
   });
 }
 
@@ -129,7 +130,7 @@ function leaderboardEmbed(guild, entries, page, founders = []) {
     });
   const nextRival = rank && rank > 1 ? entries[rank - 2] : null;
   return createEmbed({
-    title: '🌍 Beacon • World Rankings',
+    title: '🌍 ' + BEACON_IDENTITY.surfaces.ranking,
     description: 'Communities ranked by **all-time Server XP**.\n\n' +
       (lines.length ? lines.join('\n\n') : 'No communities have earned XP yet. Be the first!') +
       '\n\n━━━━━━━━━━━━━━━━\n' +
@@ -137,7 +138,7 @@ function leaderboardEmbed(guild, entries, page, founders = []) {
       (nextRival ? '\n**Next rival:** ' + cleanName(nextRival.guildName) + ' · ' +
         Math.max(0, nextRival.xp - entries[rank - 1].xp + 1).toLocaleString() + ' XP away' : ''),
     color: 'info',
-    footer: 'Page ' + (safePage + 1) + '/' + pages + ' • ' + entries.length +
+    footer: 'Beacon Network • Page ' + (safePage + 1) + '/' + pages + ' • ' + entries.length +
       ' participating servers • Rankings update when refreshed',
   });
 }

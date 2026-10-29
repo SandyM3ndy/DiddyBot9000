@@ -1,5 +1,6 @@
 import { SlashCommandBuilder,ActionRowBuilder,ButtonBuilder,ButtonStyle,MessageFlags } from 'discord.js';
 import { createEmbed } from '../../utils/embeds.js';
+import { BEACON_IDENTITY } from '../../config/beaconIdentity.js';
 import { getTreasury,TREASURY_DEFENCES,TREASURY_POTIONS,TREASURY_MIN_HEIST,TREASURY_TOGGLE_COOLDOWN_MS } from '../../services/treasuryService.js';
 
 const B=(id,label,emoji,primary=false,disabled=false)=>new ButtonBuilder()
@@ -19,7 +20,7 @@ export async function buildTreasuryPanel(client,guildId,view='home',page=0){
    B('history','History','📜',view==='history'),
    B('stats','Stats','📊',view==='stats')),
  ];
- let title='🏦 Beacon • Community Treasury',description='';
+ let title='🏦 '+BEACON_IDENTITY.surfaces.treasury,description='';
  if(view==='raids'){
   const {buildHeistPanel}=await import('./heist.js');
   return buildHeistPanel(client,guildId);
@@ -95,7 +96,8 @@ export async function buildTreasuryPanel(client,guildId,view='home',page=0){
    B('raids','Treasury Wars','⚔️')));
  }
  const embed=createEmbed({title,description,fields,color:'primary',
-  footer:'Beacon • Sand Coins • Shared treasury • All transfers are logged'});
+  thumbnail:client?.user?.displayAvatarURL?.({size:256})||null,
+  footer:'Beacon Network • Each server controls its own treasury • Transfers logged'});
  return {embeds:[embed],components:buttons,allowedMentions:{parse:[]}};
 }
 export default {
