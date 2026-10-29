@@ -7,6 +7,7 @@ import { formatCategoryName, getCategoryIcon } from '../../config/commands/comma
 import { searchBeaconCommandsByIntent, resolveMovedSlashCommand } from '../../utils/helpSearch.js';
 import { getRegisteredCommands } from '../../handlers/help/helpSelectMenus.js';
 import { BEACON_TEAM_NAME, BEACON_VERSION_LABEL } from '../../config/bot.js';
+import { BEACON_IDENTITY } from '../../config/beaconIdentity.js';
 import { getBeaconInviteUrl } from './invite.js';
 
 const SUPPORT_URL = 'https://discord.gg/76N2EM6v6k';
@@ -39,7 +40,7 @@ export async function createInitialHelpMenu(client) {
     title: '✦ Beacon ' + BEACON_VERSION_LABEL + ' | Command Center',
     description: [
       '**Your community\'s all-in-one Discord assistant.**',
-      'Global server rankings, rotating quests, moderation, tickets and security — all in Beacon.', 
+      BEACON_IDENTITY.summary,
       '',
       '**/dashboard is your Main Control Center.** Use **Start Here** for a guided tour, or explore commands below.',
     ].join('\n'),
@@ -50,7 +51,8 @@ export async function createInitialHelpMenu(client) {
       { name: '🗂️ Categories', value: String(categories.size), inline: true },
       { name: '🛡️ Security', value: 'Moderation & Anti-Nuke', inline: true },
       { name: '🚀 Get started', value: '**/progression overview** — Explore quests, rankings and server XP\n**/dashboard** — Configure your community (including Welcome & Goodbye)\n**/diagnose** — Check setup and permissions', inline: false },
-      { name: '🎯 Community Progression', value: '**/progression quests** — Daily challenges\n**/progression weekly** — Weekly goals\n**/progression leaderboard** — Global server rankings\n**/sandcoins wallet** — Global quest earnings\n**/sandcoins shop** — Server rank-card decorations', inline: false },
+      { name: '🌐 Beacon Network', value: '**/progression overview** — Your server’s shared goals\n**/sandcoins wallet** — Your global earnings and history\n**/sandcoins dispatch** — Choose a career and complete assignments\n**/treasury** — Optional inter-server competition\n**/rank card** — Community rank cards and cosmetics', inline: false },
+      { name: '🎯 Community Progression', value: '**/progression quests** — Daily challenges\n**/progression weekly** — Weekly goals\n**/progression leaderboard** — Global server rankings\n**/sandcoins shop** — Rank-card decorations', inline: false },
       { name: '🧰 Administration', value: '**/roleaudit** — Review powerful server roles\n**/ticket stats** — Track your support workload', inline: false },
       { name: '🧭 Moved Commands', value: 'Looking for an old shortcut? Use **/help search** and enter its old name, such as `heist`, `daily` or `play`.', inline: false },
       { name: '👑 Developer tools', value: 'The **Bot Owner** category contains commands reserved for Beacon’s creator. Server owners and moderators can manage their own communities normally.', inline: false },

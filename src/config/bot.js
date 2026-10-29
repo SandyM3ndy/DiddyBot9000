@@ -1,4 +1,5 @@
 import { logger } from '../utils/logger.js';
+import { BEACON_PALETTE } from './beaconIdentity.js';
 
 /** Official public brand copy. Do not substitute campaign taglines for the motto. */
 export const BEACON_VERSION = '1.1.0';
@@ -31,7 +32,7 @@ export const botConfig = {
     status: "online",
     activities: [
       {
-        name: `${BEACON_VERSION_LABEL} 🎉 | Moderating...`,
+        name: `${BEACON_VERSION_LABEL} | Beacon Network`,
         type: 4,
       },
     ],
@@ -64,13 +65,13 @@ export const botConfig = {
 
   embeds: {
     colors: {
-      primary: "#5865F2", secondary: "#2F3136", success: "#57F287", error: "#ED4245",
+      primary: BEACON_PALETTE.signal, secondary: BEACON_PALETTE.deepTeal, success: "#57F287", error: "#ED4245",
       warning: "#FEE75C", info: "#3498DB", light: "#FFFFFF", dark: "#202225",
       gray: "#99AAB5", blurple: "#5865F2", green: "#57F287", yellow: "#FEE75C",
       fuchsia: "#EB459E", red: "#ED4245", black: "#000000",
       giveaway: { active: "#57F287", ended: "#ED4245" },
       ticket: { open: "#57F287", claimed: "#FAA61A", closed: "#ED4245", pending: "#99AAB5" },
-      economy: "#F1C40F", moderation: "#9B59B6",
+      economy: BEACON_PALETTE.gold, moderation: BEACON_PALETTE.signal,
       priority: { none: "#95A5A6", low: "#3498db", medium: "#2ecc71", high: "#f1c40f", urgent: "#e74c3c" },
     },
     footer: { text: BEACON_FOOTER, icon: null },

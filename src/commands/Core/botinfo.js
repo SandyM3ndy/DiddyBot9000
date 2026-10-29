@@ -1,6 +1,7 @@
 import { SlashCommandBuilder, version as discordVersion, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { createEmbed } from '../../utils/embeds.js';
 import { BEACON_TEAM_NAME, BEACON_TEAM_THANKS, BEACON_VERSION_LABEL } from '../../config/bot.js';
+import { BEACON_IDENTITY } from '../../config/beaconIdentity.js';
 import { getRegisteredCommandCount } from '../../utils/commandCounts.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 import { isAntiNukeAIConfigured, getAntiNukeAIModel } from '../../services/aiSecurityService.js';
@@ -44,7 +45,7 @@ export default {
 
     const embed = createEmbed({
       title: '✦ Beacon ' + BEACON_VERSION_LABEL + ' • About',
-      description: '**Your community\'s all-in-one Discord assistant.**\nModeration, support, security, daily quests and global server rankings — together in Beacon.',
+      description: '**Your community\\'s all-in-one Discord assistant.**\\n'+BEACON_IDENTITY.summary+'\\n\\nBeacon Network connects server progress, global Sand Coins, rank cards and Dispatch careers.',
       color: 'primary',
       thumbnail: client.user?.displayAvatarURL?.({ size: 256 }),
       fields: [

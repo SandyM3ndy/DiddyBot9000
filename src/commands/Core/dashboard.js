@@ -25,6 +25,7 @@ import { DASHBOARD_FAVOURITES, getDashboardFavourites, formatDashboardFavourites
 } from '../../services/dashboardExperienceService.js';
 import { logger } from '../../utils/logger.js';
 import { botConfig, getCommandPrefix, BEACON_MOTTO, BEACON_TEAM_NAME, BEACON_VERSION_LABEL } from '../../config/bot.js';
+import { BEACON_IDENTITY } from '../../config/beaconIdentity.js';
 import { buildDashboardHubMenu, buildDashboardHubPanel } from '../../utils/dashboardHub.js';
 import ticketDashboard from '../Ticket/modules/ticket_dashboard.js';
 import commandsDashboard from './modules/commands_dashboard.js';
@@ -128,7 +129,7 @@ export function buildDashboardEmbed(config, guild) {
         description: [
             '**' + guild.name + '**',
             '**' + BEACON_MOTTO + '**',
-            'Your central place for server setup, safety, community tools and support.',
+            'Beacon HQ • '+BEACON_IDENTITY.summary,
             '',
             readiness,
             '',
@@ -152,7 +153,8 @@ export function buildDashboardEmbed(config, guild) {
             { name: '🎫 Support', value: config.ticketPanelChannelId
                 ? 'Panel: ' + formatChannelMention(guild, config.ticketPanelChannelId)
                 : '⚪ Panel not configured', inline: true },
-            { name: '🧭 Explore Beacon', value: 'Use **Explore your Control Center** for guided views of Security, Community, Tickets and the Development Team. Use **Choose a feature** to actually configure settings.', inline: false },
+            { name: '🌐 The Beacon Network', value: '**Protect** with security and moderation. **Grow** through progression and quests. **Reward** participation with Sand Coins, careers and optional Treasury Wars. Explore the **Beacon Network** panel below.', inline: false },
+            { name: '🧭 Explore Beacon', value: 'Use **Explore your Control Center** for Network, Security, Community, Tickets and the Development Team. Use **Choose a feature** to configure settings.', inline: false },
             { name: '🔍 Diagnostics', value: '**/diagnose** checks configuration and permissions. **/roleaudit** reviews risky server roles.', inline: false },
             { name: '💜 From Our Team', value: 'Thanks for choosing Beacon for your community. — **' + BEACON_TEAM_NAME + '**', inline: false },
         ],
