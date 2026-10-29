@@ -35,8 +35,10 @@ export function buildDispatchBoard(profile,now=new Date(),notice=''){
   profile.lastResult.missionName+' ('+profile.lastResult.difficulty.toUpperCase()+') • '+
   (profile.lastResult.passed?'+'+coins(profile.lastResult.coins):'No payment')});
  const embed=createEmbed({title:'📡 Beacon Dispatch Network',
-  description:'**Contractor Operations Terminal**\nComplete interactive assignments to earn **global Sand Coins**. '+
-   'Hard assignments have tougher decisions and pay **2× the equivalent Easy reward** at the same level/performance.'+
+  description:'**Choose a job and make the best decisions.**\n'+
+   '📦 **Easy:** 3 simple choices; get at least 2 right.\n'+
+   '⚡ **Hard:** 4 tougher situations; get at least 3 right for **2× coins** at the same level and score.\n'+
+   'Read the situation, tap an answer and keep going. You only get paid after finishing.'+
    '\n\n'+(active?'**Active assignment:** '+active.missionEmoji+' '+active.missionName+' • '+
     active.difficulty.toUpperCase()+' • Expires '+time(active.expiresAt):
     (restriction[profile.reason]||'**Ready for your next assignment.**'))+
@@ -70,18 +72,19 @@ export function buildDispatchMission(profile,userId,feedback=null){
  const embed=createEmbed({title:a.missionEmoji+' '+a.missionName+' • '+a.difficulty.toUpperCase(),
   description:'**BDN CONTRACT #'+a.token.toUpperCase()+'**\nStage **'+(a.stage+1)+'/'+a.stages.length+
    '** • Correct answers: **'+a.correct+'**\nExpires '+time(a.expiresAt)+
-   '\n\n**DISPATCH CONTROL:** '+stage.question,
-  fields:[{name:'📋 Verified operational information',value:stage.clues.map((clue,i)=>String(i+1)+'. '+clue).join('\n')},
-   {name:'Select an answer',value:'Choose carefully. Every answer is final, and Hard assignments require at least 75% accuracy.'}],
+   '\n\n**Your situation:** '+stage.question,
+  fields:[{name:'📋 Here is what you know',value:stage.clues.map((clue,i)=>String(i+1)+'. '+clue).join('\n')},
+   {name:'What would you do?',value:a.difficulty==='hard'?
+    'Pick the best choice. You need **3 of 4 correct** for payment.':'Pick the best choice. You need **2 of 3 correct** for payment.'}],
   color:a.difficulty==='hard'?'warning':'primary',
-  footer:'No coin deductions for mistakes • Payout only after every stage'});
+  footer:'Mistakes never cost coins • Finish every question to get a payout'});
  const notice=feedback?(feedback.correct?'✅ Correct. ':'⚠️ Incorrect. ')+feedback.explanation:'';
  return {embeds:[embed],components:[...answerButtons,row(
   button('sand_dispatch:board','Assignment Board','📡'),
   button('sand_dispatch:abandon:'+a.token,'Abandon Assignment','🛑',ButtonStyle.Danger))],
   content:notice,allowedMentions:{parse:[]},attachments:[]};
 }
-export function buildDispatchResult(profile,result){
+export function buildDispatchResult(profile,result,feedback=null){
  const next=result.priorLevel===result.newLevel?'':
   '\n🎉 **LEVEL UP!** Contractor Level '+result.newLevel+' unlocked.';
  const embed=createEmbed({
@@ -90,7 +93,8 @@ export function buildDispatchResult(profile,result){
    '\n**'+result.correct+'/'+result.total+'** verified decisions'+
    '\n\n**'+(result.passed?'+'+coins(result.coins):'No payment')+'** awarded to your global wallet.'+
    (!result.passed?'\nNot enough correct decisions to qualify for a payout.':'')+
-   (result.rawReward>result.coins?'\nThe global Dispatch earnings cap limited this payout.':'')+next,
+   (result.rawReward>result.coins?'\nThe global Dispatch earnings cap limited this payout.':'')+next+
+   (feedback?'\n\n**Final answer:** '+(feedback.correct?'✅ Correct. ':'❌ Not quite. ')+feedback.explanation:''),
   fields:[{name:'Contractor Progress',value:'Level '+profile.level+' • '+profile.xp+' XP',inline:true},
    {name:'XP earned',value:'+'+result.xpGain+' XP',inline:true},
    {name:'Budget Remaining',value:coins(profile.remainingToday)+' today • '+coins(profile.remainingWeek)+' this week'}],

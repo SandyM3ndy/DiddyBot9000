@@ -224,3 +224,43 @@ test('existing Wallet Dispatch button opens the contractor board, not the wallet
  assert.ok(result.components.flatMap(r=>r.toJSON().components)
   .some(button=>button.custom_id==='sand_dispatch:start:hard'));
 });
+
+
+test('Easy and Hard situations stay readable, with no old jargon or confusing ID puzzles',()=>{
+ const banned=/\b(?:MHz|latency|undervoltage|frequency|manifest seal|transposed digits|relay code|baud|KX-714|ND-04)\b/i;
+ for(const level of [1,3,6,10,15]){
+  for(const difficulty of ['easy','hard']){
+   for(let seed=0;seed<30;seed++){
+    let tick=0;
+    const assignment=createDispatchAssignment({level,difficulty,rng:max=>{
+     // Exercise different unlocked divisions, question offsets and answer orders.
+     return (seed+tick++)%max;
+    }});
+    const size=difficulty==='hard'?4:3;
+    assert.equal(assignment.stages.length,size);
+    for(const s of assignment.stages){
+     assert.ok(s.question.length>20 && s.question.length<=250);
+     assert.ok(s.clues.length>0 && s.clues.length<=5);
+     assert.equal(s.options.length,3);
+     assert.equal(new Set(s.options).size,3);
+     assert.ok(s.options.every(x=>x.length<=75));
+     assert.ok(!banned.test([s.question,...s.clues,...s.options,s.explanation].join(' ')));
+     assert.ok(s.explanation.length>=30);
+    }
+   }
+  }
+ }
+});
+test('mission screens explain pass requirements plainly and show final explanation',async()=>{
+ const {client}=mockDb();
+ const easy=await startDispatch(client,{userId:uid,difficulty:'easy',now:startTime,rng});
+ const easyScreen=buildDispatchMission(easy.profile,uid);
+ assert.match(JSON.stringify(easyScreen.embeds[0].toJSON()),/2 of 3 correct/);
+ const hard=await getDispatchStatus(client,uid,startTime);
+ const board=buildDispatchBoard(hard,startTime);
+ assert.match(JSON.stringify(board.embeds[0].toJSON()),/3 of 4 correct/);
+ const r=buildDispatchResult({...hard,level:2},{missionName:'Courier Routing',missionEmoji:'📦',
+  difficulty:'hard',correct:4,total:4,rawReward:48,coins:48,xpGain:2,priorLevel:1,newLevel:2,passed:true},
+  {correct:true,explanation:'The hospital medicine is urgent.'});
+ assert.match(r.embeds[0].toJSON().description,/hospital medicine is urgent/);
+});

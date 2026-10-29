@@ -31,7 +31,7 @@ export async function handleBeaconDispatch(i,client,args=[]){
     return i.editReply(buildDispatchBoard(await getDispatchStatus(client,userId,now),now,
      'Invalid response. Nothing was charged.'));
    const response=await answerDispatch(client,{userId,token:args[2],step,choice,now});
-   if(response.status==='COMPLETE')return i.editReply(buildDispatchResult(response.profile,response.result));
+   if(response.status==='COMPLETE')return i.editReply(buildDispatchResult(response.profile,response.result,response.feedback));
    if(response.status==='NEXT')return i.editReply(buildDispatchMission(response.profile,userId,response.feedback));
    return i.editReply(buildDispatchBoard(response.profile,now,'That answer was expired or already recorded. No additional payout.'));
   }
