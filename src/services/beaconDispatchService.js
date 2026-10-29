@@ -456,14 +456,16 @@ export function createDispatchAssignment({level,difficulty,careerId,rng=randomIn
  if(!['easy','hard'].includes(difficulty))throw new Error('INVALID_DIFFICULTY');
  const mission=dispatchCareer(careerId);
  if(!mission)throw new Error('CAREER_REQUIRED');
- const templates=catalog[mission.id][difficulty];
- // More senior contractors receive more involved, career-specific situations.
- // Do not randomise their career: the player chose it permanently.
- const senior=level>=10?3:level>=5?1:0;
+ // As contractor level increases, NEW incidents unlock in this same career.
+ // Levels 1–4: 4 situations, 5–9: 5, 10+: entire question pool.
+ // This changes assignments without changing a player's chosen career.
+ const allTemplates=catalog[mission.id][difficulty];
+ const count=level>=10?allTemplates.length:level>=5?Math.min(5,allTemplates.length):Math.min(4,allTemplates.length);
+ const templates=allTemplates.slice(0,count);
  const offset=rng(templates.length);
  const size=difficulty==='hard'?4:3;
  const stages=Array.from({length:size},(_,i)=>{
-  const t=templates[(offset+i+senior)%templates.length];
+  const t=templates[(offset+i)%templates.length];
   const options=shuffle([t.correct,...t.wrong],rng);
   return {question:t.question,clues:t.clues,options,correct:options.indexOf(t.correct),explanation:t.explanation};
  });
