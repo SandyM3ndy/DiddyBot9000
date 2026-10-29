@@ -258,7 +258,7 @@ test('mission screens explain pass requirements plainly and show final explanati
  assert.match(JSON.stringify(easyScreen.embeds[0].toJSON()),/2 of 3 correct/);
  const hard=await getDispatchStatus(client,uid,startTime);
  const board=buildDispatchBoard(hard,startTime);
- assert.match(JSON.stringify(board.embeds[0].toJSON()),/3 of 4 correct/);
+ assert.match(JSON.stringify(board.embeds[0].toJSON()),/get at least 3 right/);
  const r=buildDispatchResult({...hard,level:2},{missionName:'Courier Routing',missionEmoji:'📦',
   difficulty:'hard',correct:4,total:4,rawReward:48,coins:48,xpGain:2,priorLevel:1,newLevel:2,passed:true},
   {correct:true,explanation:'The hospital medicine is urgent.'});
