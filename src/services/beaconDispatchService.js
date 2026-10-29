@@ -12,12 +12,17 @@ export const DISPATCH_LIMITS=Object.freeze({
  dailyCoins:100,weeklyCoins:350,attemptsPerDay:3,
  cooldownMs:20*60*1000,sessionMs:12*60*1000,maxLevel:15,
 });
+// A career is permanent until the contractor explicitly resigns. All five
+// are available from level 1; higher levels unlock more complex assignments
+// WITHIN that career rather than forcing an unrelated random job.
 export const DISPATCH_MISSIONS=Object.freeze([
- {id:'courier',name:'Courier Routing',emoji:'📦',unlock:1},
- {id:'relay',name:'Signal Recovery',emoji:'📡',unlock:3},
- {id:'systems',name:'System Stabilisation',emoji:'⚡',unlock:6},
- {id:'audit',name:'Manifest Audit',emoji:'📋',unlock:10},
+ {id:'emergency',name:'Emergency Response Dispatcher',emoji:'🚨',description:'Decide which police, ambulance and fire crews should respond to fictional emergency calls.'},
+ {id:'bus',name:'Bus Operations Dispatcher',emoji:'🚌',description:'Keep drivers, stops and buses running safely and on time.'},
+ {id:'courier',name:'Courier Logistics Officer',emoji:'📦',description:'Route deliveries, manage urgent packages and solve transport problems.'},
+ {id:'relay',name:'Communications Operator',emoji:'📡',description:'Keep communication stations connected when problems appear.'},
+ {id:'systems',name:'Facility Operations Controller',emoji:'⚡',description:'Handle building faults, repairs, backup systems and maintenance.'},
 ]);
+export const dispatchCareer=careerId=>DISPATCH_MISSIONS.find(x=>x.id===careerId)||null;
 export const dispatchStorageKey=userId=>PREFIX+userId;
 const validUser=id=>typeof id==='string'&&/^\d{17,20}$/.test(id);
 const isoDay=date=>date.toISOString().slice(0,10);
@@ -43,13 +48,15 @@ export function dispatchReward(level,difficulty,correct,total){
  return base*(difficulty==='hard'?2:1);
 }
 const empty=()=>({
- xp:0,day:'',week:'',earnedToday:0,earnedWeek:0,startsToday:0,
+ xp:0,careerId:null,day:'',week:'',earnedToday:0,earnedWeek:0,startsToday:0,
  cooldownUntil:0,active:null,completed:0,lastResult:null,
 });
 function normalise(raw,now){
  if(raw!==null&&raw!==undefined&&(!raw||typeof raw!=='object'||Array.isArray(raw)))
   throw new Error('Dispatch progress malformed; no data overwritten');
  const d={...empty(),...(raw||{})};
+ if(d.careerId!==null&&!dispatchCareer(d.careerId))
+  throw new Error('Unknown saved Dispatch career; refusing to overwrite');
  for(const field of ['xp','earnedToday','earnedWeek','startsToday','cooldownUntil','completed']){
   if(!Number.isSafeInteger(d[field])||d[field]<0)throw new Error('Invalid Dispatch progress: '+field);
  }
@@ -68,13 +75,41 @@ function statusOf(state,now){
  const reason=active?'ACTIVE':p.startsToday>=DISPATCH_LIMITS.attemptsPerDay?'DAILY_ATTEMPTS':
   p.earnedToday>=DISPATCH_LIMITS.dailyCoins?'DAILY_CAP':
   p.earnedWeek>=DISPATCH_LIMITS.weeklyCoins?'WEEKLY_CAP':
-  p.cooldownUntil>now.getTime()?'COOLDOWN':null;
+  p.cooldownUntil>now.getTime()?'COOLDOWN':!dispatchCareer(p.careerId)?'NO_CAREER':null;
  return {...p,active,level,canStart:!reason,reason,remainingToday:Math.max(0,DISPATCH_LIMITS.dailyCoins-p.earnedToday),
   remainingWeek:Math.max(0,DISPATCH_LIMITS.weeklyCoins-p.earnedWeek)};
 }
 export async function getDispatchStatus(client,userId,now=new Date()){
  if(!validUser(userId))throw new Error('Invalid contractor');
  return statusOf(await client.db.get(dispatchStorageKey(userId),null),now);
+}
+export async function chooseDispatchCareer(client,{userId,careerId,now=new Date()}){
+ if(!validUser(userId))throw new Error('Invalid contractor');
+ if(!dispatchCareer(careerId))return {status:'UNKNOWN_CAREER'};
+ const key=dispatchStorageKey(userId);
+ return atomicSandTransaction(client,[key],async tx=>{
+  const state=normalise(tx.get(key),now);
+  if(state.careerId)return {status:'EMPLOYED',profile:statusOf(state,now)};
+  if(state.active?.expiresAt>now.getTime())
+   return {status:'ACTIVE',profile:statusOf(state,now)};
+  state.careerId=careerId;
+  tx.put(key,state);
+  return {status:'HIRED',profile:statusOf(state,now)};
+ });
+}
+export async function resignDispatchCareer(client,{userId,now=new Date()}){
+ if(!validUser(userId))throw new Error('Invalid contractor');
+ const key=dispatchStorageKey(userId);
+ return atomicSandTransaction(client,[key],async tx=>{
+  const state=normalise(tx.get(key),now);
+  if(state.active?.expiresAt>now.getTime())
+   return {status:'ACTIVE',profile:statusOf(state,now)};
+  if(!state.careerId)return {status:'NO_CAREER',profile:statusOf(state,now)};
+  state.careerId=null;
+  // Keep XP, completion history, earning windows and cooldowns unchanged.
+  tx.put(key,state);
+  return {status:'RESIGNED',profile:statusOf(state,now)};
+ });
 }
 const job=(question,clues,correct,wrongA,wrongB,explanation)=>({
  question,clues,correct,wrong:[wrongA,wrongB],explanation,
@@ -83,6 +118,118 @@ const job=(question,clues,correct,wrongA,wrongB,explanation)=>({
 // Hard presents competing priorities, limited resources or multiple constraints.
 // Changing templates never changes existing active assignments (snapshotted in DB).
 const catalog={
+ emergency:{
+  easy:[
+   job('A person reports a break-in. Which single service should you send?',
+    ['Someone is trying to enter a locked home.','Nobody is reported injured or trapped.'],
+    'Police','Ambulance','Fire crew','A break-in is primarily a police response.'),
+   job('A caller says someone has collapsed and needs medical help. Who responds?',
+    ['The caller reports a serious medical problem.','There is no fire or threat reported.'],
+    'Ambulance','Police','Fire crew','Send an ambulance for the medical emergency.'),
+   job('A rubbish bin is on fire outside a shop. Which service is needed?',
+    ['Flames are visible.','Nobody is reported injured.'],
+    'Fire crew','Bus driver','Police','Fire crews handle the reported fire.'),
+   job('A cyclist has fallen and is badly hurt. Who do you send?',
+    ['The cyclist is injured and needs urgent medical attention.','No other danger is reported.'],
+    'Ambulance','Fire crew','Police','The priority is getting medical help to the cyclist.'),
+   job('A caller reports a stolen car but nobody is injured. Who responds?',
+    ['The car was stolen from a car park.','There is no fire or medical emergency.'],
+    'Police','Ambulance','Fire crew','Theft is handled by police.'),
+   job('Smoke is coming from an empty garage. Who should be dispatched?',
+    ['The caller sees thick smoke coming out.','No people are reported inside.'],
+    'Fire crew','Ambulance','Bus driver','Fire crews should investigate the reported smoke.'),
+   job('Someone is threatening people at a shop. Which service should respond?',
+    ['The caller reports threats.','No injuries or fire have been reported.'],
+    'Police','Ambulance','Fire crew','Police are the primary service for the reported threats.'),
+   job('A person is having trouble breathing. Which service should you dispatch?',
+    ['The caller says the person needs immediate medical help.','No other hazard is reported.'],
+    'Ambulance','Police','Fire crew','The call describes a medical emergency requiring an ambulance.'),
+  ],
+  hard:[
+   job('A road crash left a driver injured and traffic is becoming dangerous. Who responds?',
+    ['A driver is seriously injured.','Traffic needs to be kept away from the crash.','Nobody is trapped and no fire is reported.'],
+    'Police + Ambulance','Police only','Fire crew only','The injured driver needs an ambulance, while police manage the road danger.'),
+   job('A house is burning and someone inside has been injured. What do you send?',
+    ['Flames are spreading through the house.','One person needs medical attention.','No violence is reported.'],
+    'Fire crew + Ambulance','Police only','Ambulance only','Fire crews handle the fire while ambulance crews help the injured person.'),
+   job('A serious crash has trapped an injured passenger and blocked a highway. Choose the response.',
+    ['Someone is trapped inside a damaged car.','The passenger is injured.','Traffic is piling up around the scene.'],
+    'Police + Ambulance + Fire crew','Police + Ambulance only','Fire crew only',
+    'Fire crews are needed for the trapped person, ambulance for injuries and police for traffic.'),
+   job('An injured person is being threatened by an aggressive stranger. What is needed?',
+    ['The person needs medical attention.','The stranger is still threatening people.','There is no fire or trapped person.'],
+    'Police + Ambulance','Ambulance only','Fire crew only','Police deal with the threat while ambulance staff help the injured person.'),
+   job('A shop is on fire and a customer is trapped inside. Choose the best response.',
+    ['There is an active fire and a person cannot escape.','The caller says the trapped person may be hurt.','The street is crowded.'],
+    'Police + Ambulance + Fire crew','Police only','Ambulance only',
+    'Fire crew tackles the fire and rescue, ambulance supports casualties, and police help secure the street.'),
+   job('A truck has crashed into a building and its driver is injured. Who should respond?',
+    ['The damaged building may be unsafe.','The driver is hurt.','Traffic is blocked by the truck.'],
+    'Police + Ambulance + Fire crew','Police only','Ambulance only',
+    'This scene needs traffic control, medical care and fire-rescue assessment of the damaged building.'),
+   job('A kitchen catches fire and the cook has suffered burns. Which response fits?',
+    ['The fire is still burning.','The cook needs urgent medical care.','No violence is reported.'],
+    'Fire crew + Ambulance','Police only','Ambulance only','Fire crews tackle the flames and ambulance staff treat burns.'),
+   job('After a violent collision, an injured passenger is trapped and a fight breaks out nearby.',
+    ['The passenger cannot get out.','Medical help is needed.','There is an active threat near the scene.'],
+    'Police + Ambulance + Fire crew','Police only','Fire crew only',
+    'The combined dangers need police for safety, ambulance for injuries and fire crew for rescue.'),
+  ],
+ },
+ bus:{
+  easy:[
+   job('Your bus stop is closed for roadworks. Where should the driver go?',
+    ['The next authorised stop is open.','The closed stop cannot be used.'],
+    'Use the open authorised stop','Stop inside the construction area','Skip the whole route without telling anyone',
+    'The open authorised stop is the safe place to serve passengers.'),
+   job('A passenger has been waiting at the correct bus stop. What should the driver do?',
+    ['The bus is running its scheduled route.','The stop is open and safe to use.'],
+    'Stop and pick up the passenger','Drive past without stopping','Change routes randomly',
+    'Serve the scheduled stop when it is safe and open.'),
+   job('The bus dashboard warns that the doors will not close. What now?',
+    ['The bus cannot travel safely with the faulty doors.'],
+    'Stop service and report the fault','Drive with the doors open','Ignore the warning',
+    'A bus with unsafe doors needs repair before continuing.'),
+   job('A driver reports a flat tyre. What should Dispatch arrange?',
+    ['The bus cannot safely complete its route.','A replacement bus is available.'],
+    'Send the replacement bus','Tell the driver to keep driving','Cancel every bus service in the city',
+    'A replacement keeps passengers moving without using an unsafe bus.'),
+   job('Two bus routes are shown. Which serves the hospital?',
+    ['Route 4 stops at the hospital.','Route 9 stops at the stadium.'],
+    'Route 4','Route 9','Neither route','Route 4 goes to the requested hospital stop.'),
+   job('A driver has finished the shift. What is the correct next action?',
+    ['A relief driver is ready to take over.'],
+    'Hand over safely to the relief driver','Leave the bus running unattended','Start a new route without a driver',
+    'A safe handover lets service continue with the relief driver.'),
+  ],
+  hard:[
+   job('Two routes need a spare bus. Who gets it first?',
+    ['Route A has broken down with many passengers waiting.','Route B is running normally but five minutes late.','Only one spare bus is available.'],
+    'Send the spare to stranded Route A','Replace the working Route B bus','Keep the spare parked',
+    'Passengers stranded by the breakdown need the spare most urgently.'),
+   job('Roadworks block a bus route and the replacement driver is new. What is safest?',
+    ['An official detour is open.','The new driver has the detour instructions.','A shortcut has not been checked.'],
+    'Use the approved detour and brief the driver','Send the driver on the unknown shortcut','Continue into the closed road',
+    'A confirmed detour with clear driver instructions is safest.'),
+   job('Two buses are late, but only one relief driver is available. Which plan works?',
+    ['Bus A driver is out of permitted hours.','Bus B is late but its driver can continue safely.'],
+    'Assign relief driver to Bus A','Put the relief driver on Bus B','Ask Bus A driver to exceed safe hours',
+    'The driver who cannot continue needs relief before someone merely running late.'),
+   job('A school bus and a regular bus both request help. Who should Dispatch prioritise?',
+    ['School bus has stalled with children on board.','Regular bus is running but five minutes late.','A spare bus is available.'],
+    'Send the spare to the stranded school bus','Replace the working regular bus','Ignore both calls',
+    'The stranded group needs safe replacement transport before a small timetable delay.'),
+   job('One city street closes during rush hour. Which service plan is best?',
+    ['Three buses use the street.','An approved bypass serves their main stops.','The blocked street cannot be entered.'],
+    'Reroute all affected buses via the approved bypass','Keep sending buses into the closure','Cancel every route in the network',
+    'A coordinated detour keeps services running without entering the closure.'),
+   job('Two buses have arrived together after delays. How should you restore even spacing?',
+    ['The next bus is twenty minutes behind.','Both current buses are safe at the terminal.','Dispatch can adjust departures.'],
+    'Space their departures instead of sending both together','Release both at the same moment','Take both out of service',
+    'Spacing departures reduces long gaps between services.'),
+  ],
+ },
+
  courier:{
   easy:[
    job('A package must reach the hospital. Which road should the driver use?',
@@ -305,16 +452,18 @@ const shuffle=(values,rng)=>{
  for(let i=a.length-1;i>0;i--){const j=rng(i+1);[a[i],a[j]]=[a[j],a[i]];}
  return a;
 };
-export function createDispatchAssignment({level,difficulty,rng=randomInt}){
+export function createDispatchAssignment({level,difficulty,careerId,rng=randomInt}){
  if(!['easy','hard'].includes(difficulty))throw new Error('INVALID_DIFFICULTY');
- const unlocked=DISPATCH_MISSIONS.filter(x=>level>=x.unlock);
- if(!unlocked.length)throw new Error('NO_DISPATCH_MISSIONS');
- const mission=unlocked[rng(unlocked.length)];
+ const mission=dispatchCareer(careerId);
+ if(!mission)throw new Error('CAREER_REQUIRED');
  const templates=catalog[mission.id][difficulty];
+ // More senior contractors receive more involved, career-specific situations.
+ // Do not randomise their career: the player chose it permanently.
+ const senior=level>=10?3:level>=5?1:0;
  const offset=rng(templates.length);
  const size=difficulty==='hard'?4:3;
  const stages=Array.from({length:size},(_,i)=>{
-  const t=templates[(offset+i)%templates.length];
+  const t=templates[(offset+i+senior)%templates.length];
   const options=shuffle([t.correct,...t.wrong],rng);
   return {question:t.question,clues:t.clues,options,correct:options.indexOf(t.correct),explanation:t.explanation};
  });
@@ -328,7 +477,7 @@ export async function startDispatch(client,{userId,difficulty,now=new Date(),rng
  return atomicSandTransaction(client,[key],async tx=>{
   const state=normalise(tx.get(key),now),view=statusOf(state,now);
   if(view.reason)return {status:'BLOCKED',reason:view.reason,profile:view};
-  const assignment=createDispatchAssignment({level:view.level,difficulty,rng});
+  const assignment=createDispatchAssignment({level:view.level,difficulty,careerId:state.careerId,rng});
   state.startsToday++;
   state.cooldownUntil=now.getTime()+DISPATCH_LIMITS.cooldownMs;
   state.active={token,difficulty,level:view.level,stage:0,correct:0,startedAt:now.getTime(),
