@@ -1,39 +1,73 @@
-# Beacon — Official Branding
+# Beacon — Network Identity and Product Design
 
-**Name:** Beacon
+## Approved identity foundation
 
-**Official motto (exact copy):** Your community's all-in-one Discord assistant.
+**Product:** Beacon • **Ecosystem:** Beacon Network • **Dashboard:** Beacon HQ.
 
-The motto is Beacon's permanent brand line. Campaign copy may describe leaderboards or features but must not replace this line. Beacon is an all-in-one assistant, not just a leveling bot.
+The user-provided existing Beacon logo is the official reference: deep teal
+background, central golden beacon/beam mark, thin cyan ring, uncluttered white
+BEACON wordmark. Do not automatically replace this design with radio-tower
+imagery or invent a new logo.
 
-## Where to use it
+**Digital palette (approximate, until sampled from the logo):** deep teal
+`#173131` • cyan `#13C9D2` • warm gold `#D6B55B` • white `#F3F7F5`.
+Use cyan for primary interactions, gold for economy/rewards, and meaningful
+success/warning colours for operational statuses.
 
-- Main public interfaces such as /help, /botinfo, /invite, /support and project descriptions: prominently display the official motto.
-- Ordinary command replies, error and success messages: use src/utils/embeds.js createEmbed so the official motto appears in the default footer.
-- Contextual footer messages: use formatBeaconFooter from src/config/bot.js to preserve pagination, reset or safety information and append short Beacon attribution.
-- Custom EmbedBuilder dashboards (tickets, reactions, verification, applications, logging, security, welcome, search): use a clear Beacon feature title or a branded contextual footer.
-- Audit trails: use buildStandardLogEmbed and applyLogFooter for consistent attribution without hiding the responsible moderator/server.
-- User-authored content from the Embed Studio, custom announcements and similar tools: preserve the user's own design. Brand Beacon's *controls*, not someone else's authored output.
-- Small private confirmation messages: avoid repeating the full motto when a straightforward response is clearer.
+## What Beacon is
 
-## Beacon Development Team voice
+Beacon is a connected community ecosystem with three pillars:
 
-**Official sign-off:** The Beacon Development Team.
+- **Protect:** moderation, security, anti-nuke, tickets and private cases.
+- **Grow:** quests, server progression, contributions, rank cards.
+- **Reward:** global Sand Coins, permanent Dispatch careers, cosmetics,
+  and strictly opt-in Treasury Wars.
 
-Beacon should feel like a real product built by people who appreciate their community.
+Every Discord server retains its own identity, privacy choices and rules.
+Beacon Network connects experiences; it does not merge moderation
+jurisdictions or make private records global.
 
-- Thank people for welcoming Beacon into their servers in **/dashboard**, **/help**, **/botinfo**, **/invite**, **/support** and after the setup wizard finishes.
-- Keep the exact official motto on prominent public surfaces, using the shared `BEACON_MOTTO` constant when possible.
-- The main administrative entry point is **/dashboard — Beacon Main Control Center**. Feature previews, health shortcuts and the team message belong inside it, not in a competing new command.
-- Help owners find ticket, logging, security, community and progression features from the same central dashboard while preserving permission checks and existing settings flows.
-- Keep the tone conversational, warm and genuinely appreciative. Avoid generic marketing hype, guilt, repeated identical slogans, or implying a team personally answered messages that nobody reviewed.
-- **Never** append cheery thank-you copy to moderation punishments, security incidents, ticket transcripts, private user reports, errors, or audit evidence.
-- Respect user-authored messages and embeds. The development team can sign Beacon-owned public welcome/help content but should not alter custom announcements.
+**Beacon HQ** remains `/dashboard`, not another command. Help points to the
+live features. Keep user-facing terminology natural and familiar.
+Beacon Dispatch is an optional, more immersive experience; serious security
+tools stay plain and direct.
 
-These sentences are static product copy, not proof that a developer has personally reviewed any server.
+**Network Pulse is explicitly excluded.** Do not add it or scheduled
+community network digests.
 
-## Safeguards
+## Slogan and voice
 
-Keep existing colors and functional details. Do not change XP, permissions, storage, behavior or user content for branding purposes.
+The old motto, `Your community's all-in-one Discord assistant.`, remains
+a **legacy compatibility line** in existing UI/footers. The owner has rejected
+proposed replacement slogans and **has not approved a new one**.
+Do not unilaterally choose an official slogan; update the shared constant,
+footer, public descriptions and docs together after approval.
 
-tests/beaconBranding.test.js checks the official wording and ensures default/custom command and audit footers stay consistently branded.
+Product writing: distinctive but conversational; no generic AI marketing
+phrases, empty superlatives, or incessant metaphors about light and signals.
+Warm in community experiences, professional in safety, immersed in Dispatch
+only when opted in. Give concise instructions, not complicated jargon.
+
+The Beacon Development Team can thank communities in suitable welcome/help
+surfaces. Never add celebratory copy to punishments, security incidents,
+error reports, tickets or evidence. Respect custom user-created messages.
+
+## Command consolidation policy
+
+Prefer meaningful existing groups, rather than standalone commands for every
+minor operation. Creator maintenance belongs under `/ownerstats`, moderator
+staff notes under `/cases`, and economy under `/sandcoins`.
+Leave dangerous recovery controls, separate permission domains, and widely
+used workflows alone when merging would make them less safe or harder to find.
+Keep old handler modules for text-prefix/compatibility rather than deleting
+their functionality. Add Help redirects from retired slash names.
+
+No deletion or migration of saved wallet, XP, inventory, founder, case or
+staff-note data is authorised by a navigation or branding change.
+
+## Technical defaults
+
+Use `src/config/beaconIdentity.js` for network copy and brand colour tokens.
+Use `createEmbed` and `formatBeaconFooter` for branded default/status
+embeds; preserve role/permission restrictions. Avoid irreversible rebranding
+of existing user-created panels.

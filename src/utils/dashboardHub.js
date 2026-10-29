@@ -1,6 +1,7 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } from 'discord.js';
 import { createEmbed } from './embeds.js';
 import { BEACON_MOTTO, BEACON_TEAM_NAME, BEACON_TEAM_THANKS } from '../config/bot.js';
+import { BEACON_IDENTITY } from '../config/beaconIdentity.js';
 
 // Read-only navigation within /dashboard. These are deliberately not new
 // commands or hidden configuration switches.
@@ -8,6 +9,7 @@ export const DASHBOARD_HUB_SECTIONS = Object.freeze([
   { value: 'hubOverview', label: 'Control Center Home', description: 'Return to your main server overview', emoji: '🏠' },
   { value: 'hubSafety', label: 'Security & Health', description: 'See protections and next diagnostic steps', emoji: '🛡️' },
   { value: 'hubCommunity', label: 'Community & Growth', description: 'Welcome, reaction roles and progression', emoji: '👥' },
+  { value: 'hubNetwork', label: 'The Beacon Network', description: 'Progression, Sand Coins, careers and rank cards', emoji: '🌐' },
   { value: 'hubSupport', label: 'Tickets & Support', description: 'Your support setup, inbox and privacy', emoji: '🎫' },
   { value: 'hubTeam', label: 'Beacon Development Team', description: 'About Beacon, support and a thank-you', emoji: '💜' },
 ]);
@@ -52,7 +54,18 @@ export function buildDashboardHubPanel(section, config = {}, guild = {}) {
           ? '🟢 Enabled — use **/progression overview**, **/progression quests** and **/progression weekly**.'
           : '⚪ Optional — the server owner can enable it in dashboard settings.', inline: false },
         { name: '🪙 Sand Coins & Rank Card Shop', value: 'Members earn **global Sand Coins** from shared quest contributions and can purchase decorations for this server with **/sandcoins shop**. View ownership with **/sandcoins inventory**. Only the owner or **Manage Server** admins can equip items using **/sandcoins equip**. Purchases are sent to the configured audit channel.', inline: false },
-        { name: 'More', value: 'Configure **Join to Create**, **/poll** or **/suggest** for your community.', inline: false },
+        { name: 'More', value: 'Play **/sandcoins dispatch** for personal careers, **/treasury** for optional community competition, or configure **Join to Create**, **/poll** and **/suggest**.', inline: false },
+      ],
+    },
+    hubNetwork: {
+      title: '🌐 Beacon • The Connected Network',
+      description: '**'+name+'** is a community of its own, connected to a wider Beacon experience.\n\n'+BEACON_IDENTITY.summary,
+      fields: [
+        {name:'🛡️ Protect',value:'**/dashboard** manages protection and setup. **/cases** keeps moderation records and staff notes in one place.'},
+        {name:'🚀 Grow',value:'**/progression overview** tracks goals and shared progress. **/rank card** presents server achievements to the wider network.'},
+        {name:'🪙 Reward',value:'**/sandcoins wallet** stores a global balance. **/sandcoins dispatch** offers a personal career. **/sandcoins shop** buys cosmetics for this server’s rank card.'},
+        {name:'🏦 Compete by Choice',value:'**/treasury** manages optional Treasury Wars. Viewing the network does not opt a server in or move its coins.'},
+        {name:'Independent Communities',value:'Each server keeps its own rules, security and progression privacy. Global wallet activity does not give members extra staff permissions.'},
       ],
     },
     hubSupport: {
@@ -71,7 +84,7 @@ export function buildDashboardHubPanel(section, config = {}, guild = {}) {
       description: '**' + BEACON_MOTTO + '**\n\n' + BEACON_TEAM_THANKS,
       fields: [
         { name: 'Our Promise', value: 'Clear tools, thoughtful design and dependable support — while respecting each server’s own settings and community.', inline: false },
-        { name: 'Feedback Matters', value: 'We read suggestions and bug reports. Use **/support** to contact the team or **/help** to explore Beacon.', inline: false },
+        { name: 'Feedback Matters', value: 'Find the official support server in **/help** to share feedback or report a problem.', inline: false },
         { name: 'Signed', value: 'With appreciation, **' + BEACON_TEAM_NAME + '** 💜', inline: false },
       ],
     },
