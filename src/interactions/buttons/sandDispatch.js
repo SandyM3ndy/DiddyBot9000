@@ -1,8 +1,10 @@
 import { MessageFlags } from 'discord.js';
 import {
  getDispatchStatus,startDispatch,answerDispatch,abandonDispatch,
+ chooseDispatchCareer,resignDispatchCareer,
 } from '../../services/beaconDispatchService.js';
-import { buildDispatchBoard,buildDispatchMission,buildDispatchResult } from '../../utils/beaconDispatchUi.js';
+import { buildDispatchBoard,buildDispatchMission,buildDispatchResult,
+ buildDispatchCareerPicker,buildDispatchResignation } from '../../utils/beaconDispatchUi.js';
 import { logger } from '../../utils/logger.js';
 
 const ownerNotice=(i)=>i.reply({
@@ -14,11 +16,33 @@ export async function handleBeaconDispatch(i,client,args=[]){
   flags:MessageFlags.Ephemeral});
  const action=args[0]||'board';
  if(action==='pick'&&args[1]!==i.user.id)return ownerNotice(i);
- if(!['board','start','resume','abandon','pick'].includes(action))
+ if(!['board','start','resume','abandon','pick','career','resign','confirm-resign'].includes(action))
   return i.reply({content:'Unknown Dispatch action. Reopen /sandcoins dispatch.',flags:MessageFlags.Ephemeral});
  await i.deferUpdate();
  try{
   const userId=i.user.id,now=new Date();
+  if(action==='career'){
+   const result=await chooseDispatchCareer(client,{userId,careerId:args[1],now});
+   if(result.status==='HIRED')return i.editReply(buildDispatchBoard(result.profile,now,
+    '✅ You joined this career! It stays selected until you choose to leave.'));
+   const profile=result.profile||await getDispatchStatus(client,userId,now);
+   return i.editReply(buildDispatchBoard(profile,now,
+    result.status==='EMPLOYED'?'You already have a permanent job. Select Change Career to leave it first.':
+    'That job cannot be selected right now.'));
+  }
+  if(action==='resign'){
+   const profile=await getDispatchStatus(client,userId,now);
+   if(profile.active)return i.editReply(buildDispatchBoard(profile,now,
+    'Finish or abandon your current assignment before changing careers.'));
+   return i.editReply(buildDispatchResignation(profile));
+  }
+  if(action==='confirm-resign'){
+   const result=await resignDispatchCareer(client,{userId,now});
+   return i.editReply(buildDispatchBoard(result.profile,now,
+    result.status==='RESIGNED'?'✅ You left your old job. Choose a new career below. All progress and earning limits were saved.':
+    result.status==='ACTIVE'?'Finish or abandon your active assignment before leaving.':
+    'You are not currently employed in a Dispatch career.'));
+  }
   if(action==='start'){
    const started=await startDispatch(client,{userId,difficulty:args[1],now});
    if(started.status==='STARTED')return i.editReply(buildDispatchMission(started.profile,userId));
