@@ -43,8 +43,8 @@ const HIDDEN_COMMANDS = new Set([
     'invite', 'greet',
 ]);
 
-// Legacy handlers remain loaded for old text-prefix usage, but their
-// standalone slash names are replaced with the streamlined command groups.
+// Remaining legacy handlers exist for supported text-prefix compatibility.
+// Deleted command files have no legacy registration or slash entrypoint.
 export const LEGACY_SLASH_COMMANDS = new Set([
   'gcreate', 'gdelete', 'gend', 'greroll',
   'ticketadd', 'ticketremove', 'ticketrename', 'claim', 'close', 'priority', 'ticketstats',
@@ -57,11 +57,8 @@ export const LEGACY_SLASH_COMMANDS = new Set([
   'play', 'queue', 'nowplaying', 'join', 'ping', 'status', 'support', 'heist', 'daily',
   // Consolidated info and moderation record commands.
   'userinfo', 'serverinfo', 'warnings',
-  // Creator maintenance is one /ownerstats namespace. Previous files remain
-  // internal handlers for prefix support and saved-data compatibility.
-  'announcement', 'giveexp', 'removeexp', 'removeleaderboard',
-  'restoreleaderboard', 'progressionexport',
-  'usernotes',
+  // Obsolete command modules were deleted after their action code was
+  // moved inside /ownerstats and /cases. These names have no handlers.
 ]);
 
 function getSubcommandInfo(commandData) {

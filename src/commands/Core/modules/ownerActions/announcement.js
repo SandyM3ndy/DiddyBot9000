@@ -1,27 +1,13 @@
-import { SlashCommandBuilder, MessageFlags } from 'discord.js';
-import { createEmbed } from '../../utils/embeds.js';
-import { InteractionHelper } from '../../utils/interactionHelper.js';
-import { getGuildConfig } from '../../services/config/guildConfig.js';
-import { logger } from '../../utils/logger.js';
+import { MessageFlags } from 'discord.js';
+import { createEmbed } from '../../../../utils/embeds.js';
+import { InteractionHelper } from '../../../../utils/interactionHelper.js';
+import { getGuildConfig } from '../../../../services/config/guildConfig.js';
+import { logger } from '../../../../utils/logger.js';
 
-import { isPrimaryBotOwner } from '../../config/bot.js';
+import { isPrimaryBotOwner } from '../../../../config/bot.js';
 
+// Internal action owned by /ownerstats. Not a standalone Discord command.
 export default {
-  data: new SlashCommandBuilder()
-    .setName('announcement')
-    .setDescription('Bot Owner Only • Broadcast updates to subscribed channels')
-    .addStringOption(option => option
-      .setName('title')
-      .setDescription('Announcement title')
-      .setRequired(true)
-      .setMaxLength(150))
-    .addStringOption(option => option
-      .setName('message')
-      .setDescription('Announcement message')
-      .setRequired(true)
-      .setMaxLength(1800)),
-  category: 'Owner',
-
   async execute(interaction) {
     if (!isPrimaryBotOwner(interaction.user.id)) {
       return InteractionHelper.safeReply(interaction, {

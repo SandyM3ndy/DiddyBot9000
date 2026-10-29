@@ -1,29 +1,18 @@
-import { SlashCommandBuilder, MessageFlags } from 'discord.js';
-import { createEmbed } from '../../utils/embeds.js';
-import { InteractionHelper } from '../../utils/interactionHelper.js';
-import { getGuildConfig } from '../../services/config/guildConfig.js';
-import { addServerXp } from '../../services/serverProgressionService.js';
+import { MessageFlags } from 'discord.js';
+import { createEmbed } from '../../../../utils/embeds.js';
+import { InteractionHelper } from '../../../../utils/interactionHelper.js';
+import { getGuildConfig } from '../../../../services/config/guildConfig.js';
 
-import { isPrimaryBotOwner } from '../../config/bot.js';
+import { isPrimaryBotOwner } from '../../../../config/bot.js';
+const PROGRESSION_PREFIX = 'guild:';
+const PROGRESSION_SUFFIX = ':progression';
 
+function levelFromXp(xp) {
+  return Math.max(1, Math.floor(Math.sqrt(Math.max(0, xp) / 500)) + 1);
+}
+
+// Internal action owned by /ownerstats. Not a standalone Discord command.
 export default {
-  data: new SlashCommandBuilder()
-    .setName('giveexp')
-    .setDescription('Bot Owner Only • Grant Server XP to a server')
-    .addStringOption(option =>
-      option
-        .setName('server_id')
-        .setDescription('The Discord server ID to give XP to')
-        .setRequired(true))
-    .addIntegerOption(option =>
-      option
-        .setName('amount')
-        .setDescription('Amount of Server XP to give')
-        .setMinValue(1)
-        .setMaxValue(1000000000)
-        .setRequired(true)),
-  category: 'Owner',
-
   async execute(interaction) {
     if (!isPrimaryBotOwner(interaction.user.id)) {
       return InteractionHelper.safeReply(interaction, {
@@ -70,28 +59,41 @@ export default {
       });
     }
 
-    const result = await addServerXp(interaction.client, serverId, amount);
-    if (!result) {
+    const key = `${PROGRESSION_PREFIX}${serverId}${PROGRESSION_SUFFIX}`;
+    const data = await interaction.client.db.get(key, null);
+
+    if (!data || typeof data !== 'object') {
       return InteractionHelper.safeReply(interaction, {
         embeds: [createEmbed({
-          title: '❌ XP Not Added',
-          description: 'The XP amount was invalid or could not be saved.',
-          color: 'error',
+          title: '❌ No Progression Data',
+          description: `**${guild.name}** does not have any saved Server Progression data yet.`,
+          color: 'warning',
         })],
         flags: MessageFlags.Ephemeral,
       });
     }
-    const { data, oldLevel, oldXp } = result;
+
+    const oldXp = Math.max(0, Number(data.xp) || 0);
+    const oldLevel = Math.max(1, Number(data.level) || levelFromXp(oldXp));
+    const newXp = Math.max(0, oldXp - amount);
+    const newLevel = levelFromXp(newXp);
+
+    data.xp = newXp;
+    data.level = newLevel;
+    data.updatedAt = new Date().toISOString();
+
+    await interaction.client.db.set(key, data);
 
     return InteractionHelper.safeReply(interaction, {
       embeds: [createEmbed({
-        title: '📈 Server XP Added',
-        description: `Successfully gave **+${amount.toLocaleString()} XP** to **${guild.name}**.`,
+        title: '📉 Server XP Removed',
+        description: `Successfully removed **${(oldXp - newXp).toLocaleString()} XP** from **${guild.name}**.`,
         color: 'success',
         fields: [
           { name: '🏠 Server', value: `${guild.name} (${serverId})`, inline: false },
-          { name: '⭐ XP', value: `${oldXp.toLocaleString()} → **${data.xp.toLocaleString()}**`, inline: true },
-          { name: '📊 Level', value: oldLevel !== data.level ? `${oldLevel} → **${data.level}** 🎉` : `${data.level}`, inline: true },
+          { name: '⭐ XP', value: `${oldXp.toLocaleString()} → **${newXp.toLocaleString()}**`, inline: true },
+          { name: '📊 Level', value: oldLevel !== newLevel ? `${oldLevel} → **${newLevel}**` : `${newLevel}`, inline: true },
+          { name: '🛡️ Access', value: 'Owner-only command', inline: false },
         ],
       })],
       flags: MessageFlags.Ephemeral,

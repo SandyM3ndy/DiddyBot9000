@@ -1,20 +1,12 @@
-import { SlashCommandBuilder, MessageFlags } from 'discord.js';
-import { createEmbed } from '../../utils/embeds.js';
-import { InteractionHelper } from '../../utils/interactionHelper.js';
-import { mutateServerProgression,registerFoundingServers,getFoundingBadge,FOUNDING_CAP } from '../../services/serverProgressionService.js';
+import { MessageFlags } from 'discord.js';
+import { createEmbed } from '../../../../utils/embeds.js';
+import { InteractionHelper } from '../../../../utils/interactionHelper.js';
+import { mutateServerProgression,registerFoundingServers,getFoundingBadge,FOUNDING_CAP } from '../../../../services/serverProgressionService.js';
 
-import { isPrimaryBotOwner } from '../../config/bot.js';
+import { isPrimaryBotOwner } from '../../../../config/bot.js';
 
+// Internal action owned by /ownerstats. Not a standalone Discord command.
 export default {
-  data: new SlashCommandBuilder()
-    .setName('removeleaderboard')
-    .setDescription('Bot Owner Only • Exclude a server from the global leaderboard')
-    .addStringOption(option => option
-      .setName('server_id')
-      .setDescription('The Discord server ID to remove from the leaderboard')
-      .setRequired(true)),
-  category: 'Owner',
-
   async execute(interaction) {
     if (!isPrimaryBotOwner(interaction.user.id)) {
       return InteractionHelper.safeReply(interaction, {

@@ -1,93 +1,12 @@
-import { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } from 'discord.js';
-import { createEmbed, successEmbed, infoEmbed, warningEmbed } from '../../utils/embeds.js';
-import { logger } from '../../utils/logger.js';
-import { getFromDb, setInDb, deleteFromDb, getUserNotesKey, getUserNotesListKey } from '../../utils/database.js';
-import { sanitizeInput } from '../../utils/validation.js';
+import { createEmbed, successEmbed, infoEmbed, warningEmbed } from '../../../utils/embeds.js';
+import { logger } from '../../../utils/logger.js';
+import { getFromDb, setInDb, deleteFromDb, getUserNotesKey, getUserNotesListKey } from '../../../utils/database.js';
+import { sanitizeInput } from '../../../utils/validation.js';
 
-import { InteractionHelper } from '../../utils/interactionHelper.js';
-import { replyUserError, ErrorTypes } from '../../utils/errorHandler.js';
+import { InteractionHelper } from '../../../utils/interactionHelper.js';
+import { replyUserError, ErrorTypes } from '../../../utils/errorHandler.js';
 
-export default {
-    data: new SlashCommandBuilder()
-        .setName("usernotes")
-        .setDescription("Manage user notes for moderation purposes")
-        .addSubcommand(subcommand =>
-            subcommand
-                .setName("add")
-                .setDescription("Add a note to a user")
-                .addUserOption(option =>
-                    option
-                        .setName("target")
-                        .setDescription("The user to add a note for")
-                        .setRequired(true)
-                )
-                .addStringOption(option =>
-                    option
-                        .setName("note")
-                        .setDescription("The note to add")
-                        .setRequired(true)
-                )
-                .addStringOption(option =>
-                    option
-                        .setName("type")
-                        .setDescription("Type of note")
-                        .addChoices(
-                            { name: "Warning", value: "warning" },
-                            { name: "Positive", value: "positive" },
-                            { name: "Neutral", value: "neutral" },
-                            { name: "Alert", value: "alert" }
-                        )
-                        .setRequired(false)
-                )
-        )
-        .addSubcommand(subcommand =>
-            subcommand
-                .setName("view")
-                .setDescription("View notes for a user")
-                .addUserOption(option =>
-                    option
-                        .setName("target")
-                        .setDescription("The user to view notes for")
-                        .setRequired(true)
-                )
-        )
-        .addSubcommand(subcommand =>
-            subcommand
-                .setName("remove")
-                .setDescription("Remove a specific note from a user")
-                .addUserOption(option =>
-                    option
-                        .setName("target")
-                        .setDescription("The user to remove a note from")
-                        .setRequired(true)
-                )
-                .addIntegerOption(option =>
-                    option
-                        .setName("index")
-                        .setDescription("The index of the note to remove")
-                        .setRequired(true)
-                        .setMinValue(1)
-                )
-        )
-        .addSubcommand(subcommand =>
-            subcommand
-                .setName("clear")
-                .setDescription("Clear all notes for a user")
-                .addUserOption(option =>
-                    option
-                        .setName("target")
-                        .setDescription("The user to clear notes for")
-                        .setRequired(true)
-                )
-        )
-        .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
-    category: "moderation",
-
-    async execute(interaction, config, client) {
-        return executeUserNotesAction(interaction,config,client);
-    }
-};
-
+// Internal note actions owned by /cases; no standalone /usernotes command.
 export async function executeUserNotesAction(interaction, config, client, action=null) {
         const subcommand = action || interaction.options.getSubcommand();
         const targetUser = interaction.options.getUser("target");

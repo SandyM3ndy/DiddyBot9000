@@ -8,7 +8,7 @@ import { getModerationCases } from '../../utils/moderation.js';
 import { getCase, normalizeCase, updateCaseReview } from '../../services/moderationCaseManager.js';
 import { logger } from '../../utils/logger.js';
 import warningRecordsCommand from './warnings.js';
-import { executeUserNotesAction } from './usernotes.js';
+import { executeUserNotesAction } from './modules/staffNotes.js';
 import { memberHasConfiguredModeratorRole } from '../../utils/permissionGuard.js';
 
 const PAGE_SIZE = 5;

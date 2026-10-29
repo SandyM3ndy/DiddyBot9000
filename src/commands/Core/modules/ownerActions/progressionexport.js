@@ -1,16 +1,11 @@
-import { SlashCommandBuilder, AttachmentBuilder, MessageFlags } from 'discord.js';
+import { AttachmentBuilder, MessageFlags } from 'discord.js';
 import { gzipSync } from 'node:zlib';
-import { InteractionHelper } from '../../utils/interactionHelper.js';
-import { isPrimaryBotOwner } from '../../config/bot.js';
-import { createEmbed } from '../../utils/embeds.js';
+import { InteractionHelper } from '../../../../utils/interactionHelper.js';
+import { isPrimaryBotOwner } from '../../../../config/bot.js';
+import { createEmbed } from '../../../../utils/embeds.js';
 
+// Internal action owned by /ownerstats. Not a standalone Discord command.
 export default {
-  category:'Owner',
-  ownerOnly:true,
-  slashOnly:true,
-  data:new SlashCommandBuilder()
-    .setName('progressionexport')
-    .setDescription('Bot Owner Only • Export a compressed backup of every Beacon progression record'),
   async execute(interaction){
     if(!isPrimaryBotOwner(interaction.user.id)){
       return InteractionHelper.safeReply(interaction,{content:'🔒 Beacon owner only.',flags:MessageFlags.Ephemeral});

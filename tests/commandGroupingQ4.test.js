@@ -6,6 +6,7 @@ import cases from '../src/commands/Moderation/cases.js';
 import ownerstats, { OWNER_OPERATIONS } from '../src/commands/Core/ownerstats.js';
 import { BEACON_PALETTE, BEACON_IDENTITY } from '../src/config/beaconIdentity.js';
 import botConfig from '../src/config/bot.js';
+import { access } from 'node:fs/promises';
 import warningLegacy from '../src/commands/Moderation/warnings.js';
 import { LEGACY_SLASH_COMMANDS } from '../src/handlers/loaders/commandLoader.js';
 import { resolveMovedSlashCommand,searchBeaconCommandsByIntent } from '../src/utils/helpSearch.js';
@@ -69,14 +70,14 @@ test('owner operations use one creator-only slash command and retain internal ha
   assert.equal(typeof OWNER_OPERATIONS[op].execute,'function');
  assert.equal(sub(ownerstats,'giveexp').options.find(x=>x.name==='amount').required,true);
  for(const name of ['announcement','giveexp','removeexp','removeleaderboard','restoreleaderboard','progressionexport']){
-  assert.ok(LEGACY_SLASH_COMMANDS.has(name),name);
+  assert.equal(LEGACY_SLASH_COMMANDS.has(name),false,'old handler must be deleted: '+name);
   assert.match(resolveMovedSlashCommand('/'+name).command,/^\/ownerstats /);
  }
 });
 test('staff notes live in /cases; unauthorised members never reach saved notes',async()=>{
  for(const name of ['notes-add','notes-view','notes-remove','notes-clear'])
   assert.ok(sub(cases,name),name);
- assert.ok(LEGACY_SLASH_COMMANDS.has('usernotes'));
+ assert.equal(LEGACY_SLASH_COMMANDS.has('usernotes'),false);
  assert.equal(resolveMovedSlashCommand('/usernotes').command,'/cases notes-view');
  for(const action of ['notes-add','notes-view','notes-remove','notes-clear']){
   let reply=null;
@@ -99,4 +100,13 @@ test('Beacon HQ Network is a presentation layer, not a new slash command',()=>{
  const value=BEACON_IDENTITY.summary;
  assert.match(value,/community/i);
  assert.ok(!/Network Pulse/i.test(value));
+});
+
+test('merged slash command files have been physically deleted, while internal actions remain',async()=>{
+ for(const name of ['announcement','giveexp','removeexp','removeleaderboard','restoreleaderboard','progressionexport']){
+  await assert.rejects(access('src/commands/Core/'+name+'.js'),{code:'ENOENT'});
+  await access('src/commands/Core/modules/ownerActions/'+name+'.js');
+ }
+ await assert.rejects(access('src/commands/Moderation/usernotes.js'),{code:'ENOENT'});
+ await access('src/commands/Moderation/modules/staffNotes.js');
 });

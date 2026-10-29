@@ -3,15 +3,15 @@ import { InteractionHelper } from '../../utils/interactionHelper.js';
 import { createEmbed } from '../../utils/embeds.js';
 import { getRegisteredCommandCount } from '../../utils/commandCounts.js';
 import { isPrimaryBotOwner } from '../../config/bot.js';
-import announcement from './announcement.js';
-import giveexp from './giveexp.js';
-import removeexp from './removeexp.js';
-import removeleaderboard from './removeleaderboard.js';
-import restoreleaderboard from './restoreleaderboard.js';
-import progressionexport from './progressionexport.js';
+import announcement from './modules/ownerActions/announcement.js';
+import giveexp from './modules/ownerActions/giveexp.js';
+import removeexp from './modules/ownerActions/removeexp.js';
+import removeleaderboard from './modules/ownerActions/removeleaderboard.js';
+import restoreleaderboard from './modules/ownerActions/restoreleaderboard.js';
+import progressionexport from './modules/ownerActions/progressionexport.js';
 
-// Keep the established owner-only handlers and their validation/storage intact.
-// They are subcommands now, not six competing slash-command entry points.
+// Existing feature logic lives in internal modules, not old command files.
+// Each owner operation is accessible only through /ownerstats.
 export const OWNER_OPERATIONS = Object.freeze({
  announcement, giveexp, removeexp, exclude:removeleaderboard,
  restore:restoreleaderboard, export:progressionexport,
