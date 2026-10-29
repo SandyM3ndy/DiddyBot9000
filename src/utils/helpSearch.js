@@ -23,6 +23,7 @@ export const MOVED_SLASH_COMMANDS = Object.freeze({
   removeleaderboard:{command:'/ownerstats exclude',steps:'Beacon creator: exclude a community from rankings.'},
   restoreleaderboard:{command:'/ownerstats restore',steps:'Beacon creator: restore a community to rankings.'},
   progressionexport:{command:'/ownerstats export',steps:'Beacon creator: export a progression backup.'},
+  usernotes:{command:'/cases notes-view',steps:'Staff notes are now managed inside the Case Manager.'},
 });
 export function resolveMovedSlashCommand(query){
  const entered=String(query||'').trim().toLowerCase();
@@ -43,7 +44,8 @@ const CONCEPTS = Object.freeze({
   safety: ['antinuke', 'roleaudit', 'diagnose'],
   audit: ['roleaudit', 'logging', 'cases'],
   logs: ['logging', 'cases'],
-  cases: ['cases', 'cases warnings'],
+  cases: ['cases', 'cases warnings', 'cases notes-view'],
+  notes: ['cases notes-view', 'cases notes-add'],
   appeal: ['cases'],
   setup: ['dashboard', 'diagnose', 'verification', 'reactroles'],
   configuration: ['dashboard', 'diagnose'],

@@ -19,7 +19,7 @@ test('streamlined command groups include every migrated operation', () => {
     [math, ['calculate', 'convert']],
     [progression, ['overview', 'quests', 'leaderboard', 'rank', 'milestones', 'weekly', 'contributors', 'privacy']],
     [warnings, ['list', 'add']],
-    [cases, ['list','view','status','note','evidence','warnings','warn']],
+    [cases, ['list','view','status','note','evidence','warnings','warn','notes-add','notes-view','notes-remove','notes-clear']],
   ]) {
     assert.deepEqual(command.data.toJSON().options.map(x => x.name), expected, command.data.name);
   }

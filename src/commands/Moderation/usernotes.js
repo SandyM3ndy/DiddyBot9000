@@ -84,7 +84,12 @@ export default {
     category: "moderation",
 
     async execute(interaction, config, client) {
-        const subcommand = interaction.options.getSubcommand();
+        return executeUserNotesAction(interaction,config,client);
+    }
+};
+
+export async function executeUserNotesAction(interaction, config, client, action=null) {
+        const subcommand = action || interaction.options.getSubcommand();
         const targetUser = interaction.options.getUser("target");
         const guildId = interaction.guild.id;
 
@@ -115,8 +120,7 @@ export default {
             logger.error(`Error in usernotes command (${subcommand}):`, error);
             return await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: 'An error occurred while processing your request. Please try again later.' });
         }
-    }
-};
+}
 
 async function handleAddNote(interaction, targetUser, notes, guildId) {
     let note = interaction.options.getString("note").trim();

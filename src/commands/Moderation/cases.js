@@ -8,6 +8,7 @@ import { getModerationCases } from '../../utils/moderation.js';
 import { getCase, normalizeCase, updateCaseReview } from '../../services/moderationCaseManager.js';
 import { logger } from '../../utils/logger.js';
 import warningRecordsCommand from './warnings.js';
+import { executeUserNotesAction } from './usernotes.js';
 import { memberHasConfiguredModeratorRole } from '../../utils/permissionGuard.js';
 
 const PAGE_SIZE = 5;
@@ -125,10 +126,36 @@ export default {
       .addUserOption(o=>o.setName('target').setDescription('Member to check').setRequired(true)))
     .addSubcommand(sub => sub.setName('warn').setDescription('Issue a warning to a server member')
       .addUserOption(o=>o.setName('target').setDescription('Member to warn').setRequired(true))
-      .addStringOption(o=>o.setName('reason').setDescription('Reason for warning').setRequired(true).setMaxLength(500))),
+      .addStringOption(o=>o.setName('reason').setDescription('Reason for warning').setRequired(true).setMaxLength(500)))
+    .addSubcommand(sub=>sub.setName('notes-add').setDescription('Add a private note about a member')
+      .addUserOption(o=>o.setName('target').setDescription('Member').setRequired(true))
+      .addStringOption(o=>o.setName('note').setDescription('Private staff note').setMaxLength(1000).setRequired(true))
+      .addStringOption(o=>o.setName('type').setDescription('Type of note')
+        .addChoices({name:'Warning',value:'warning'},{name:'Positive',value:'positive'},
+          {name:'Neutral',value:'neutral'},{name:'Alert',value:'alert'})))
+    .addSubcommand(sub=>sub.setName('notes-view').setDescription('View saved private member notes')
+      .addUserOption(o=>o.setName('target').setDescription('Member').setRequired(true)))
+    .addSubcommand(sub=>sub.setName('notes-remove').setDescription('Remove one private member note')
+      .addUserOption(o=>o.setName('target').setDescription('Member').setRequired(true))
+      .addIntegerOption(o=>o.setName('index').setDescription('Note number, as listed').setMinValue(1).setRequired(true)))
+    .addSubcommand(sub=>sub.setName('notes-clear').setDescription('Clear saved private notes for a member')
+      .addUserOption(o=>o.setName('target').setDescription('Member').setRequired(true))),
 
   async execute(interaction, config, client) {
     const action=interaction.options.getSubcommand();
+    if(action.startsWith('notes-')){
+      const authorised=Boolean(interaction.guildId&&(
+        interaction.guild?.ownerId===interaction.user.id||
+        interaction.memberPermissions?.has(PermissionFlagsBits.ManageMessages)||
+        interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)));
+      if(!authorised)return InteractionHelper.safeReply(interaction,{
+        content:'Manage Messages permission is required to access private member notes.',
+        flags:MessageFlags.Ephemeral,
+      });
+      // Run the original notes service; its storage keys and history are
+      // unchanged. A cases action is only a new navigation entry point.
+      return executeUserNotesAction(interaction,config,client||interaction.client,action.slice(6));
+    }
     if (['warnings','warn'].includes(action)) {
       if(!canUseCaseWarningActions(interaction,config))return InteractionHelper.safeReply(interaction,{
         content:'Moderate Members permission is required to issue or inspect warnings.',

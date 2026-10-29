@@ -61,6 +61,7 @@ export const LEGACY_SLASH_COMMANDS = new Set([
   // internal handlers for prefix support and saved-data compatibility.
   'announcement', 'giveexp', 'removeexp', 'removeleaderboard',
   'restoreleaderboard', 'progressionexport',
+  'usernotes',
 ]);
 
 function getSubcommandInfo(commandData) {
