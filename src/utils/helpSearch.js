@@ -17,6 +17,12 @@ export const MOVED_SLASH_COMMANDS = Object.freeze({
   userinfo:{command:'/botinfo user',steps:'Inspect a member profile using Bot Info.'},
   serverinfo:{command:'/botinfo server',steps:'See the current server’s information inside Bot Info.'},
   warnings:{command:'/cases warnings',steps:'Check member warnings inside the moderation Case Manager.'},
+  announcement:{command:'/ownerstats announcement',steps:'Beacon creator: send subscribed updates.'},
+  giveexp:{command:'/ownerstats giveexp',steps:'Beacon creator: grant server XP.'},
+  removeexp:{command:'/ownerstats removeexp',steps:'Beacon creator: remove server XP.'},
+  removeleaderboard:{command:'/ownerstats exclude',steps:'Beacon creator: exclude a community from rankings.'},
+  restoreleaderboard:{command:'/ownerstats restore',steps:'Beacon creator: restore a community to rankings.'},
+  progressionexport:{command:'/ownerstats export',steps:'Beacon creator: export a progression backup.'},
 });
 export function resolveMovedSlashCommand(query){
  const entered=String(query||'').trim().toLowerCase();
@@ -71,7 +77,9 @@ const CONCEPTS = Object.freeze({
   songs: ['music play', 'music nowplaying'],
   raffle: ['giveaway', 'gcreate'],
   giveaway: ['giveaway', 'gcreate'],
-  announcement: ['announcement'],
+  announcement: ['ownerstats announcement'],
+  developer: ['ownerstats overview'],
+  backup: ['ownerstats export'],
   warnings: ['cases warnings', 'cases warn'],
   warn: ['cases warn'],
   welcome: ['greet', 'autorole'],

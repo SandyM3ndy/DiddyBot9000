@@ -57,6 +57,10 @@ export const LEGACY_SLASH_COMMANDS = new Set([
   'play', 'queue', 'nowplaying', 'join', 'ping', 'status', 'support', 'heist', 'daily',
   // Consolidated info and moderation record commands.
   'userinfo', 'serverinfo', 'warnings',
+  // Creator maintenance is one /ownerstats namespace. Previous files remain
+  // internal handlers for prefix support and saved-data compatibility.
+  'announcement', 'giveexp', 'removeexp', 'removeleaderboard',
+  'restoreleaderboard', 'progressionexport',
 ]);
 
 function getSubcommandInfo(commandData) {
