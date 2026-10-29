@@ -3,7 +3,9 @@ import { deflateSync } from 'node:zlib';
 
 const WIDTH=1000,HEIGHT=520;
 const THEMES={
- default:{base:[9,15,31],mix:[27,42,75],outline:[65,111,185],inner:[13,24,48],accent:[67,209,231]},
+ // The unpurchased default matches the approved Beacon logo's dark teal
+ // and cyan. Paid custom backgrounds and metallic borders stay unchanged.
+ default:{base:[11,35,37],mix:[20,76,77],outline:[22,201,210],inner:[12,46,48],accent:[19,201,210]},
  sunset:{base:[31,17,38],mix:[97,54,48],outline:[234,140,105],inner:[60,32,58],accent:[255,187,130]},
  galaxy:{base:[16,10,43],mix:[32,44,135],outline:[141,107,255],inner:[25,19,69],accent:[167,157,253]},
  emerald:{base:[8,27,31],mix:[20,83,53],outline:[65,166,118],inner:[15,56,55],accent:[126,238,168]},
@@ -57,7 +59,7 @@ export function renderProgressionRankPng({name='COMMUNITY',rank=null,level=1,xp=
  const data=Buffer.alloc(WIDTH*HEIGHT*4);
  const rgb=(a,b,t)=>a.map((v,i)=>clamp(v+(b[i]-v)*t));
  const stops={
-  default:[[7,13,32],[19,43,81],[17,26,55]],
+  default:[[8,29,30],[14,56,60],[8,36,40]],
   sunset:[[22,16,47],[101,42,87],[253,129,95],[57,32,77]],
   galaxy:[[6,8,33],[23,18,74],[43,23,94],[9,17,55]],
   emerald:[[5,25,28],[13,68,64],[38,105,85],[10,37,43]],
@@ -103,7 +105,7 @@ export function renderProgressionRankPng({name='COMMUNITY',rank=null,level=1,xp=
     if((h>>>0)%5999===0 && y<400){r+=88;g+=158;b+=104;}
    }else{
     const d=Math.max(0,1-((x-760)/420)**2-((y-240)/320)**2);
-    r+=d*9;g+=d*13;b+=d*31;
+    r+=d*5;g+=d*21;b+=d*17;
    }
    const grain=(Math.imul(x+7,374761393)^Math.imul(y+41,668265263))>>>0;
    const n=(grain%9)-4;
@@ -163,10 +165,10 @@ export function renderProgressionRankPng({name='COMMUNITY',rank=null,level=1,xp=
  const accent=gold?[255,202,103]:diamond?[161,224,255]:theme.accent;
  // Metallic and crystal surrounds use layered bevels, not a flat 4px line.
  rounded(13,14,974,493,32,[0,0,0],.48);
- rounded(19,17,962,486,29,gold?[99,56,18]:diamond?[27,68,113]:[37,82,133]);
- rounded(23,21,954,478,27,gold?[255,219,130]:diamond?[220,249,255]:[71,145,201]);
- rounded(27,25,946,470,25,gold?[162,100,31]:diamond?[67,155,210]:[18,50,100]);
- rounded(34,32,932,456,22,[8,13,32],.74);
+ rounded(19,17,962,486,29,gold?[99,56,18]:diamond?[27,68,113]:!bg?[25,83,87]:[37,82,133]);
+ rounded(23,21,954,478,27,gold?[255,219,130]:diamond?[220,249,255]:!bg?[43,181,184]:[71,145,201]);
+ rounded(27,25,946,470,25,gold?[162,100,31]:diamond?[67,155,210]:!bg?[13,56,62]:[18,50,100]);
+ rounded(34,32,932,456,22,bg?[8,13,32]:[7,29,32],.74);
  if(gold||diamond){
   const bright=gold?[255,246,197]:[245,253,255],deep=gold?[194,124,43]:[57,139,205];
   line(53,39,947,39,bright,3);
@@ -183,17 +185,30 @@ export function renderProgressionRankPng({name='COMMUNITY',rank=null,level=1,xp=
   else{sparkle(92,26,2,[255,255,215]);sparkle(969,205,2,[255,234,179]);}
  }
  // Inner frosted pane, readable regardless of the scenery behind it.
- rounded(59,180,875,169,19,[5,12,28],.53);
- rounded(59,366,875,94,15,[6,15,33],.42);
+ rounded(59,180,875,169,19,bg?[5,12,28]:[5,27,31],.53);
+ rounded(59,366,875,94,15,bg?[6,15,33]:[6,30,34],.42);
  box(72,164,854,2,accent,.62);
  box(76,351,846,8,[6,16,34],.9);
  rounded(45,49,10,58,4,accent);
  write('BEACON',75,50,6,[242,248,255]);
  write('WORLD RANKINGS',75,107,2,accent);
+ // A restrained gold mark beside the wordmark echoes the approved logo.
+ // Drawn onto the base card; no external image or cosmetic entitlement.
+ if(!bg){
+  const goldMark=[214,181,91],cyanMark=[19,201,210];
+  for(let deg=0;deg<360;deg+=5){
+   const angle=deg*Math.PI/180;
+   box(Math.round(346+16*Math.cos(angle)),Math.round(76+16*Math.sin(angle)),2,2,cyanMark);
+  }
+  rounded(341,70,10,14,3,goldMark,.96);
+  line(338,85,354,85,goldMark,2);
+  line(336,69,331,67,goldMark,2);
+  line(356,69,361,67,goldMark,2);
+ }
  // Decorative high contrast UI marks and a polished monogram.
  rounded(75,199,132,135,21,accent,.75);
- rounded(79,203,124,127,19,[8,22,43],.91);
- rounded(87,211,108,111,15,[18,56,82],.83);
+ rounded(79,203,124,127,19,bg?[8,22,43]:[8,36,40],.91);
+ rounded(87,211,108,111,15,bg?[18,56,82]:[19,82,85],.83);
  sparkle(96,219,2,[243,252,255]);
  write(String(name).trim().charAt(0)||'?',119,234,10,[221,251,255],1);
  write('SERVER',243,205,3,accent);
