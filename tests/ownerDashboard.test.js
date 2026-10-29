@@ -55,7 +55,7 @@ test('owner dashboard has ONE eight-action menu, not eight subcommands',()=>{
 test('non-owners cannot open dashboard, use a menu, press buttons or submit forms',async()=>{
  const a=fake(guest);await ownerstats.execute(a);
  assert.match(a.last.content,/primary Beacon owner/);
- const b=fake(guest);await ownerDashboardSelect({...b,values:['giveexp']});
+ const b=fake(guest);b.values=['giveexp'];await ownerDashboardSelect(b);
  assert.match(b.last?.content||'',/Bot Owner Dashboard/);
  const c=fake(guest);await ownerDashboardButton(c,['restart-confirm']);
  assert.match(c.last.content,/Bot Owner Dashboard/);
