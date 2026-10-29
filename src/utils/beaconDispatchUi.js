@@ -1,6 +1,6 @@
 import { ActionRowBuilder,ButtonBuilder,ButtonStyle } from 'discord.js';
 import { createEmbed } from './embeds.js';
-import { DISPATCH_LIMITS,DISPATCH_MISSIONS,dispatchNextLevelXp,dispatchBaseReward } from '../services/beaconDispatchService.js';
+import { DISPATCH_LIMITS,DISPATCH_MISSIONS,dispatchCareer,dispatchNextLevelXp,dispatchBaseReward } from '../services/beaconDispatchService.js';
 
 const row=(...buttons)=>new ActionRowBuilder().addComponents(...buttons);
 const button=(id,label,emoji,style=ButtonStyle.Secondary,disabled=false)=>
@@ -10,10 +10,46 @@ const nextDay=now=>Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),now.getUTCDat
 const nextWeek=now=>Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),now.getUTCDate()+(7-((now.getUTCDay()+6)%7)));
 const coins=n=>Number(n||0).toLocaleString('en-US')+' SC';
 
+export function buildDispatchCareerPicker(profile,notice=''){
+ const jobs=DISPATCH_MISSIONS;
+ const embed=createEmbed({
+  title:'📡 Beacon Dispatch • Choose Your Career',
+  description:'**Welcome to the Dispatch Network.** Pick **one permanent job** to work in.'+
+   '\n\nYou will receive assignments only for your chosen career. You can resign and choose a different job later, but **switching does not reset cooldowns, earnings limits or contractor XP**.'+
+   '\n\n**Easy:** 3 simple decisions • **Hard:** 4 harder decisions for 2× rewards.'+
+   (notice?'\n\n'+notice:''),
+  fields:jobs.map(j=>({name:j.emoji+' '+j.name,value:j.description})),
+  color:'primary',footer:'All five careers available at Level 1 • No leaderboard'});
+ const jobButtons=jobs.map(j=>button('sand_dispatch:career:'+j.id,
+  j.name.length>25?j.name.slice(0,25):j.name,j.emoji));
+ return {embeds:[embed],components:[
+  row(...jobButtons.slice(0,3)),
+  row(...jobButtons.slice(3)),
+  row(button('sand_wallet:home','Back to Wallet','🪙')),
+ ],content:'',allowedMentions:{parse:[]},attachments:[]};
+}
+
+export function buildDispatchResignation(profile){
+ const career=dispatchCareer(profile.careerId);
+ if(!career)return buildDispatchCareerPicker(profile);
+ const embed=createEmbed({
+  title:'🚪 Leave Your Dispatch Job?',
+  description:'You are currently working as **'+career.emoji+' '+career.name+'**.'+
+   '\n\nIf you resign, you can choose **one of the five careers** again.'+
+   '\n\n**Your contractor level, XP, completed jobs, Sand Coins and earning limits are all kept.**'+
+   '\n\nYou cannot resign while an assignment is active. Finish or abandon it first.',
+  color:'warning',footer:'Career changes do not reset daily attempts or cooldowns'});
+ return {embeds:[embed],components:[row(
+  button('sand_dispatch:confirm-resign','Yes, Leave Job','🚪',ButtonStyle.Danger),
+  button('sand_dispatch:board','Keep My Job','✅',ButtonStyle.Primary),
+ )],content:'',allowedMentions:{parse:[]},attachments:[]};
+}
+
 export function buildDispatchBoard(profile,now=new Date(),notice=''){
- const maxLevel=profile.level>=DISPATCH_LIMITS.maxLevel;
- const unlocked=DISPATCH_MISSIONS.filter(m=>profile.level>=m.unlock);
- const locked=DISPATCH_MISSIONS.filter(m=>profile.level<m.unlock);
+ const career=dispatchCareer(profile.careerId);
+ // Existing contractors with unfinished assignments from the old random-job
+ // system can resume them even though they have not chosen a career yet.
+ if(!career&&!profile.active)return buildDispatchCareerPicker(profile,notice);
  const active=profile.active;
  const restriction={
   ACTIVE:'Your current assignment is still active. Resume or abandon it.',
@@ -21,34 +57,35 @@ export function buildDispatchBoard(profile,now=new Date(),notice=''){
   DAILY_CAP:'You have reached the Dispatch daily earnings cap. Resets '+time(nextDay(now))+'.',
   WEEKLY_CAP:'You have reached the Dispatch weekly earnings cap. Resets '+time(nextWeek(now))+'.',
   COOLDOWN:'Your next assignment is available '+time(profile.cooldownUntil)+'.',
+  NO_CAREER:'Choose a Dispatch job when your current assignment is complete.',
  };
  const fields=[
+  {name:'🏢 Your Permanent Career',value:career?career.emoji+' **'+career.name+'**':'Previously started assignment',inline:false},
   {name:'🏅 Contractor Level',value:'**'+profile.level+'/'+DISPATCH_LIMITS.maxLevel+'** • '+profile.xp+
-    ' XP'+(maxLevel?' • MAX':' • '+(dispatchNextLevelXp(profile.level)-profile.xp)+' XP to next level'),inline:true},
+    ' XP'+(profile.level>=DISPATCH_LIMITS.maxLevel?' • MAX':' • '+(dispatchNextLevelXp(profile.level)-profile.xp)+' XP to next level'),inline:true},
   {name:'💰 Dispatch Budget',value:'Today: **'+coins(profile.remainingToday)+'** remaining\nThis week: **'+coins(profile.remainingWeek)+'** remaining',inline:true},
   {name:'📑 Assignments',value:'**'+(DISPATCH_LIMITS.attemptsPerDay-profile.startsToday)+'/'+DISPATCH_LIMITS.attemptsPerDay+
-   '** available today • 20-minute cooldown after starting',inline:false},
-  {name:'📡 Unlocked Assignments',value:unlocked.map(m=>m.emoji+' '+m.name).join(' • '),inline:false},
+   '** starts left today • 20-minute cooldown after starting',inline:false},
+  {name:'🚀 Career Progression',value:profile.level>=10?'Advanced scenarios unlocked':
+   profile.level>=5?'More involved scenarios unlocked • Next: Level 10':'More involved scenarios at Level 5 • Advanced scenarios at Level 10'},
  ];
- if(locked.length)fields.push({name:'🔒 Future Divisions',value:locked.map(m=>m.name+' • Level '+m.unlock).join('\n')});
  if(profile.lastResult)fields.push({name:'🧾 Last Assignment',value:profile.lastResult.missionEmoji+' '+
   profile.lastResult.missionName+' ('+profile.lastResult.difficulty.toUpperCase()+') • '+
   (profile.lastResult.passed?'+'+coins(profile.lastResult.coins):'No payment')});
- const embed=createEmbed({title:'📡 Beacon Dispatch Network',
-  description:'**Choose a job and make the best decisions.**\n'+
-   '📦 **Easy:** 3 simple choices; get at least 2 right.\n'+
-   '⚡ **Hard:** 4 tougher situations; get at least 3 right for **2× coins** at the same level and score.\n'+
-   'Read the situation, tap an answer and keep going. You only get paid after finishing.'+
+ const embed=createEmbed({title:'📡 Beacon Dispatch • '+(career?career.name:'Active Contract'),
+  description:'**Your assignment desk.** All jobs here belong to your selected career.\n'+
+   '📦 **Easy:** 3 questions; get at least 2 right.\n'+
+   '⚡ **Hard:** 4 tougher questions; get at least 3 right for **2× Sand Coins**.'+
    '\n\n'+(active?'**Active assignment:** '+active.missionEmoji+' '+active.missionName+' • '+
     active.difficulty.toUpperCase()+' • Expires '+time(active.expiresAt):
     (restriction[profile.reason]||'**Ready for your next assignment.**'))+
    (notice?'\n\n'+notice:''),
-  fields,color:'primary',footer:'Global contractor levels • No leaderboard • Limits and cooldowns follow you across servers'});
+  fields,color:'primary',footer:'Global contractor progress • No leaderboard • Switching jobs never resets limits'});
  const rows=[];
  if(active){
   rows.push(row(
-   button('sand_dispatch:resume:'+active.token,'Resume Mission','▶️',ButtonStyle.Primary),
-   button('sand_dispatch:abandon:'+active.token,'Abandon','🛑',ButtonStyle.Danger),
+   button('sand_dispatch:resume:'+active.token,'Resume Assignment','▶️',ButtonStyle.Primary),
+   button('sand_dispatch:abandon:'+active.token,'Abandon Assignment','🛑',ButtonStyle.Danger),
   ));
  }else{
   const disabled=!profile.canStart;
@@ -58,10 +95,12 @@ export function buildDispatchBoard(profile,now=new Date(),notice=''){
    button('sand_dispatch:start:hard','Hard • Up to '+coins(base*2),'⚡',ButtonStyle.Primary,disabled),
   ));
  }
- rows.push(row(button('sand_wallet:home','Return to Wallet','🪙')));
+ rows.push(row(
+  button('sand_wallet:home','Return to Wallet','🪙'),
+  button('sand_dispatch:resign','Change Career','🔄',ButtonStyle.Secondary,!career||Boolean(active)),
+ ));
  return {embeds:[embed],components:rows,content:'',allowedMentions:{parse:[]},attachments:[]};
 }
-
 export function buildDispatchMission(profile,userId,feedback=null){
  const a=profile.active;
  if(!a) return buildDispatchBoard(profile);
