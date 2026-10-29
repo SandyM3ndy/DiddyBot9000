@@ -165,7 +165,7 @@ test('back button restores the public shop without expiring after ten minutes',a
  assert.equal(seen[0],'ack:back');
  const edits=seen.filter(x=>x.edited);
  assert.equal(edits.length,1);
- assert.match(edits[0].payload.embeds[0].toJSON().title,/Beacon Shop/);
+ assert.match(edits[0].payload.embeds[0].toJSON().title,/Beacon Network • Rank Card Shop/);
  assert.equal(edits[0].payload.components.length,5);
 });
 
