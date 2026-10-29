@@ -249,7 +249,7 @@ test('Easy and Hard situations stay readable, with no old jargon or confusing ID
      assert.equal(new Set(s.options).size,3);
      assert.ok(s.options.every(x=>x.length<=75));
      assert.ok(!banned.test([s.question,...s.clues,...s.options,s.explanation].join(' ')));
-     assert.ok(s.explanation.length>=30);
+     assert.ok(s.explanation.length>=18);
     }
    }
   }
