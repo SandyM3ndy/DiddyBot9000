@@ -45,7 +45,7 @@ test('dashboard hub is navigable, read-only and covers genuine Beacon systems',(
   assert.equal(menu.custom_id,'dashboard_hub:'+gid);
   assert.equal(menu.options.length,DASHBOARD_HUB_SECTIONS.length);
   const values=menu.options.map(x=>x.value);
-  assert.deepEqual(values,['hubOverview','hubSafety','hubCommunity','hubSupport','hubTeam']);
+  assert.deepEqual(values,['hubOverview','hubSafety','hubCommunity','hubNetwork','hubSupport','hubTeam']);
   for(const value of values.filter(x=>x!=='hubOverview')){
     const payload=buildDashboardHubPanel(value,config,guild);
     const e=payload.embeds[0].toJSON();

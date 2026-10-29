@@ -3,6 +3,9 @@ import assert from 'node:assert/strict';
 import { PermissionFlagsBits } from 'discord.js';
 import botinfo from '../src/commands/Core/botinfo.js';
 import cases from '../src/commands/Moderation/cases.js';
+import ownerstats, { OWNER_OPERATIONS } from '../src/commands/Core/ownerstats.js';
+import { BEACON_PALETTE, BEACON_IDENTITY } from '../src/config/beaconIdentity.js';
+import botConfig from '../src/config/bot.js';
 import warningLegacy from '../src/commands/Moderation/warnings.js';
 import { LEGACY_SLASH_COMMANDS } from '../src/handlers/loaders/commandLoader.js';
 import { resolveMovedSlashCommand,searchBeaconCommandsByIntent } from '../src/utils/helpSearch.js';
@@ -17,7 +20,7 @@ test('info commands share /botinfo and keep all old options',()=>{
 });
 test('case manager takes over warning operations without removing other case actions',()=>{
  assert.deepEqual(cases.data.toJSON().options.map(x=>x.name),
-  ['list','view','status','note','evidence','warnings','warn']);
+  ['list','view','status','note','evidence','warnings','warn','notes-add','notes-view','notes-remove','notes-clear']);
  assert.equal(sub(cases,'warn').options.find(x=>x.name==='reason').required,true);
  assert.equal(sub(cases,'warnings').options.find(x=>x.name==='target').required,true);
  assert.deepEqual(warningLegacy.data.toJSON().options.map(x=>x.name),['list','add']);
@@ -56,4 +59,44 @@ test('moderation history stays restricted to View Audit Log for non-warning case
   async reply(payload){reply=payload;},
  },{},{});
  assert.match(reply?.content||'',/View Audit Log permission is required/);
+});
+
+// Consolidated command contracts: no data migration, no lost action handlers.
+test('owner operations use one creator-only slash command and retain internal handlers',()=>{
+ const keys=ownerstats.data.toJSON().options.map(x=>x.name);
+ assert.deepEqual(keys,['overview','announcement','giveexp','removeexp','exclude','restore','export']);
+ for(const op of ['announcement','giveexp','removeexp','exclude','restore','export'])
+  assert.equal(typeof OWNER_OPERATIONS[op].execute,'function');
+ assert.equal(sub(ownerstats,'giveexp').options.find(x=>x.name==='amount').required,true);
+ for(const name of ['announcement','giveexp','removeexp','removeleaderboard','restoreleaderboard','progressionexport']){
+  assert.ok(LEGACY_SLASH_COMMANDS.has(name),name);
+  assert.match(resolveMovedSlashCommand('/'+name).command,/^\/ownerstats /);
+ }
+});
+test('staff notes live in /cases; unauthorised members never reach saved notes',async()=>{
+ for(const name of ['notes-add','notes-view','notes-remove','notes-clear'])
+  assert.ok(sub(cases,name),name);
+ assert.ok(LEGACY_SLASH_COMMANDS.has('usernotes'));
+ assert.equal(resolveMovedSlashCommand('/usernotes').command,'/cases notes-view');
+ for(const action of ['notes-add','notes-view','notes-remove','notes-clear']){
+  let reply=null;
+  await cases.execute({
+   id:'123456789012345678',guildId:'333333333333333333',
+   guild:{ownerId:'444444444444444444'},
+   user:{id:'555555555555555555'},
+   memberPermissions:{has:()=>false},
+   options:{getSubcommand:()=>action},
+   async reply(v){reply=v;},
+  },{},{});
+  assert.match(reply?.content||'',/Manage Messages permission is required/);
+ }
+});
+test('Beacon HQ Network is a presentation layer, not a new slash command',()=>{
+ assert.equal(BEACON_IDENTITY.network,'Beacon Network');
+ assert.deepEqual(BEACON_IDENTITY.pillars,['Protect','Grow','Reward']);
+ assert.equal(botConfig.embeds.colors.primary,BEACON_PALETTE.signal);
+ assert.equal(botConfig.embeds.colors.economy,BEACON_PALETTE.gold);
+ const value=BEACON_IDENTITY.summary;
+ assert.match(value,/community/i);
+ assert.ok(!/Network Pulse/i.test(value));
 });
