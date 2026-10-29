@@ -36,7 +36,7 @@ export function sandHistoryLabel(entry){
  return (kinds[entry.kind]||'🪙 Wallet activity')+extra+'\n**'+amount+'** • '+timestamp;
 }
 export async function buildSandWalletPanel(client,userId,view='home',filter='all',page=0,now=new Date()){
- const w=await getSandWallet(client,userId);
+ const w=await getSandWallet(client,userId,now);
  const daily=getSandDailyStatusFromWallet(w,now);
  const effectiveFilter=SAND_HISTORY_FILTERS.includes(filter)?filter:'all';
  const rows=[new ActionRowBuilder().addComponents(

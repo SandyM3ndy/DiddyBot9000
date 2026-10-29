@@ -153,9 +153,12 @@ async function atomic(client,keys,fn){
  }catch(err){await c.query('ROLLBACK').catch(()=>{});throw err;}
  finally{c.removeListener?.('error',onConnectionError);c.release();}
 }
-export async function getSandWallet(client,userId){
+export async function getSandWallet(client,userId,now=new Date()){
  requireId(userId,'user ID');
- return withWindow(readWallet(await client.db.get(walletKey(userId),null)),new Date());
+ // One request clock prevents UTC reset mismatches between wallet state
+ // and display, and allows deterministic testing of day/week boundaries.
+ if(!(now instanceof Date)||Number.isNaN(now.getTime()))throw new Error('Invalid wallet time');
+ return withWindow(readWallet(await client.db.get(walletKey(userId),null)),now);
 }
 export const SAND_NOTIFICATION_TYPES=Object.freeze(['payments','purchases','daily','potions']);
 export async function setSandNotificationPreference(client,userId,type,enabled){
