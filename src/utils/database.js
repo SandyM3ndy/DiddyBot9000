@@ -140,12 +140,62 @@ export const getColor = (path, fallback = "#000000") => {
     return typeof current === "string" ? current : fallback;
 };
 
+// A Railway sleeping/restarting PostgreSQL instance can drop the pool during
+// a one-minute giveaway sweep. Do not query the SAME outage again via the KV
+// fallback: production KV storage also uses PostgreSQL.
+const GIVEAWAY_DB_WARNING_WINDOW_MS = 15 * 60 * 1000;
+const giveawayDbHealth = { unavailable: false, lastWarning: 0 };
+
+export function isTransientGiveawayDatabaseError(error) {
+    const visited = new Set();
+    const pending = [error];
+    const retryable = new Set([
+        'ETIMEDOUT', 'ECONNREFUSED', 'ECONNRESET', 'EPIPE',
+        'EHOSTUNREACH', 'ENETUNREACH', 'ENOTFOUND', 'EAI_AGAIN',
+        '08000', '08001', '08003', '08006', '08007', '08P01',
+        '57P01', '57P02', '57P03',
+    ]);
+    while (pending.length) {
+        const current = pending.pop();
+        if (!current || typeof current !== 'object' || visited.has(current)) continue;
+        visited.add(current);
+        if (retryable.has(String(current.code || '').toUpperCase())) return true;
+        if (/connection (?:terminated|ended|closed) unexpectedly|connection timeout|server closed the connection/i.test(String(current.message || ''))) return true;
+        if (current.cause) pending.push(current.cause);
+        if (Array.isArray(current.errors)) pending.push(...current.errors);
+    }
+    return false;
+}
+
+function logGiveawayDatabaseOutage(error = null) {
+    const now = Date.now();
+    if (!giveawayDbHealth.unavailable ||
+        now - giveawayDbHealth.lastWarning >= GIVEAWAY_DB_WARNING_WINDOW_MS) {
+        const code = error?.code || error?.errors?.find?.(entry => entry?.code)?.code || 'UNAVAILABLE';
+        logger.warn('Giveaway check postponed: PostgreSQL is temporarily unreachable (' +
+            String(code).slice(0,30) + '). Saved giveaways will be checked on the next scheduled run.');
+        giveawayDbHealth.lastWarning = now;
+    }
+    giveawayDbHealth.unavailable = true;
+}
+
+function acknowledgeGiveawayDatabaseRecovery() {
+    if (giveawayDbHealth.unavailable) {
+        logger.info('PostgreSQL reachable again; scheduled giveaway checks have resumed.');
+    }
+    giveawayDbHealth.unavailable = false;
+}
+
 function isPostgresSqlReady(dbWrapper) {
     return Boolean(
         dbWrapper?.db?.pool &&
         typeof dbWrapper.db.isAvailable === 'function' &&
         dbWrapper.db.isAvailable(),
     );
+}
+
+function isPostgresBacked(dbWrapper) {
+    return Boolean(dbWrapper?.db === pgDb || dbWrapper?.getConnectionType?.() === 'postgresql');
 }
 
 async function getEndedGiveawaysFromKv(client) {
@@ -196,38 +246,42 @@ async function getEndedGiveawaysFromKv(client) {
 }
 
 export async function getEndedGiveaways(client) {
+    const wrapper = client?.db;
+    if (!wrapper || typeof wrapper.get !== 'function') {
+        return [];
+    }
     try {
-        const wrapper = client?.db;
-        if (!wrapper || typeof wrapper.get !== 'function') {
-            return [];
-        }
-
         if (isPostgresSqlReady(wrapper)) {
             const { pgConfig } = await import('../config/database/postgres.js');
 
             const result = await wrapper.db.pool.query(
-                `SELECT id, guild_id, message_id, data, ends_at 
-                 FROM ${pgConfig.tables.giveaways} 
-                 WHERE ends_at <= NOW() 
+                `SELECT id, guild_id, message_id, data, ends_at
+                 FROM ${pgConfig.tables.giveaways}
+                 WHERE ends_at <= NOW()
                  AND COALESCE((data->>'ended')::boolean, false) = false
                  ORDER BY ends_at ASC`,
             );
-
+            acknowledgeGiveawayDatabaseRecovery();
             return result.rows || [];
         }
 
-        if (wrapper.isDegraded?.()) {
-            logger.debug('Postgres SQL unavailable for ended giveaways; scanning key-value store');
+        // Persistent KV storage is NOT a backup during PostgreSQL outages.
+        // Never mistake a sleeping database for "there are no giveaways".
+        if (isPostgresBacked(wrapper)) {
+            logGiveawayDatabaseOutage();
+            return [];
         }
 
         return await getEndedGiveawaysFromKv(client);
     } catch (error) {
-        logger.error('Error getting ended giveaways:', error);
-        try {
-            return await getEndedGiveawaysFromKv(client);
-        } catch {
-            return [];
+        if (isPostgresBacked(wrapper) && isTransientGiveawayDatabaseError(error)) {
+            logGiveawayDatabaseOutage(error);
+            return []; // Database is sleeping; scheduled sweeps will retry.
         }
+        // Do not conceal schema/programming failures as an empty giveaway list.
+        logger.error('Error getting ended giveaways:', error);
+        if (isPostgresBacked(wrapper)) throw error;
+        return [];
     }
 }
 
@@ -240,15 +294,19 @@ export async function markGiveawayEnded(client, giveawayId, endedData) {
 
         if (isPostgresSqlReady(wrapper)) {
             const { pgConfig } = await import('../config/database/postgres.js');
-
             await wrapper.db.pool.query(
-                `UPDATE ${pgConfig.tables.giveaways} 
-                 SET data = $1, updated_at = NOW() 
+                `UPDATE ${pgConfig.tables.giveaways}
+                 SET data = $1, updated_at = NOW()
                  WHERE id = $2`,
                 [endedData, giveawayId],
             );
-
+            acknowledgeGiveawayDatabaseRecovery();
             return true;
+        }
+
+        if (isPostgresBacked(wrapper)) {
+            logGiveawayDatabaseOutage();
+            return false;
         }
 
         const guildId = endedData?.guildId;
@@ -259,6 +317,10 @@ export async function markGiveawayEnded(client, giveawayId, endedData) {
         const { saveGiveaway } = await import('./giveaways.js');
         return saveGiveaway(client, guildId, endedData);
     } catch (error) {
+        if (isPostgresBacked(client?.db) && isTransientGiveawayDatabaseError(error)) {
+            logGiveawayDatabaseOutage(error);
+            return false;
+        }
         logger.error('Error marking giveaway as ended:', error);
         return false;
     }

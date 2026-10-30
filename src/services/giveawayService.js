@@ -381,7 +381,10 @@ export async function checkGiveaways(client) {
 
         const markedSuccess = await markGiveawayEnded(client, giveawayId, giveaway);
         if (!markedSuccess) {
-          logger.warn(`Failed to mark giveaway ${messageId} as ended in database`);
+          // Do not announce winners until the result is durably saved.
+          // The next scheduled check retries after PostgreSQL wakes.
+          logger.warn(`Giveaway ${messageId} result could not be saved; winner announcement postponed`);
+          continue;
         }
 
         if (winners.length > 0) {
