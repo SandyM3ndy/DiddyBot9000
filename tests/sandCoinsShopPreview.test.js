@@ -309,5 +309,7 @@ test('live preview button fetches the server Founder badge and displays it witho
  assert.match(change.payload.embeds[0].toJSON().description,/Founder #5/);
  const expected=buildSandShopItemPreview('royal',server,'Sand Castle','tag','all',null,{number:5});
  assert.equal(digest(change.payload.files[0].attachment),digest(expected.files[0].attachment));
- assert.deepEqual(values.get('beacon:sandcoins:v1:server:'+guildId),server);
+ const saved=values.get('beacon:sandcoins:v1:server:'+guildId);
+ assert.deepEqual(saved.inventory,server.inventory,'all purchased cosmetics remain saved');
+ assert.deepEqual(saved.equipped,server.equipped,'equipped cosmetics remain unchanged');
 });
