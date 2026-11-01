@@ -194,7 +194,7 @@ test('Announcement drafts are previewed privately; confirm sends once, replay is
  const send=fake();
  await ownerButton.execute(send,client,confirm.custom_id.split(':').slice(1));
  assert.match(send.last.embeds[0].toJSON().title,/Broadcast Complete/);
- assert.match(send.last.embeds[0].toJSON().description,/Sent:\\*\\* 0/);
+ assert.match(send.last.embeds[0].toJSON().description,/Sent:\*\* 0/);
  const stale=fake();
  await ownerButton.execute(stale,client,confirm.custom_id.split(':').slice(1));
  assert.match(stale.last.embeds[0].toJSON().description,/expired or was replaced/);
