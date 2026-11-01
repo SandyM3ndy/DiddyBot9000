@@ -2,6 +2,12 @@
 import { deflateSync } from 'node:zlib';
 
 const WIDTH=1000,HEIGHT=520;
+// Reserve separate zones for the Founder credential and the equipped name tag.
+// Keep them below the header line and clear of the server name / XP rail.
+export const RANK_CARD_COSMETIC_LAYOUT=Object.freeze({
+ founder:Object.freeze({x:736,y:64,width:194,height:68}),
+ nameTag:Object.freeze({x:244,y:287,width:318,height:52}),
+});
 const THEMES={
  // The unpurchased default matches the approved Beacon logo's dark teal
  // and cyan. Paid custom backgrounds and metallic borders stay unchanged.
@@ -226,24 +232,41 @@ export function renderProgressionRankPng({name='COMMUNITY',rank=null,level=1,xp=
  write(rank===null?'UNRANKED':'#'+rank,312,412,6,[255,219,148],12);
  write('TOTAL XP',646,375,3,[152,188,225]);
  write(Math.max(0,Math.floor(xp)).toLocaleString('en-US'),646,413,4,[246,250,255],14);
- // Name tags are collector-quality emblems, not flat text rectangles.
+ // Name-tag cosmetics are a nameplate BELOW the guild name, not a
+ // second top-right badge squeezed underneath the Founder credential.
+ // All available frames/backgrounds use exactly the same safe layout.
  if(tag==='royal'||tag==='pioneer'){
-  const isRoyal=tag==='royal',badgeX=648,badgeY=120;
-  const metal=isRoyal?[89,49,133]:[37,84,96],edge=isRoyal?[255,215,121]:[135,227,228];
-  rounded(badgeX-3,badgeY-3,279,53,14,[0,0,0],.68);
-  rounded(badgeX,badgeY,273,47,13,edge,.99);
-  rounded(badgeX+3,badgeY+3,267,41,11,metal,.98);
-  rounded(badgeX+7,badgeY+5,259,12,7,isRoyal?[166,100,205]:[98,180,183],.67);
-  box(badgeX+8,badgeY+36,256,2,edge,.60);
-  sparkle(badgeX+21,badgeY+22,2,isRoyal?[255,232,171]:[217,253,246]);
-  sparkle(badgeX+250,badgeY+22,2,isRoyal?[255,232,171]:[217,253,246]);
-  write(isRoyal?'ROYAL SANDS':'SAND PIONEER',badgeX+43,badgeY+16,2,
-   isRoyal?[255,239,189]:[227,255,254],18);
+  const isRoyal=tag==='royal';
+  const {x,y,width:w,height:h}=RANK_CARD_COSMETIC_LAYOUT.nameTag;
+  const ink=isRoyal?[91,42,130]:[29,83,96];
+  const edge=isRoyal?[254,207,108]:[153,240,237];
+  const sheen=isRoyal?[172,100,195]:[116,193,205];
+  const goldLight=isRoyal?[255,243,195]:[227,255,253];
+  // Shadow, two metallic bevels and a saturated enamel centre.
+  rounded(x-4,y-3,w+8,h+6,15,[0,0,0],.64);
+  rounded(x,y,w,h,13,isRoyal?[126,75,35]:[37,115,121]);
+  rounded(x+2,y+2,w-4,h-4,12,edge);
+  rounded(x+5,y+5,w-10,h-10,10,ink);
+  rounded(x+8,y+7,w-16,11,5,sheen,.66);
+  box(x+10,y+h-11,w-20,2,edge,.76);
+  // Twin gems flank the nameplate but do not intrude into its text.
+  sparkle(x+23,y+26,2,goldLight);
+  sparkle(x+w-27,y+26,2,goldLight);
+  rounded(x+18,y+11,11,7,3,edge,.8);
+  rounded(x+w-31,y+11,11,7,3,edge,.8);
+  write(isRoyal?'ROYAL SANDS':'SAND PIONEER',x+58,y+15,3,goldLight,18);
  }
- if(founder){
-  rounded(741,73,174,49,13,[40,63,101],.96);
-  rounded(745,77,166,41,10,[78,107,144],.68);
-  write('FOUNDER #'+founder.number,752,88,3,[255,224,146],11);
+ // Founder seniority is an independent credential in the top-right header.
+ // Smaller typography keeps even two-digit Founder numbers inside the frame.
+ if(founder&&Number.isSafeInteger(founder.number)&&founder.number>0){
+  const {x,y,width:w,height:h}=RANK_CARD_COSMETIC_LAYOUT.founder;
+  rounded(x-3,y-3,w+6,h+6,17,[0,0,0],.60);
+  rounded(x,y,w,h,15,[224,173,87],.97);
+  rounded(x+3,y+3,w-6,h-6,13,[43,62,91],.98);
+  rounded(x+7,y+6,w-14,19,9,[83,110,139],.76);
+  box(x+12,y+h-12,w-24,2,[211,172,102],.80);
+  write('FOUNDING SERVER',x+11,y+12,2,[255,229,173],15);
+  write('FOUNDER #'+founder.number,x+21,y+39,2,[248,250,255],12);
  }
  const scan=Buffer.alloc(HEIGHT*(1+WIDTH*4));
  for(let y=0;y<HEIGHT;y++){

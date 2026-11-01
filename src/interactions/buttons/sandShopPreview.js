@@ -3,6 +3,7 @@ import { getSandServer, getSandCatalogItem, getSandWallet, getSandLimitedStock, 
 import { buildSandShopItemPreview,buildSandShopPanel,normalizeSandShopCategory,normalizeSandShopFilter,selectSandShopItems } from '../../commands/Community/sandcoins.js';
 import { buildTreasuryPanel } from '../../commands/Community/treasury.js';
 import { logger } from '../../utils/logger.js';
+import { getFoundingBadge } from '../../services/serverProgressionService.js';
 
 // A global button handler replaces short-lived collectors. Buttons survive
 // deployments, work on public shop messages, and are acknowledged immediately.
@@ -73,7 +74,17 @@ export async function handleSandShopButton(interaction,client,args=[],action='pr
     payload=await buildSandShopPanel(client,interaction.guildId,interaction.guild.name,
      action==='back'?'all':category,action==='back'?'all':filter);
    }else{
-    const server=await getSandServer(client,interaction.guildId);
+    // Include the real Founder badge in previews: the shop must reflect how
+    // an equipped nameplate looks on a Founding Community's live rank card.
+    const [server,founder]=await Promise.all([
+     getSandServer(client,interaction.guildId),
+     getFoundingBadge(client,interaction.guildId).catch(error=>{
+      logger.warn('Could not resolve Founder badge for rank-card preview',{
+       guildId:interaction.guildId,error:error?.message,
+      });
+      return null;
+     }),
+    ]);
     if(revision!==state.revision)return;
     let visibleItems=null;
     if(filter!=='all'){
@@ -85,7 +96,7 @@ export async function handleSandShopButton(interaction,client,args=[],action='pr
      if(revision!==state.revision)return;
      visibleItems=selectSandShopItems(all,server,stocks,filter,wallet);
     }
-    payload=buildSandShopItemPreview(itemId,server,interaction.guild.name,category,filter,visibleItems);
+    payload=buildSandShopItemPreview(itemId,server,interaction.guild.name,category,filter,visibleItems,founder);
    }
    if(revision!==state.revision)return;
    // Important: edits target the original PUBLIC shop message; no per-click

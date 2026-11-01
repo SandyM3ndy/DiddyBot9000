@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { inflateSync } from 'node:zlib';
-import { renderProgressionRankPng } from '../src/utils/progressionRankCard.js';
+import { renderProgressionRankPng,RANK_CARD_COSMETIC_LAYOUT } from '../src/utils/progressionRankCard.js';
 
 // Decode pixels directly so a missing thousands-separator glyph cannot be
 // replaced with the '?' glyph without breaking the test.
@@ -54,4 +54,33 @@ test('default Beacon card uses teal and cyan with a restrained gold mark; purcha
  const gold=branded(346,76);
  assert.ok(gold[0]>gold[1]&&gold[1]>gold[2]&&gold[0]>140,
   'The approved gold accent is visible beside the Beacon wordmark');
+});
+
+test('Royal Sands and Pioneer occupy a dedicated nameplate zone with no Founder overlap',()=>{
+ const {founder,nameTag}=RANK_CARD_COSMETIC_LAYOUT;
+ assert.ok(founder.y+founder.height+25<nameTag.y,
+  'Founder credential and cosmetic nameplate must have substantial breathing room');
+ assert.ok(nameTag.y>245+7*4+10,'nameplate must be below the server name glyphs');
+ assert.ok(nameTag.y+nameTag.height<351,'nameplate must not touch the XP progress rail');
+ assert.ok(nameTag.x+nameTag.width<646,'nameplate must leave room beside the XP value section');
+ const basics={name:'A VERY LONG ROYAL SANDBOX',rank:1,level:14,xp:48500,progress:74,
+  appearance:{background:'galaxy',border:'gold'},fastPreview:true};
+ for(const tag of ['royal','pioneer']){
+  const clean=unpackPng(renderProgressionRankPng(basics));
+  const withFounder=unpackPng(renderProgressionRankPng({...basics,founder:{number:10}}));
+  const withTag=unpackPng(renderProgressionRankPng({...basics,appearance:{...basics.appearance,tag}}));
+  const both=unpackPng(renderProgressionRankPng({...basics,founder:{number:10},
+   appearance:{...basics.appearance,tag}}));
+  // Both decorations must remain identical to their solo versions when paired.
+  for(const [x,y] of [[747,82],[820,106],[914,115]]){
+   assert.deepEqual(both(x,y),withFounder(x,y),'Founder badge must be unobstructed by '+tag);
+  }
+  for(const [x,y] of [[248,295],[301,308],[543,326]]){
+   assert.deepEqual(both(x,y),withTag(x,y),'nameplate must be unobstructed by Founder badge');
+  }
+  assert.notDeepEqual(both(260,297),clean(260,297),'cosmetic must be clearly drawn');
+  assert.notDeepEqual(both(745,75),clean(745,75),'Founder badge must be clearly drawn');
+  assert.deepEqual(both(244,247),clean(244,247),'name text must not be overwritten');
+  assert.deepEqual(both(350,355),clean(350,355),'XP bar must not be overwritten');
+ }
 });
