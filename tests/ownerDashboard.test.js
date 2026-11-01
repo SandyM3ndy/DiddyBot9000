@@ -178,13 +178,60 @@ test('Bot Owner Dashboard uses the same (interaction, client, args) signature as
  const confirm=fake();await ownerButton.execute(confirm,client,['open','restart']);
  assert.match(confirm.last.embeds[0].toJSON().title,/Restart Beacon/);
 });
-test('Announcement form executes successfully through actual modal dispatcher adapter',async()=>{
+test('Announcement drafts are previewed privately; confirm sends once, replay is harmless',async()=>{
  const i=fake();i.fields={getTextInputValue:key=>({
   title:'Beacon Major Update',message:'Dispatch, Sand Coins and Treasury Wars are here!',
  })[key]};
  await ownerModal.execute(i,client,['announcement',owner]);
- assert.match(i.last.embeds[0].toJSON().title,/Broadcast Complete/);
- assert.match(i.last.embeds[0].toJSON().description,/Sent:\*\* 0/);
+ assert.match(i.last.embeds[0].toJSON().title,/Review Beacon Announcement/);
+ assert.match(i.last.embeds[0].toJSON().description,/NOT SENT/);
+ assert.equal(i.last.flags,MessageFlags.Ephemeral);
+ const buttons=i.last.components[0].toJSON().components;
+ const confirm=buttons.find(b=>b.label==='Confirm Broadcast');
+ assert.ok(confirm?.custom_id.startsWith('owner_action:announce-confirm:'+owner+':'));
+ assert.ok(buttons.some(b=>b.label==='Edit'));
+ assert.ok(buttons.some(b=>b.label==='Cancel'));
+ const send=fake();
+ await ownerButton.execute(send,client,confirm.custom_id.split(':').slice(1));
+ assert.match(send.last.embeds[0].toJSON().title,/Broadcast Complete/);
+ assert.match(send.last.embeds[0].toJSON().description,/Sent:\\*\\* 0/);
+ const stale=fake();
+ await ownerButton.execute(stale,client,confirm.custom_id.split(':').slice(1));
+ assert.match(stale.last.embeds[0].toJSON().description,/expired or was replaced/);
+});
+test('Announcement edit prefills the form, cancel discards, and old confirm is rejected',async()=>{
+ const compose=fake();
+ compose.fields={getTextInputValue:key=>({
+  title:'Original',message:'Original message',
+ })[key]};
+ await ownerModal.execute(compose,client,['announcement',owner]);
+ const btns=compose.last.components[0].toJSON().components;
+ const edit=btns.find(b=>b.label==='Edit').custom_id;
+ const confirm=btns.find(b=>b.label==='Confirm Broadcast').custom_id;
+ const editing=fake();
+ await ownerButton.execute(editing,client,edit.split(':').slice(1));
+ assert.equal(editing.modal.toJSON().components[0].components[0].value,'Original');
+ const stale=fake();
+ await ownerButton.execute(stale,client,confirm.split(':').slice(1));
+ assert.match(stale.last.embeds[0].toJSON().description,/expired or was replaced/);
+ const second=fake();
+ second.fields={getTextInputValue:key=>({title:'Final',message:'Final message'})[key]};
+ await ownerModal.execute(second,client,['announcement',owner]);
+ const cancel=second.last.components[0].toJSON().components.find(b=>b.label==='Cancel').custom_id;
+ const canceled=fake();
+ await ownerButton.execute(canceled,client,cancel.split(':').slice(1));
+ assert.match(canceled.last.embeds[0].toJSON().description,/Nothing was sent/);
+});
+test('Health view shows safe live runtime diagnostics and refreshes on demand',async()=>{
+ const view=fake();
+ await ownerButton.execute(view,client,['health']);
+ assert.match(view.last.embeds[0].toJSON().description,/Live Bot Diagnostics/);
+ const names=view.last.embeds[0].toJSON().fields.map(f=>f.name);
+ assert.ok(names.some(name=>name.includes('Gateway Ping')));
+ assert.ok(names.some(name=>name.includes('Memory')));
+ assert.ok(names.some(name=>name.includes('Database')));
+ const nav=view.last.components[0].toJSON().components;
+ assert.ok(nav.some(b=>b.custom_id==='owner_action:health'));
 });
 test('configured bot owners have access while ordinary users are blocked',async()=>{
  const other='333333333333333333';
