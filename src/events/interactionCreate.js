@@ -82,7 +82,8 @@ export default {
             if (
               interaction.guild &&
               isLockdownActive(client, interaction.guild.id) &&
-              interaction.commandName !== 'unlockdown'
+              interaction.commandName !== 'unlockdown' &&
+              !(command?.ownerOnly && isBotOwner(interaction.user?.id))
             ) {
               await InteractionHelper.safeReply(interaction, {
                 content: '🔒 **SERVER LOCKDOWN ACTIVE** — Commands are disabled until the server owner uses /unlockdown.',
@@ -132,7 +133,9 @@ export default {
 
             let guildConfig = null;
 
-            if (interaction.guild) {
+            // Owner controls must remain reachable when a guild's config DB is down.
+            // They are secured by the bot-owner check above, not guild roles.
+            if (interaction.guild && !command.ownerOnly) {
               guildConfig = await getGuildConfig(
                 client,
                 interaction.guild.id,
@@ -177,7 +180,7 @@ export default {
             await command.execute(interaction, guildConfig, client);
 
             // Reward successfully executed commands only (with cooldown in progression service).
-            if (interaction.guild) {
+            if (interaction.guild && !command.ownerOnly) {
               await recordCommandActivity(client, interaction, guildConfig).catch(() => {});
             }
 
