@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { PermissionFlagsBits } from 'discord.js';
 import botinfo from '../src/commands/Core/botinfo.js';
 import cases from '../src/commands/Moderation/cases.js';
-import ownerstats from '../src/commands/Core/ownerstats.js';
+import ownerstats from '../src/commands/Core/bot-owner-dashboard.js';
 import { OWNER_OPERATIONS } from '../src/commands/Core/modules/ownerDashboardActions.js';
 import { buildOwnerDashboard } from '../src/commands/Core/modules/ownerDashboardUi.js';
 import { BEACON_PALETTE, BEACON_IDENTITY } from '../src/config/beaconIdentity.js';
@@ -71,11 +71,11 @@ test('owner operations use one creator-only slash command and retain internal ha
  for(const op of ['announcement','giveexp','removeexp','exclude','restore','export'])
   assert.equal(typeof OWNER_OPERATIONS[op].execute,'function');
  const dashboard=buildOwnerDashboard({guilds:{cache:new Map()},commands:new Map()});
- const menu=dashboard.components[1].toJSON().components[0];
+ const menu=dashboard.components[2].toJSON().components[0];
  assert.deepEqual(menu.options.map(x=>x.value),['giveexp','removeexp','exclude','restore','announcement','export','guilds','restart']);
  for(const name of ['announcement','giveexp','removeexp','removeleaderboard','restoreleaderboard','progressionexport']){
   assert.equal(LEGACY_SLASH_COMMANDS.has(name),false,'old handler must be deleted: '+name);
-  assert.equal(resolveMovedSlashCommand('/'+name).command,'/ownerstats');
+  assert.equal(resolveMovedSlashCommand('/'+name).command,'/bot-owner-dashboard');
  }
 });
 test('staff notes live in /cases; unauthorised members never reach saved notes',async()=>{

@@ -2,7 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { access } from 'node:fs/promises';
 import { MessageFlags } from 'discord.js';
-import ownerstats from '../src/commands/Core/ownerstats.js';
+import ownerButton from '../src/interactions/buttons/ownerDashboard.js';
+import ownerSelect from '../src/interactions/selectMenus/ownerDashboard.js';
+import ownerModal from '../src/interactions/modals/ownerDashboard.js';
+import { isBotOwner } from '../src/config/bot.js';
+import ownerstats from '../src/commands/Core/bot-owner-dashboard.js';
 import botConfig from '../src/config/bot.js';
 import { OWNER_ACTIONS,buildOwnerDashboard,buildOwnerGuildList,buildOwnerRestartConfirmation } from '../src/commands/Core/modules/ownerDashboardUi.js';
 import {
@@ -24,19 +28,21 @@ function fake(uid=owner){
   async reply(v){response=v;return v;},
   async update(v){response=v;return v;},
   async showModal(v){modal=v;return v;},
+  async deferReply(){i.deferred=true;return true;},
+  async editReply(v){response=v;return v;},
  };
  return i;
 }
-test('only /ownerstats stays as an owner-only slash command, with NO subcommands',async()=>{
+test('only /bot-owner-dashboard stays as an owner-only slash command, with NO subcommands',async()=>{
  const schema=ownerstats.data.toJSON();
- assert.equal(schema.name,'ownerstats');
+ assert.equal(schema.name,'bot-owner-dashboard');
  assert.ok(!schema.options?.length);
- assert.ok(isOwnerOnlyCommand('ownerstats'));
+ assert.ok(isOwnerOnlyCommand('bot-owner-dashboard'));
  for(const old of ['restart','popularity','broadcast','announcement','giveexp','removeexp',
   'removeleaderboard','restoreleaderboard','progressionexport']){
   assert.notEqual(old,schema.name);
   assert.ok(!isOwnerOnlyCommand(old),'obsolete owner slash name must not have a registered command');
-  assert.equal(resolveMovedSlashCommand('/'+old).command,'/ownerstats');
+  assert.equal(resolveMovedSlashCommand('/'+old).command,'/bot-owner-dashboard');
  }
  for(const file of ['restart','popularity','broadcast'])
   await assert.rejects(access('src/commands/Core/'+file+'.js'),{code:'ENOENT'});
@@ -44,8 +50,8 @@ test('only /ownerstats stays as an owner-only slash command, with NO subcommands
 test('owner dashboard has ONE eight-action menu, not eight subcommands',()=>{
  const screen=buildOwnerDashboard(client);
  assert.equal(screen.embeds.length,1);
- assert.equal(screen.components.length,2);
- const ids=screen.components[1].toJSON().components[0].options.map(x=>x.value);
+ assert.equal(screen.components.length,3);
+ const ids=screen.components[2].toJSON().components[0].options.map(x=>x.value);
  assert.deepEqual(ids,Object.keys(OWNER_ACTIONS));
  assert.ok(ids.includes('restart')&&ids.includes('export'));
  assert.match(screen.embeds[0].toJSON().title,/Bot Owner Dashboard/);
@@ -54,7 +60,7 @@ test('owner dashboard has ONE eight-action menu, not eight subcommands',()=>{
 });
 test('non-owners cannot open dashboard, use a menu, press buttons or submit forms',async()=>{
  const a=fake(guest);await ownerstats.execute(a);
- assert.match(a.last.content,/primary Beacon owner/);
+ assert.match(a.last.content,/configured Beacon bot owners/);
  const b=fake(guest);b.values=['giveexp'];await ownerDashboardSelect(b);
  assert.match(b.last?.content||'',/Bot Owner Dashboard/);
  const c=fake(guest);await ownerDashboardButton(c,['restart-confirm']);
@@ -152,4 +158,55 @@ test('Connected Servers navigation works through the owner button handler',async
  assert.equal(ids.length,new Set(ids).size);
  await ownerDashboardButton(screen,['guilds','0','previous']);
  assert.match(screen.last.embeds[0].toJSON().footer.text,/Page 1 of 2/);
+});
+
+test('Bot Owner Dashboard uses the same (interaction, client, args) signature as Discord events',async()=>{
+ const section=fake();await ownerButton.execute(section,client,['announcements']);
+ assert.match(section.last.embeds[0].toJSON().description,/Compose Announcement/);
+ assert.ok(section.last.components[1].toJSON().components.some(b=>b.custom_id==='owner_action:open:announcement'));
+ const compose=fake();await ownerButton.execute(compose,client,['open','announcement']);
+ assert.equal(compose.modal.toJSON().custom_id,'owner_form:announcement:'+owner);
+ const selector=fake();selector.values=['announcement'];
+ await ownerSelect.execute(selector,client,['choose']);
+ assert.equal(selector.modal.toJSON().custom_id,'owner_form:announcement:'+owner);
+ const connected=fake();await ownerButton.execute(connected,client,['open','guilds']);
+ assert.match(connected.last.embeds[0].toJSON().title,/Connected Beacon Servers/);
+ const progression=fake();await ownerButton.execute(progression,client,['progression']);
+ assert.ok(progression.last.components[1].toJSON().components.some(b=>b.custom_id==='owner_action:open:giveexp'));
+ const maintenance=fake();await ownerButton.execute(maintenance,client,['maintenance']);
+ assert.ok(maintenance.last.components[1].toJSON().components.some(b=>b.custom_id==='owner_action:open:restart'));
+ const confirm=fake();await ownerButton.execute(confirm,client,['open','restart']);
+ assert.match(confirm.last.embeds[0].toJSON().title,/Restart Beacon/);
+});
+test('Announcement form executes successfully through actual modal dispatcher adapter',async()=>{
+ const i=fake();i.fields={getTextInputValue:key=>({
+  title:'Beacon Major Update',message:'Dispatch, Sand Coins and Treasury Wars are here!',
+ })[key]};
+ await ownerModal.execute(i,client,['announcement',owner]);
+ assert.match(i.last.embeds[0].toJSON().title,/Broadcast Complete/);
+ assert.match(i.last.embeds[0].toJSON().description,/Sent:\*\* 0/);
+});
+test('configured bot owners have access while ordinary users are blocked',async()=>{
+ const other='333333333333333333';
+ assert.equal(isBotOwner(guest),false);
+ const owners=botConfig.commands.owners;
+ if(!owners.includes(other))owners.push(other);
+ try{
+  const granted=fake(other);await ownerstats.execute(granted);
+  assert.match(granted.last.embeds[0].toJSON().title,/Bot Owner Dashboard/);
+  const viaButton=fake(other);
+  await ownerButton.execute(viaButton,client,['open','announcement']);
+  assert.equal(viaButton.modal.toJSON().custom_id,'owner_form:announcement:'+other);
+ }finally{
+  const index=owners.indexOf(other);
+  if(index!==-1)owners.splice(index,1);
+ }
+ const denied=fake(guest);
+ await ownerButton.execute(denied,client,['open','announcement']);
+ assert.match(denied.last.content,/private Bot Owner Dashboard/);
+ assert.equal(denied.modal,undefined);
+});
+test('retired /ownerstats is redirected, not registered again',()=>{
+ assert.equal(isOwnerOnlyCommand('ownerstats'),false);
+ assert.equal(resolveMovedSlashCommand('/ownerstats')?.command,'/bot-owner-dashboard');
 });
