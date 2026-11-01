@@ -1,12 +1,13 @@
 import {
  MessageFlags,ModalBuilder,ActionRowBuilder,TextInputBuilder,TextInputStyle,
 } from 'discord.js';
+import { randomBytes } from 'node:crypto';
 import { isBotOwner } from '../../../config/bot.js';
 import { InteractionHelper } from '../../../utils/interactionHelper.js';
 import { logger } from '../../../utils/logger.js';
 import {
  OWNER_ACTIONS,OWNER_FORM_FIELDS,buildOwnerDashboard,buildOwnerGuildList,
- buildOwnerRestartConfirmation,
+ buildOwnerRestartConfirmation,buildOwnerAnnouncementPreview,
 } from './ownerDashboardUi.js';
 import announcement from './ownerActions/announcement.js';
 import giveexp from './ownerActions/giveexp.js';
@@ -19,12 +20,15 @@ import restart from './ownerActions/restart.js';
 export const OWNER_OPERATIONS=Object.freeze({
  announcement,giveexp,removeexp,exclude,restore,export:backup,restart,
 });
+// One draft per owner, never persisted or broadcast by modal submission alone.
+const announcementDrafts=new Map();
+const DRAFT_TTL_MS=5*60*1000;
 const locked=i=>!isBotOwner(i.user?.id);
 const forbidden=i=>InteractionHelper.safeReply(i,{
  content:'🔒 This is a private Bot Owner Dashboard for configured Beacon bot owners.',
  flags:MessageFlags.Ephemeral,allowedMentions:{parse:[]},
 });
-function createForm(action,ownerId){
+function createForm(action,ownerId,defaults={}){
  const descriptor=OWNER_ACTIONS[action],fields=OWNER_FORM_FIELDS[action];
  if(!descriptor||!fields)return null;
  const modal=new ModalBuilder().setCustomId('owner_form:'+action+':'+ownerId)
@@ -34,6 +38,7 @@ function createForm(action,ownerId){
    .setCustomId(field.id).setLabel(field.label.slice(0,45))
    .setStyle(field.multiline?TextInputStyle.Paragraph:TextInputStyle.Short)
    .setMaxLength(field.max).setRequired(true);
+  if(typeof defaults[field.id]==='string')input.setValue(defaults[field.id]);
   modal.addComponents(new ActionRowBuilder().addComponents(input));
  }
  return modal;
@@ -55,8 +60,39 @@ export async function ownerDashboardSelect(i){
 export async function ownerDashboardButton(i,args=[]){
  if(locked(i))return forbidden(i);
  const action=args[0];
+ if(['announce-confirm','announce-edit','announce-cancel'].includes(action)){
+  const ownerId=args[1],token=args[2],draft=announcementDrafts.get(i.user.id);
+  if(ownerId!==i.user.id || !draft || draft.token!==token ||
+      Date.now()-draft.createdAt>DRAFT_TTL_MS){
+   // Do not allow an old modal preview to send after a newer draft replaced it.
+   if(draft && Date.now()-draft.createdAt>DRAFT_TTL_MS)
+    announcementDrafts.delete(i.user.id);
+   return i.update(buildOwnerDashboard(i.client,'announcements',
+    '⚠️ This announcement review expired or was replaced. Compose a new announcement.'));
+  }
+  // Invalidate synchronously before any await so two clicks cannot send twice.
+  announcementDrafts.delete(i.user.id);
+  if(action==='announce-cancel')
+   return i.update(buildOwnerDashboard(i.client,'announcements','Announcement discarded. Nothing was sent.'));
+  if(action==='announce-edit')
+   return i.showModal(createForm('announcement',i.user.id,draft));
+  await i.update({
+   content:'📡 Sending your confirmed Beacon announcement…',embeds:[],components:[],
+   allowedMentions:{parse:[]},
+  });
+  try{
+   logger.info('Beacon network announcement confirmed',{ownerId:i.user.id});
+   return await OWNER_OPERATIONS.announcement.execute(withOwnerActionOptions(i,draft));
+  }catch(error){
+   logger.error('Confirmed Beacon announcement failed',{message:error?.message});
+   return InteractionHelper.safeEditReply(i,{
+    content:'⚠️ Announcement delivery failed. Check Railway logs before sending again.',
+    embeds:[],components:[],allowedMentions:{parse:[]},
+   });
+  }
+ }
  if(action==='open')return selectOwnerAction(i,args[1]);
- if(['home','progression','announcements','maintenance'].includes(action))
+ if(['home','progression','announcements','health','maintenance'].includes(action))
   return i.update(buildOwnerDashboard(i.client,action));
  if(action==='guilds'){
   const number=Number(args[1]||0);
@@ -111,6 +147,15 @@ export async function ownerDashboardModal(i,args=[]){
   }
   if(values.message&&values.message.length>1800)
    throw new Error('Announcements must be at most 1,800 characters.');
+  if(action==='announcement'){
+   // Preview is always private; the real delivery requires a separate button.
+   const token=randomBytes(8).toString('hex');
+   announcementDrafts.set(i.user.id,{...values,token,createdAt:Date.now()});
+   return InteractionHelper.safeReply(i,{
+    ...buildOwnerAnnouncementPreview({...values,ownerId:i.user.id,token}),
+    flags:MessageFlags.Ephemeral,
+   });
+  }
   return await operation.execute(withOwnerActionOptions(i,values));
  }catch(error){
   logger.warn('Owner dashboard action failed',{action,error:error?.message});

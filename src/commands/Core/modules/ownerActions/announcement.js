@@ -39,7 +39,7 @@ export default {
         const channel = guild.channels.cache.get(channelId)
           ?? await guild.channels.fetch(channelId).catch(() => null);
 
-        if (!channel?.isTextBased()) {
+        if (!channel?.isTextBased() || typeof channel.send !== 'function') {
           failed++;
           continue;
         }
@@ -59,6 +59,7 @@ ${message}`,
     }
 
     return InteractionHelper.safeEditReply(interaction, {
+      content: '', components: [], allowedMentions: { parse: [] },
       embeds: [createEmbed({
         title: '📢 Update Broadcast Complete',
         description: `Updates delivered to configured channels.\n\n✅ **Sent:** ${sent}\n🔕 **Not configured:** ${skipped}\n❌ **Failed:** ${failed}`,
