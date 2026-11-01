@@ -14,6 +14,7 @@ import { logger } from '../../utils/logger.js';
 import { respondSandDaily } from '../../utils/sandDailyReply.js';
 import { respondSandPay,respondSandTrade } from '../../utils/sandTradingCommands.js';
 import { renderProgressionRankPng } from '../../utils/progressionRankCard.js';
+import { getFoundingBadge } from '../../services/serverProgressionService.js';
 import { buildSandWalletPanel } from '../../utils/sandEconomyUi.js';
 import { sendSandEconomyNotice } from '../../services/sandEconomyNotifications.js';
 import { getDispatchStatus } from '../../services/beaconDispatchService.js';
@@ -128,20 +129,21 @@ export function buildSandShopPreviewButtons(category='all',filter='all',visibleI
 // million-pixel rank card repeatedly when members click preview buttons quickly.
 const PREVIEW_CACHE_MAX=64;
 const previewPngCache=new Map();
-export function buildSandShopItemPreview(itemId,server,serverName,category='all',filter='all',visibleItems=null){
+export function buildSandShopItemPreview(itemId,server,serverName,category='all',filter='all',visibleItems=null,founder=null){
  const item=getSandCatalogItem(itemId);
  if(!item)throw new Error('Shop preview item unavailable');
  const equipped=getSandAppearance(server);
  const appearance={...equipped,[item.type]:item.id};
  const cleanServerName=short(serverName)||'BEACON SERVER';
- const key=JSON.stringify([itemId,cleanServerName,appearance.background,appearance.border,appearance.tag]);
+ const badge=Number.isSafeInteger(founder?.number)&&founder.number>0?{number:founder.number}:null;
+ const key=JSON.stringify([itemId,cleanServerName,appearance.background,appearance.border,appearance.tag,badge?.number??null]);
  let png=previewPngCache.get(key);
  if(png){
   previewPngCache.delete(key);
   previewPngCache.set(key,png);
  }else{
   png=renderProgressionRankPng({
-   name:cleanServerName,rank:42,level:14,xp:48500,progress:74,appearance,fastPreview:true,
+   name:cleanServerName,rank:42,level:14,xp:48500,progress:74,founder:badge,appearance,fastPreview:true,
   });
   previewPngCache.set(key,png);
   if(previewPngCache.size>PREVIEW_CACHE_MAX)
@@ -154,7 +156,8 @@ export function buildSandShopItemPreview(itemId,server,serverName,category='all'
   description:'**'+item.description+'**\n\n'+
    '**Price:** '+format(item.price)+' • **'+(owned?'Already owned by this server':'Not owned by this server')+'**\n'+
    'This is a **sample rank card** with your server\'s currently equipped cosmetics, '+
-   'plus a preview of **'+item.name+'**. The rank and XP shown are examples.',
+   'plus a preview of **'+item.name+'**. The rank and XP shown are examples.'+
+   (badge?' Your real **Founder #'+badge.number+'** badge is displayed in its own position.':''),
   fields:[
    {name:'Decoration Type',value:item.type.charAt(0).toUpperCase()+item.type.slice(1),inline:true},
    {name:'Preview Only',value:'No coins spent • No inventory or equipped items changed',inline:false},
