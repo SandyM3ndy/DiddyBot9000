@@ -1,7 +1,7 @@
 import {
  MessageFlags,ModalBuilder,ActionRowBuilder,TextInputBuilder,TextInputStyle,
 } from 'discord.js';
-import { isPrimaryBotOwner } from '../../../config/bot.js';
+import { isBotOwner } from '../../../config/bot.js';
 import { InteractionHelper } from '../../../utils/interactionHelper.js';
 import { logger } from '../../../utils/logger.js';
 import {
@@ -19,9 +19,9 @@ import restart from './ownerActions/restart.js';
 export const OWNER_OPERATIONS=Object.freeze({
  announcement,giveexp,removeexp,exclude,restore,export:backup,restart,
 });
-const locked=i=>!isPrimaryBotOwner(i.user?.id);
+const locked=i=>!isBotOwner(i.user?.id);
 const forbidden=i=>InteractionHelper.safeReply(i,{
- content:'🔒 This is a private Bot Owner Dashboard. Only the primary Beacon owner can use it.',
+ content:'🔒 This is a private Bot Owner Dashboard for configured Beacon bot owners.',
  flags:MessageFlags.Ephemeral,allowedMentions:{parse:[]},
 });
 function createForm(action,ownerId){
@@ -41,7 +41,7 @@ function createForm(action,ownerId){
 export async function selectOwnerAction(i,action){
  if(locked(i))return forbidden(i);
  if(!Object.hasOwn(OWNER_ACTIONS,action))
-  return InteractionHelper.safeReply(i,{content:'Unknown owner action. Reopen /ownerstats.',
+  return InteractionHelper.safeReply(i,{content:'Unknown owner action. Reopen /bot-owner-dashboard.',
    flags:MessageFlags.Ephemeral});
  if(OWNER_FORM_FIELDS[action])return i.showModal(createForm(action,i.user.id));
  if(action==='guilds')return i.update(buildOwnerGuildList(i.client));
@@ -55,6 +55,7 @@ export async function ownerDashboardSelect(i){
 export async function ownerDashboardButton(i,args=[]){
  if(locked(i))return forbidden(i);
  const action=args[0];
+ if(action==='open')return selectOwnerAction(i,args[1]);
  if(['home','progression','announcements','maintenance'].includes(action))
   return i.update(buildOwnerDashboard(i.client,action));
  if(action==='guilds'){
@@ -93,7 +94,7 @@ export async function ownerDashboardModal(i,args=[]){
  if(locked(i)||args[1]!==i.user.id)return forbidden(i);
  const action=args[0],form=OWNER_FORM_FIELDS[action],operation=OWNER_OPERATIONS[action];
  if(!form||!operation)return InteractionHelper.safeReply(i,{
-  content:'Unknown owner operation. Open /ownerstats again.',flags:MessageFlags.Ephemeral});
+  content:'Unknown owner operation. Open /bot-owner-dashboard again.',flags:MessageFlags.Ephemeral});
  const values={};
  try{
   for(const item of form){

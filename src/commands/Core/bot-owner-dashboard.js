@@ -1,16 +1,16 @@
 import { SlashCommandBuilder, MessageFlags } from 'discord.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
-import { isPrimaryBotOwner } from '../../config/bot.js';
+import { isBotOwner } from '../../config/bot.js';
 import { buildOwnerDashboard } from './modules/ownerDashboardUi.js';
 
 export default {
- data:new SlashCommandBuilder().setName('ownerstats')
+ data:new SlashCommandBuilder().setName('bot-owner-dashboard')
   .setDescription('Private Bot Owner Dashboard • manage Beacon operations'),
  category:'BotOwner',
  async execute(interaction){
-  if(!isPrimaryBotOwner(interaction.user?.id))
+  if(!isBotOwner(interaction.user?.id))
    return InteractionHelper.safeReply(interaction,{
-    content:'Only the primary Beacon owner can open this dashboard.',
+    content:'This dashboard is restricted to configured Beacon bot owners.',
     flags:MessageFlags.Ephemeral,
    });
   return InteractionHelper.safeReply(interaction,{

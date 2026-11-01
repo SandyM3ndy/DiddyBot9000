@@ -27,9 +27,9 @@ export function buildOwnerDashboard(client,section='home',notice=''){
  const guilds=Array.from(client.guilds?.cache?.values?.()||[]);
  const sum=f=>guilds.reduce((total,g)=>total+(Number(f(g))||0),0);
  const descriptions={
-  home:'**Bot Owner Control Centre**\nEvery creator-only action is here. Pick a category or choose an operation from the menu. No extra slash commands.',
+  home:'**Bot Owner Control Centre**\nEvery creator-only action is here. Choose a category, use its buttons, or select an operation from the menu. No additional slash commands.',
   progression:'**Progression Management**\nGrant/remove XP, exclude servers from rankings or restore them. Founder reassignment uses the existing protection rules.',
-  announcements:'**Announcement Management**\nUpdates go only to channels that server admins configured. The unrestricted broadcast shortcut is retired.',
+  announcements:'**Announcement Management**\nPress **Compose Announcement** to write and send a Beacon update to subscribed channels. Nothing is sent until you submit the form.',
   maintenance:'**Maintenance & Recovery**\nView connected servers, export progression records and confirm a scheduled restart.',
  };
  const nav=row(
@@ -37,6 +37,16 @@ export function buildOwnerDashboard(client,section='home',notice=''){
   button('owner_action:progression','Progression','📈'),
   button('owner_action:announcements','Announcements','📢'),
   button('owner_action:maintenance','Maintenance','🛠️'));
+ // Each category exposes useful action buttons, without another slash command.
+ const quickActions={
+  home:[['announcement','Compose Announcement'],['guilds','Connected Servers'],['export','Backup']],
+  announcements:[['announcement','Compose Announcement']],
+  progression:[['giveexp','Grant XP'],['removeexp','Remove XP'],['exclude','Exclude'],['restore','Restore']],
+  maintenance:[['guilds','Connected Servers'],['export','Export Backup'],['restart','Restart Beacon']],
+ };
+ const quick=row(...(quickActions[section]||quickActions.home).map(([action,label])=>
+  button('owner_action:open:'+action,label,OWNER_ACTIONS[action].emoji,
+   action==='restart'?ButtonStyle.Danger:action==='announcement'?ButtonStyle.Primary:ButtonStyle.Secondary)));
  const menu=new StringSelectMenuBuilder().setCustomId('owner_dashboard:choose')
   .setPlaceholder('Select an owner operation')
   .addOptions(Object.entries(OWNER_ACTIONS).map(([value,o])=>({
@@ -53,8 +63,8 @@ export function buildOwnerDashboard(client,section='home',notice=''){
     {name:'📝 Channels',value:sum(g=>g.channels?.cache?.size).toLocaleString('en-AU'),inline:true},
     {name:'🎭 Roles',value:sum(g=>g.roles?.cache?.size).toLocaleString('en-AU'),inline:true},
     {name:'⏱️ Uptime',value:Math.floor(process.uptime()/3600)+' hours',inline:true},
-   ],color:'primary',footer:'Owner only • All actions restricted to the primary Beacon owner'})],
-  components:[nav,row(menu)],
+   ],color:'primary',footer:'Private • Restricted to configured Beacon bot owners'})],
+  components:[nav,quick,row(menu)],
  };
 }
 export function buildOwnerGuildList(client,page=0){
