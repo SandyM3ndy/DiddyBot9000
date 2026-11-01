@@ -29,7 +29,7 @@ export function buildOwnerDashboard(client,section='home',notice=''){
  const descriptions={
   home:'**Bot Owner Control Centre**\nYour private command centre for Beacon. Use the quick controls below, or select any owner operation from the menu. Nothing here requires an extra slash command.',
   progression:'**Progression Management**\nGrant/remove XP, exclude servers from rankings or restore them. Founder reassignment uses the existing protection rules.',
-  announcements:'**Beacon Network Announcements**\nCompose an update, review the full preview, then confirm delivery to servers that opted in. Submitting the form does **not** send it.',
+  announcements:'**Beacon Network Announcements**\nPress **Compose Announcement** to write an update, review it in private, then confirm delivery to opted-in servers. Submitting the form does **not** send it.',
   health:'**Live Bot Diagnostics**\nRuntime indicators are read from the current Beacon process. Refresh this page to update them. No database writes or remote actions are performed.',
   maintenance:'**Maintenance & Recovery**\nView connected servers, export progression records and confirm a scheduled restart.',
  };
