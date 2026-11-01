@@ -273,3 +273,41 @@ test('affordable shop filter stays private and never reveals the wallet amount',
  assert.ok(ids.includes('sand_shop_preview:all:affordable:gold'));
  assert.ok(!ids.includes('sand_shop_preview:all:affordable:galaxy'));
 });
+
+test('shop preview renders actual Founder badge alongside Royal Sands and updates its cache on reassignment',()=>{
+ const server={inventory:['royal','gold','galaxy'],
+  equipped:{background:'galaxy',border:'gold',tag:'royal'}};
+ const before=structuredClone(server);
+ const preview=buildSandShopItemPreview('royal',server,'Royal Sandbox','tag','all',null,{number:3});
+ const png=renderProgressionRankPng({
+  name:'Royal Sandbox',rank:42,level:14,xp:48500,progress:74,
+  founder:{number:3},appearance:{background:'galaxy',border:'gold',tag:'royal'},fastPreview:true,
+ });
+ assert.equal(digest(preview.files[0].attachment),digest(png),
+  'shop and live rank cards must share the same renderer and cosmetics');
+ assert.match(preview.embeds[0].toJSON().description,/Founder #3/);
+ const other=buildSandShopItemPreview('royal',server,'Royal Sandbox','tag','all',null,{number:4});
+ assert.notEqual(digest(preview.files[0].attachment),digest(other.files[0].attachment),
+  'updated Founder assignment must not receive a cached old image');
+ const none=buildSandShopItemPreview('royal',server,'Royal Sandbox','tag');
+ assert.notEqual(digest(preview.files[0].attachment),digest(none.files[0].attachment));
+ assert.deepEqual(server,before,'preview must not spend coins, purchase or equip an item');
+});
+
+test('live preview button fetches the server Founder badge and displays it without any inventory mutation',async()=>{
+ const {db,values}=mockDb();
+ const server={inventory:['gold','royal','galaxy'],
+  equipped:{background:'galaxy',border:'gold',tag:'royal'}};
+ values.set('beacon:sandcoins:v1:server:'+guildId,structuredClone(server));
+ values.set('beacon:founders:v1',{entries:[{guildId,number:5}]});
+ values.set('guild:'+guildId+':progression',{xp:4000,leaderboardExcluded:false});
+ const client={db},seen=[];
+ await handleSandShopButton(fakeButton('founder-test','999999999999999981',seen,client),
+  client,['tag','royal'],'preview');
+ const change=seen.find(x=>x.edited);
+ assert.ok(change,'button must edit the original shop response');
+ assert.match(change.payload.embeds[0].toJSON().description,/Founder #5/);
+ const expected=buildSandShopItemPreview('royal',server,'Sand Castle','tag','all',null,{number:5});
+ assert.equal(digest(change.payload.files[0].attachment),digest(expected.files[0].attachment));
+ assert.deepEqual(values.get('beacon:sandcoins:v1:server:'+guildId),server);
+});
