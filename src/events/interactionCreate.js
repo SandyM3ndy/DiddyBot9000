@@ -100,7 +100,7 @@ export default {
               );
             }
 
-            if (command.ownerOnly && !isPrimaryBotOwner(interaction.user.id)) {
+            if (command.ownerOnly && !isBotOwner(interaction.user.id)) {
               throw createError(
                 'Bot owner command denied',
                 ErrorTypes.PERMISSION,

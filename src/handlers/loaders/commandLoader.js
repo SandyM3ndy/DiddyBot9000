@@ -58,7 +58,7 @@ export const LEGACY_SLASH_COMMANDS = new Set([
   // Consolidated info and moderation record commands.
   'userinfo', 'serverinfo', 'warnings',
   // Obsolete command modules were deleted after their action code was
-  // moved inside /ownerstats and /cases. These names have no handlers.
+  // moved inside /bot-owner-dashboard and /cases. These names have no handlers.
 ]);
 
 function getSubcommandInfo(commandData) {

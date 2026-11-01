@@ -3,12 +3,12 @@ import { createEmbed } from '../../../../utils/embeds.js';
 import { InteractionHelper } from '../../../../utils/interactionHelper.js';
 import { getServerProgression } from '../../../../services/serverProgressionService.js';
 
-import { isPrimaryBotOwner } from '../../../../config/bot.js';
+import { isBotOwner } from '../../../../config/bot.js';
 
-// Internal action owned by /ownerstats. Not a standalone Discord command.
+// Internal action owned by /bot-owner-dashboard. Not a standalone Discord command.
 export default {
   async execute(interaction) {
-    if (!isPrimaryBotOwner(interaction.user.id)) return InteractionHelper.safeReply(interaction, { embeds: [createEmbed({ title: '🔒 Owner Only', description: 'Only the bot owner can use this command.', color: 'error' })], flags: MessageFlags.Ephemeral });
+    if (!isBotOwner(interaction.user.id)) return InteractionHelper.safeReply(interaction, { embeds: [createEmbed({ title: '🔒 Owner Only', description: 'Only the bot owner can use this command.', color: 'error' })], flags: MessageFlags.Ephemeral });
     const serverId = interaction.options.getString('server_id', true).trim();
     if (!/^\d{17,20}$/.test(serverId)) return InteractionHelper.safeReply(interaction, { embeds: [createEmbed({ title: '❌ Invalid Server ID', description: 'Please provide a valid Discord server ID.', color: 'error' })], flags: MessageFlags.Ephemeral });
     const guild = interaction.client.guilds.cache.get(serverId);

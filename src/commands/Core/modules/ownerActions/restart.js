@@ -1,11 +1,11 @@
 import { MessageFlags } from 'discord.js';
 import { performScheduledRestart } from '../../../../services/systemHealthService.js';
-import { isPrimaryBotOwner } from '../../../../config/bot.js';
+import { isBotOwner } from '../../../../config/bot.js';
 
 // Private confirmed owner action. Not a slash command.
 export default {
   async execute(interaction) {
-    if (!isPrimaryBotOwner(interaction.user.id)) {
+    if (!isBotOwner(interaction.user.id)) {
       return interaction.reply({
         content: '❌ Only the bot owner can use this command.',
         flags: MessageFlags.Ephemeral,

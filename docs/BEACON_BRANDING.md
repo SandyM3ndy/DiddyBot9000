@@ -86,7 +86,7 @@ error reports, tickets or evidence. Respect custom user-created messages.
 ## Command consolidation policy
 
 Prefer meaningful existing groups, rather than standalone commands for every
-minor operation. Creator maintenance belongs under `/ownerstats`, moderator
+minor operation. Creator maintenance belongs under `/bot-owner-dashboard`, moderator
 staff notes under `/cases`, and economy under `/sandcoins`.
 Leave dangerous recovery controls, separate permission domains, and widely
 used workflows alone when merging would make them less safe or harder to find.
