@@ -6,7 +6,8 @@ import cron from 'node-cron';
 import { spawn } from 'node:child_process';
 
 import config from './config/application.js';
-import { initializeDatabase } from './utils/database.js';
+import { initializeDatabase,pgDb } from './utils/database.js';
+import { isPostgresShutdownError } from './utils/postgresOutage.js';
 import { getGuildConfig } from './services/config/guildConfig.js';
 import { getServerCounters, saveServerCounters, updateCounter } from './services/serverstatsService.js';
 import { logger, startupLog, shutdownLog } from './utils/logger.js';
@@ -19,7 +20,7 @@ import { initializeMusic } from './services/music/riffySetup.js';
 import { shutdownMusic } from './services/music/playerHandler.js';
 import pkg from '../package.json' with { type: 'json' };
 import { EXPECTED_SCHEMA_VERSION, EXPECTED_SCHEMA_LABEL } from './config/database/schemaVersion.js';
-import { startSystemHealthMonitor, scheduleAutomaticRestart } from './services/systemHealthService.js';
+import { startSystemHealthMonitor, startDatabaseRecoveryMonitor, scheduleAutomaticRestart } from './services/systemHealthService.js';
 
 class BeaconClient extends Client {
   constructor() {
@@ -71,6 +72,8 @@ class BeaconClient extends Client {
         logger.warn('║ Action Required: Fix PostgreSQL and restart bot      ║');
         logger.warn('╚═══════════════════════════════════════════════════════╝');
         logger.warn('');
+      } else if (!dbStatus.isAvailable) {
+        logger.warn('PostgreSQL is temporarily offline. Beacon will connect to Discord but will not read or write unsaved data until persistent storage recovers.');
       } else {
         startupLog(`✅ Database Status: ${dbStatus.connectionType} (fully operational)`);
       }
@@ -106,6 +109,7 @@ class BeaconClient extends Client {
       
       this.setupCronJobs();
       startSystemHealthMonitor(this);
+      startDatabaseRecoveryMonitor(this);
       scheduleAutomaticRestart(this);
       // Immediately recover giveaways whose deadlines passed while the bot was offline.
       await checkGiveaways(this);
@@ -418,6 +422,7 @@ class BeaconClient extends Client {
       
       logger.info('Stopping cron jobs...');
       cron.getTasks().forEach(task => task.stop());
+      if (this.databaseRecoveryTimer) clearInterval(this.databaseRecoveryTimer);
       logger.info('✅ Cron jobs stopped');
 
       logger.info('Stopping music players...');
@@ -473,9 +478,18 @@ try {
     process.on('SIGINT', () => bot.shutdown('SIGINT'));
     
     process.on('uncaughtException', (error) => {
-      // Process state may be corrupt after an uncaught throw; log and shut down cleanly.
+      // Railway Free sleeps Postgres and sends an administrator-termination
+      // packet to connected clients. An unhandled pg Client 'error' event
+      // must NEVER shut down Discord or destroy inventories.
+      if (isPostgresShutdownError(error)) {
+        logger.warn('Recovered from Railway PostgreSQL socket shutdown; Beacon remains online and will reconnect.',
+          {code:error?.code,reason:error?.message});
+        if (bot.db?.db === pgDb) pgDb.isConnected = false;
+        return;
+      }
+      // Unrelated uncaught exceptions remain fatal; do not hide programming bugs.
       handleTaskError('uncaught_exception', error, { fatal: true });
-      bot.shutdown('UNCAUGHT_EXCEPTION');
+      bot.shutdown('UNCAUGHT_EXCEPTION', 1);
     });
 
     process.on('unhandledRejection', (reason) => {
