@@ -42,7 +42,7 @@ function normalizeTimestampInput(value, fallback = new Date()) {
     return !Number.isNaN(parsedDate.getTime()) ? parsedDate : fallback;
 }
 
-class PostgreSQLDatabase {
+export class PostgreSQLDatabase {
     constructor() {
         this.pool = null;
         this.isConnected = false;
