@@ -3,6 +3,7 @@
 import pg from 'pg';
 import { pgConfig, resolvePostgresPoolConfig } from '../config/database/postgres.js';
 import { logger } from './logger.js';
+import { isTransientPostgresConnectionError } from './postgresOutage.js';
 import { assertAllowlistedIdentifier, quoteIdentifier } from './sqlIdentifiers.js';
 import {
     canonicalizeKey,
@@ -51,6 +52,20 @@ class PostgreSQLDatabase {
         this.allowedMigrationIdentifiers = new Set([pgConfig.migration.table]);
         this.lastFailureReason = null;
         this.lastFailureMessage = null;
+        this.lastOutageWarningAt = 0;
+    }
+
+    markConnectionFailure(error) {
+        if (!isTransientPostgresConnectionError(error)) return false;
+        this.isConnected = false;
+        this.lastFailureReason = error?.code || 'POSTGRES_UNAVAILABLE';
+        this.lastFailureMessage = error?.message || 'Database connection interrupted';
+        if (Date.now() - this.lastOutageWarningAt > 60_000) {
+            this.lastOutageWarningAt = Date.now();
+            logger.warn('Persistent PostgreSQL is temporarily unreachable; retry after it wakes. No in-memory writes.',
+                {code:this.lastFailureReason,message:this.lastFailureMessage});
+        }
+        return true;
     }
 
     async connect() {
@@ -69,15 +84,15 @@ class PostgreSQLDatabase {
         if (this.reconnectionPromise) return this.reconnectionPromise;
         const promise = (async () => {
             const previousPool = this.pool;
-            try {
-                if (previousPool) await previousPool.end().catch(error =>
+            // Detach the broken pool before closing it. Waiting for end() can
+            // hang if Railway killed an in-flight transaction; new commands
+            // must not run against an ending pool or wait for that drain.
+            this.pool = null;
+            this.isConnected = false;
+            this.connectionPromise = null;
+            if (previousPool) {
+                void previousPool.end().catch(error =>
                     logger.warn('Closing unavailable PostgreSQL pool failed:', error?.message));
-            } finally {
-                if (this.pool === previousPool) {
-                    this.pool = null;
-                    this.isConnected = false;
-                    this.connectionPromise = null;
-                }
             }
             return this.connect();
         })();
@@ -103,16 +118,23 @@ class PostgreSQLDatabase {
 
                 const activePool = this.pool;
                 activePool.on('error', (error) => {
-                    // Idle client disconnects (including Railway sleep/wake) are
-                    // expected and must never become uncaught process exceptions.
-                    // node-postgres automatically removes a failed IDLE client
-                    // and creates a replacement on demand. One idle socket
-                    // closing must not invalidate the whole pool, interrupt
-                    // checked-out transactions or trigger full schema setup.
+                    // Idle clients are discarded by pg-pool automatically.
                     if (this.pool === activePool) {
                         logger.warn('PostgreSQL idle connection dropped; pool will replace it:',
                             error?.message || error?.code || 'idle socket closed');
                     }
+                });
+                // pg.Pool only handles errors from IDLE connections. A socket
+                // can also fail while checked out by Treasury/progression or
+                // a transaction. Always give EVERY client an error listener
+                // for its full lifetime so its EventEmitter cannot crash Node.
+                activePool.on('connect', (pgClient) => {
+                    pgClient.on('error', error => {
+                        if (this.pool !== activePool) return;
+                        this.markConnectionFailure(error);
+                        if (!isTransientPostgresConnectionError(error))
+                            logger.warn('PostgreSQL client emitted a connection error:',error?.message);
+                    });
                 });
 
                 // node-postgres emits an error on a CHECKED-OUT client when its
@@ -454,7 +476,8 @@ class PostgreSQLDatabase {
 
             return structuredValue;
         } catch (error) {
-            logger.error(`Error getting value for key ${key}:`, error);
+            if (!this.markConnectionFailure(error))
+                logger.error(`Error getting value for key ${key}:`, error);
             throw error;
         }
     }
@@ -492,7 +515,8 @@ class PostgreSQLDatabase {
 
             return await this.setStructuredData(parsedKey, value, ttl);
         } catch (error) {
-            logger.error(`Error setting value for key ${key}:`, error);
+            if (!this.markConnectionFailure(error))
+                logger.error(`Error setting value for key ${key}:`, error);
             throw error;
         }
     }
@@ -527,7 +551,8 @@ class PostgreSQLDatabase {
 
             return deleted;
         } catch (error) {
-            logger.error(`Error deleting key ${key}:`, error);
+            if (!this.markConnectionFailure(error))
+                logger.error(`Error deleting key ${key}:`, error);
             throw error;
         }
     }
@@ -576,7 +601,8 @@ class PostgreSQLDatabase {
 
             return [...keys];
         } catch (error) {
-            logger.error(`Error listing keys with prefix ${prefix}:`, error);
+            if (!this.markConnectionFailure(error))
+                logger.error(`Error listing keys with prefix ${prefix}:`, error);
             throw error;
         }
     }

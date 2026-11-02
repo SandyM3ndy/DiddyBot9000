@@ -127,6 +127,40 @@ export function startSystemHealthMonitor(client) {
   check();
 }
 
+/** Recover from Railway Free's PostgreSQL sleep without restarting Discord.
+ * All writes remain blocked until the existing persistent database returns.
+ * One reconnect attempt at a time; warning logs are throttled during outages.
+ */
+export function startDatabaseRecoveryMonitor(client) {
+  if (client.databaseRecoveryTimer || typeof client.db?.ensurePersistentConnection !== 'function') return;
+  let busy = false;
+  let lastWarning = 0;
+  const check = async () => {
+    if (busy || client.isShuttingDown || client.db?.getConnectionType?.() !== 'postgresql'
+      || client.db?.isAvailable?.()) return;
+    busy = true;
+    try {
+      await client.db.ensurePersistentConnection();
+      if (client.db.isAvailable()) {
+        lastWarning = 0;
+        logger.info('PostgreSQL connection restored after Railway sleep; persisted operations resumed.');
+      }
+    } catch (error) {
+      if (Date.now() - lastWarning >= 5 * 60_000) {
+        lastWarning = Date.now();
+        logger.warn('PostgreSQL is still asleep or unreachable; all persisted state is protected and retrying.',
+          { code: error?.code, reason: error?.message });
+      }
+    } finally {
+      busy = false;
+    }
+  };
+  client.databaseRecoveryTimer = setInterval(() => { void check(); }, 60_000);
+  client.databaseRecoveryTimer.unref?.();
+  // Try a reconnection shortly after login if the database was asleep at boot.
+  setTimeout(() => { void check(); }, 5_000).unref?.();
+}
+
 export async function performScheduledRestart(client, { manual = false } = {}) {
   if (client.restarting || client.isShuttingDown) {
     return { started: false, reason: 'already_restarting' };
