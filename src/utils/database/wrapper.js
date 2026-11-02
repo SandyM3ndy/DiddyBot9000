@@ -3,7 +3,7 @@ import { MemoryStorage } from '../memoryStorage.js';
 import { logger } from '../logger.js';
 import { validateGuildConfigOrThrow } from '../schemas.js';
 
-class DatabaseWrapper {
+export class DatabaseWrapper {
     constructor() {
         this.initialized = false;
         this.db = null;
