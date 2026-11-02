@@ -45,11 +45,18 @@ class DatabaseWrapper {
                 throw error;
             }
 
-            // Production must never silently downgrade persistent bot data to RAM.
-            // A restart would otherwise erase configuration and other persistent state.
-            if (process.env.NODE_ENV === 'production') {
-                throw error;
-            }
+            // Production cannot downgrade to volatile memory when Railway
+            // temporarily sleeps PostgreSQL. Retry via ensurePersistentConnection.
+            // Schema mismatches remain fatal above to protect stored records.
+        }
+
+        if (process.env.NODE_ENV === 'production') {
+            this.db = pgDb;
+            this.connectionType = 'postgresql';
+            this.degradedReason = 'POSTGRES_UNAVAILABLE';
+            this.initialized = true;
+            logger.warn('Persistent PostgreSQL is unavailable during startup. Beacon will remain online, refuse unsaved operations and reconnect when the service wakes.');
+            return;
         }
 
         this.db = new MemoryStorage();
@@ -172,7 +179,8 @@ class DatabaseWrapper {
     }
 
     isAvailable() {
-        return this.db && !this.useFallback;
+        return Boolean(this.db && !this.useFallback &&
+            (typeof this.db.isAvailable !== 'function' || this.db.isAvailable()));
     }
 
     getStatus() {
@@ -181,7 +189,7 @@ class DatabaseWrapper {
             connectionType: this.connectionType,
             isDegraded: this.useFallback,
             isAvailable: this.isAvailable(),
-            degradedReason: this.degradedReason,
+            degradedReason: this.isAvailable() ? null : this.degradedReason || 'POSTGRES_UNAVAILABLE',
         };
     }
 
