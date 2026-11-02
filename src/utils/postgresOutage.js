@@ -19,3 +19,24 @@ export function isPostgresShutdownError(error){
  }
  return false;
 }
+
+// Other transient connectivity failures are retryable for ordinary DB calls,
+// but are not automatically proof that an UNCAUGHT exception is from Postgres.
+const TRANSIENT_CONNECTION_CODES=new Set([
+ ...PG_SHUTDOWN_CODES,'ECONNREFUSED','ECONNRESET','ETIMEDOUT','EPIPE',
+ 'EHOSTUNREACH','ENETUNREACH','ENOTFOUND','EAI_AGAIN',
+]);
+export function isTransientPostgresConnectionError(error){
+ const seen=new Set(),pending=[error];
+ while(pending.length){
+  const entry=pending.pop();
+  if(!entry||typeof entry!=='object'||seen.has(entry))continue;
+  seen.add(entry);
+  if(TRANSIENT_CONNECTION_CODES.has(String(entry.code||'').toUpperCase())||
+   PG_SHUTDOWN_MESSAGE.test(String(entry.message||''))||
+   /connection timeout|connect ETIMEDOUT|connect ECONNREFUSED|cannot use a pool after calling end/i.test(String(entry.message||'')))return true;
+  if(entry.cause)pending.push(entry.cause);
+  if(Array.isArray(entry.errors))pending.push(...entry.errors);
+ }
+ return false;
+}
