@@ -3,7 +3,7 @@
 import pg from 'pg';
 import { pgConfig, resolvePostgresPoolConfig } from '../config/database/postgres.js';
 import { logger } from './logger.js';
-import { isPostgresShutdownError } from './postgresOutage.js';
+import { isTransientPostgresConnectionError } from './postgresOutage.js';
 import { assertAllowlistedIdentifier, quoteIdentifier } from './sqlIdentifiers.js';
 import {
     canonicalizeKey,
@@ -52,6 +52,20 @@ class PostgreSQLDatabase {
         this.allowedMigrationIdentifiers = new Set([pgConfig.migration.table]);
         this.lastFailureReason = null;
         this.lastFailureMessage = null;
+        this.lastOutageWarningAt = 0;
+    }
+
+    markConnectionFailure(error) {
+        if (!isTransientPostgresConnectionError(error)) return false;
+        this.isConnected = false;
+        this.lastFailureReason = error?.code || 'POSTGRES_UNAVAILABLE';
+        this.lastFailureMessage = error?.message || 'Database connection interrupted';
+        if (Date.now() - this.lastOutageWarningAt > 60_000) {
+            this.lastOutageWarningAt = Date.now();
+            logger.warn('Persistent PostgreSQL is temporarily unreachable; retry after it wakes. No in-memory writes.',
+                {code:this.lastFailureReason,message:this.lastFailureMessage});
+        }
+        return true;
     }
 
     async connect() {
@@ -117,13 +131,9 @@ class PostgreSQLDatabase {
                 activePool.on('connect', (pgClient) => {
                     pgClient.on('error', error => {
                         if (this.pool !== activePool) return;
-                        logger.warn('PostgreSQL socket interrupted; work will resume after reconnect:',
-                            error?.message || error?.code || 'connection closed');
-                        if (isPostgresShutdownError(error)) {
-                            this.isConnected = false;
-                            this.lastFailureReason = error.code || 'POSTGRES_SLEEPING';
-                            this.lastFailureMessage = error.message;
-                        }
+                        this.markConnectionFailure(error);
+                        if (!isTransientPostgresConnectionError(error))
+                            logger.warn('PostgreSQL client emitted a connection error:',error?.message);
                     });
                 });
 
@@ -466,15 +476,8 @@ class PostgreSQLDatabase {
 
             return structuredValue;
         } catch (error) {
-            if (isPostgresShutdownError(error)) {
-                this.isConnected = false;
-                this.lastFailureReason = error.code || 'POSTGRES_SLEEPING';
-                this.lastFailureMessage = error.message;
-                logger.warn('PostgreSQL temporarily unavailable; read retained for retry after reconnect',
-                    {code:error.code,reason:error.message});
-            } else {
+            if (!this.markConnectionFailure(error))
                 logger.error(`Error getting value for key ${key}:`, error);
-            }
             throw error;
         }
     }
@@ -512,7 +515,8 @@ class PostgreSQLDatabase {
 
             return await this.setStructuredData(parsedKey, value, ttl);
         } catch (error) {
-            logger.error(`Error setting value for key ${key}:`, error);
+            if (!this.markConnectionFailure(error))
+                logger.error(`Error setting value for key ${key}:`, error);
             throw error;
         }
     }
@@ -547,7 +551,8 @@ class PostgreSQLDatabase {
 
             return deleted;
         } catch (error) {
-            logger.error(`Error deleting key ${key}:`, error);
+            if (!this.markConnectionFailure(error))
+                logger.error(`Error deleting key ${key}:`, error);
             throw error;
         }
     }
@@ -596,7 +601,8 @@ class PostgreSQLDatabase {
 
             return [...keys];
         } catch (error) {
-            logger.error(`Error listing keys with prefix ${prefix}:`, error);
+            if (!this.markConnectionFailure(error))
+                logger.error(`Error listing keys with prefix ${prefix}:`, error);
             throw error;
         }
     }
