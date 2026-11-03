@@ -1,3 +1,4 @@
+import { isOwnerOnlyCommand } from '../config/commands/commandCategories.js';
 /**
  * Goal-oriented command discovery. Uses the loaded Discord command registry,
  * not a static hard-coded command list, so results never advertise features
@@ -102,7 +103,7 @@ function commandJSON(command) {
 
 function expandEntries(command) {
   const json=commandJSON(command);
-  if (!json?.name || command.legacyOnly) return [];
+  if (!json?.name || command.legacyOnly || command.ownerOnly || isOwnerOnlyCommand(json.name)) return [];
   const category=String(command.category||'Core').replace(/_/g,' ');
   const common={
     category,
