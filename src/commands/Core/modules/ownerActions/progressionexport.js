@@ -1,13 +1,13 @@
 import { AttachmentBuilder, MessageFlags } from 'discord.js';
 import { gzipSync } from 'node:zlib';
 import { InteractionHelper } from '../../../../utils/interactionHelper.js';
-import { isBotOwner } from '../../../../config/bot.js';
+import { hasOwnerDashboardSession } from '../ownerDashboardSecurity.js';
 import { createEmbed } from '../../../../utils/embeds.js';
 
 // Internal action owned by /bot-owner-dashboard. Not a standalone Discord command.
 export default {
   async execute(interaction){
-    if(!isBotOwner(interaction.user.id)){
+    if(!hasOwnerDashboardSession(interaction)){
       return InteractionHelper.safeReply(interaction,{content:'🔒 Beacon owner only.',flags:MessageFlags.Ephemeral});
     }
     if(!(await InteractionHelper.safeDefer(interaction,{flags:MessageFlags.Ephemeral})))return;
