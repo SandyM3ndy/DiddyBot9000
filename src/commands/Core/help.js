@@ -6,14 +6,14 @@ import { createSelectMenu } from '../../utils/components.js';
 import { formatCategoryName, getCategoryIcon } from '../../config/commands/commandCategories.js';
 import { searchBeaconCommandsByIntent, resolveMovedSlashCommand } from '../../utils/helpSearch.js';
 import { getRegisteredCommands } from '../../handlers/help/helpSelectMenus.js';
-import { BEACON_TEAM_NAME, BEACON_VERSION_LABEL } from '../../config/bot.js';
+import { BEACON_TEAM_NAME, BEACON_VERSION_LABEL,isPrimaryBotOwner } from '../../config/bot.js';
 import { BEACON_IDENTITY } from '../../config/beaconIdentity.js';
 import { getBeaconInviteUrl } from './invite.js';
 
 const SUPPORT_URL = 'https://discord.gg/76N2EM6v6k';
 
 export function getHelpOverview(client) {
-  const commands = [...(client?.commands?.values() || [])].filter(command => command?.data?.name && !command.legacyOnly);
+  const commands = [...(client?.commands?.values() || [])].filter(command => command?.data?.name && !command.legacyOnly && !command.ownerOnly && command.data.name!=='bot-owner-dashboard');
   const categories = new Map();
   for (const command of commands) {
     if (command.data.name === 'help') continue;
@@ -56,7 +56,6 @@ export async function createInitialHelpMenu(client) {
       { name: '🛡️ Protect · 🚀 Grow · 🪙 Reward', value: 'Keep your server safe with **/dashboard** and **/diagnose**. Grow together with **/progression quests** and **/progression weekly**. Reward participation with **Sand Coins** and **Dispatch**.', inline: false },
       { name: '🧰 Administration', value: '**/roleaudit** — Review powerful server roles\n**/ticket stats** — Track your support workload', inline: false },
       { name: '🧭 Moved Commands', value: 'Looking for an old shortcut? Use **/help search** and enter its old name, such as `heist`, `daily` or `play`.', inline: false },
-      { name: '👑 Developer tools', value: 'The **Bot Owner** category contains commands reserved for Beacon’s creator. Server owners and moderators can manage their own communities normally.', inline: false },
       { name: '💜 Thank You', value: 'Thank you for making Beacon part of your server. Your feedback helps us keep improving. — **' + BEACON_TEAM_NAME + '**', inline: false },
     ],
     footer: 'Beacon Network • Your server stays yours • Explore below',
@@ -107,7 +106,7 @@ export default {
       if (query) {
         const activeClient = client || interaction.client;
         const moved=resolveMovedSlashCommand(query);
-        if(moved){
+        if(moved && (moved.command!=='/bot-owner-dashboard'||isPrimaryBotOwner(interaction.user?.id))){
           return InteractionHelper.safeEditReply(interaction,{
             embeds:[createEmbed({
               title:'🧭 This command moved',

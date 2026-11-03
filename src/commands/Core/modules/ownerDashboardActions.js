@@ -2,7 +2,8 @@ import {
  MessageFlags,ModalBuilder,ActionRowBuilder,TextInputBuilder,TextInputStyle,
 } from 'discord.js';
 import { randomBytes } from 'node:crypto';
-import { isBotOwner } from '../../../config/bot.js';
+import { isPrimaryBotOwner } from '../../../config/bot.js';
+import { hasOwnerDashboardSession,unlockOwnerDashboard } from './ownerDashboardSecurity.js';
 import { InteractionHelper } from '../../../utils/interactionHelper.js';
 import { logger } from '../../../utils/logger.js';
 import {
@@ -23,9 +24,11 @@ export const OWNER_OPERATIONS=Object.freeze({
 // One draft per owner, never persisted or broadcast by modal submission alone.
 const announcementDrafts=new Map();
 const DRAFT_TTL_MS=5*60*1000;
-const locked=i=>!isBotOwner(i.user?.id);
+const locked=i=>!isPrimaryBotOwner(i.user?.id)||!hasOwnerDashboardSession(i);
 const forbidden=i=>InteractionHelper.safeReply(i,{
- content:'🔒 This is a private Bot Owner Dashboard for configured Beacon bot owners.',
+ content:isPrimaryBotOwner(i.user?.id)
+  ?'🔐 Private Bot Owner Dashboard locked. Run /bot-owner-dashboard and enter your password.'
+  :'🔒 Private Bot Owner Dashboard: access denied.',
  flags:MessageFlags.Ephemeral,allowedMentions:{parse:[]},
 });
 function createForm(action,ownerId,defaults={}){
@@ -127,6 +130,8 @@ export function withOwnerActionOptions(interaction,fields){
  });
 }
 export async function ownerDashboardModal(i,args=[]){
+ // Unlock is the ONLY modal action allowed without an authenticated session.
+ if(args[0]==='unlock')return unlockOwnerDashboard(i,args[1],args[2],buildOwnerDashboard);
  if(locked(i)||args[1]!==i.user.id)return forbidden(i);
  const action=args[0],form=OWNER_FORM_FIELDS[action],operation=OWNER_OPERATIONS[action];
  if(!form||!operation)return InteractionHelper.safeReply(i,{

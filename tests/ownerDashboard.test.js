@@ -1,11 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { access } from 'node:fs/promises';
-import { MessageFlags } from 'discord.js';
+import { MessageFlags,InteractionContextType } from 'discord.js';
+import { scryptSync } from 'node:crypto';
 import ownerButton from '../src/interactions/buttons/ownerDashboard.js';
 import ownerSelect from '../src/interactions/selectMenus/ownerDashboard.js';
 import ownerModal from '../src/interactions/modals/ownerDashboard.js';
 import { isBotOwner } from '../src/config/bot.js';
+import { hasOwnerDashboardSession,revokeOwnerDashboardSession } from '../src/commands/Core/modules/ownerDashboardSecurity.js';
 import ownerstats from '../src/commands/Core/bot-owner-dashboard.js';
 import botConfig from '../src/config/bot.js';
 import { OWNER_ACTIONS,buildOwnerDashboard,buildOwnerGuildList,buildOwnerRestartConfirmation } from '../src/commands/Core/modules/ownerDashboardUi.js';
@@ -14,6 +16,8 @@ import {
  ownerDashboardModal,withOwnerActionOptions,
 } from '../src/commands/Core/modules/ownerDashboardActions.js';
 import { isOwnerOnlyCommand } from '../src/config/commands/commandCategories.js';
+import { getHelpOverview,searchBeaconCommands } from '../src/commands/Core/help.js';
+import { createAllCommandsMenu,createCategoryCommandsMenu } from '../src/handlers/help/helpSelectMenus.js';
 import { resolveMovedSlashCommand } from '../src/utils/helpSearch.js';
 
 const owner=botConfig.commands.primaryOwnerId,guest='444444444444444444';
@@ -33,10 +37,39 @@ function fake(uid=owner){
  };
  return i;
 }
+const TEST_OWNER_PASSWORD='a-different-test-only-password';
+const TEST_SALT=Buffer.from('0123456789abcdeffedcba9876543210','hex');
+const TEST_VERIFIER=TEST_SALT.toString('hex')+':'+
+ scryptSync(TEST_OWNER_PASSWORD,TEST_SALT,32,{N:16384,r:8,p:1,maxmem:32*1024*1024}).toString('hex');
+let originalVerifier;
+async function attemptOwnerLogin(password=TEST_OWNER_PASSWORD,uid=owner){
+ const command=fake(uid);
+ await ownerstats.execute(command);
+ if(!command.modal)return {command};
+ const args=command.modal.toJSON().custom_id.split(':').slice(1);
+ const submission=fake(uid);
+ submission.fields={getTextInputValue:key=>key==='owner_password'?password:''};
+ await ownerDashboardModal(submission,args);
+ return {command,submission,args};
+}
+test.before(async()=>{
+ originalVerifier=process.env.BEACON_OWNER_PASSWORD_SCRYPT;
+ process.env.BEACON_OWNER_PASSWORD_SCRYPT=TEST_VERIFIER;
+ const {submission}=await attemptOwnerLogin();
+ assert.match(submission?.last?.embeds?.[0]?.toJSON().title||'',/Bot Owner Dashboard/);
+});
+test.after(()=>{
+ revokeOwnerDashboardSession(owner);
+ if(originalVerifier===undefined)delete process.env.BEACON_OWNER_PASSWORD_SCRYPT;
+ else process.env.BEACON_OWNER_PASSWORD_SCRYPT=originalVerifier;
+});
+
 test('only /bot-owner-dashboard stays as an owner-only slash command, with NO subcommands',async()=>{
  const schema=ownerstats.data.toJSON();
  assert.equal(schema.name,'bot-owner-dashboard');
  assert.ok(!schema.options?.length);
+ assert.equal(schema.default_member_permissions,'0','ordinary members must not see or use the slash command');
+ assert.deepEqual(schema.contexts,[InteractionContextType.Guild]);
  assert.ok(isOwnerOnlyCommand('bot-owner-dashboard'));
  for(const old of ['restart','popularity','broadcast','announcement','giveexp','removeexp',
   'removeleaderboard','restoreleaderboard','progressionexport']){
@@ -60,7 +93,7 @@ test('owner dashboard has ONE eight-action menu, not eight subcommands',()=>{
 });
 test('non-owners cannot open dashboard, use a menu, press buttons or submit forms',async()=>{
  const a=fake(guest);await ownerstats.execute(a);
- assert.match(a.last.content,/configured Beacon bot owners/);
+ assert.match(a.last.content,/Access denied/);
  const b=fake(guest);b.values=['giveexp'];await ownerDashboardSelect(b);
  assert.match(b.last?.content||'',/Bot Owner Dashboard/);
  const c=fake(guest);await ownerDashboardButton(c,['restart-confirm']);
@@ -233,26 +266,96 @@ test('Health view shows safe live runtime diagnostics and refreshes on demand',a
  const nav=view.last.components[0].toJSON().components;
  assert.ok(nav.some(b=>b.custom_id==='owner_action:health'));
 });
-test('configured bot owners have access while ordinary users are blocked',async()=>{
+test('secondary OWNER_IDS cannot open the protected dashboard or call internal actions',async()=>{
  const other='333333333333333333';
  assert.equal(isBotOwner(guest),false);
  const owners=botConfig.commands.owners;
  if(!owners.includes(other))owners.push(other);
  try{
-  const granted=fake(other);await ownerstats.execute(granted);
-  assert.match(granted.last.embeds[0].toJSON().title,/Bot Owner Dashboard/);
+  assert.equal(isBotOwner(other),true,'test simulates a configured secondary owner');
+  const denied=fake(other);await ownerstats.execute(denied);
+  assert.match(denied.last.content,/Access denied/);
+  assert.equal(denied.modal,undefined);
   const viaButton=fake(other);
   await ownerButton.execute(viaButton,client,['open','announcement']);
-  assert.equal(viaButton.modal.toJSON().custom_id,'owner_form:announcement:'+other);
+  assert.match(viaButton.last.content,/access denied/);
+  assert.equal(viaButton.modal,undefined);
+  const internal=fake(other);
+  await OWNER_OPERATIONS.giveexp.execute(internal);
+  assert.match(internal.last.content,/permission/);
+  assert.equal(hasOwnerDashboardSession(internal),false);
  }finally{
   const index=owners.indexOf(other);
   if(index!==-1)owners.splice(index,1);
  }
- const denied=fake(guest);
- await ownerButton.execute(denied,client,['open','announcement']);
- assert.match(denied.last.content,/private Bot Owner Dashboard/);
- assert.equal(denied.modal,undefined);
 });
+test('owner ID without a password is blocked at every dashboard interaction layer',async()=>{
+ revokeOwnerDashboardSession(owner);
+ const nav=fake();await ownerButton.execute(nav,client,['maintenance']);
+ assert.match(nav.last.content,/password/);
+ const menu=fake();menu.values=['announcement'];
+ await ownerSelect.execute(menu,client,['choose']);
+ assert.match(menu.last.content,/password/);
+ const modal=fake();modal.fields={getTextInputValue:()=>''};
+ await ownerModal.execute(modal,client,['giveexp',owner]);
+ assert.match(modal.last.content,/password/);
+ const internal=fake();
+ await OWNER_OPERATIONS.giveexp.execute(internal);
+ assert.match(internal.last.content,/permission/);
+ const internalExport=fake();
+ await OWNER_OPERATIONS.export.execute(internalExport);
+ assert.match(internalExport.last.content,/owner only/i);
+ const internalRestart=fake();
+ await OWNER_OPERATIONS.restart.execute(internalRestart);
+ assert.match(internalRestart.last.content,/bot owner/i);
+ assert.equal(hasOwnerDashboardSession(fake()),false);
+});
+test('password capitalization is exact; failed login never grants session',async()=>{
+ const wrong=await attemptOwnerLogin(TEST_OWNER_PASSWORD.toUpperCase());
+ assert.match(wrong.submission.last.content,/Incorrect password/);
+ assert.equal(hasOwnerDashboardSession(fake()),false);
+ const invalid=fake();invalid.fields={getTextInputValue:()=>TEST_OWNER_PASSWORD};
+ await ownerModal.execute(invalid,client,wrong.args);
+ assert.match(invalid.last.content,/expired/,'login challenges are one-time');
+ assert.equal(hasOwnerDashboardSession(fake()),false);
+ const success=await attemptOwnerLogin();
+ assert.ok(success.command.modal,'primary owner receives a private password challenge');
+ assert.match(success.submission.last.embeds[0].toJSON().title,/Bot Owner Dashboard/);
+ assert.equal(success.submission.last.flags,MessageFlags.Ephemeral);
+ assert.equal(hasOwnerDashboardSession(fake()),true);
+ const replay=fake();replay.fields={getTextInputValue:()=>TEST_OWNER_PASSWORD};
+ await ownerModal.execute(replay,client,success.args);
+ assert.match(replay.last.content,/expired/);
+});
+test('unset Railway password verifier fails closed without revealing credentials',async()=>{
+ revokeOwnerDashboardSession(owner);
+ const saved=process.env.BEACON_OWNER_PASSWORD_SCRYPT;
+ delete process.env.BEACON_OWNER_PASSWORD_SCRYPT;
+ try{
+  const denied=await attemptOwnerLogin();
+  assert.match(denied.submission.last.content,/not configured/);
+  assert.equal(hasOwnerDashboardSession(fake()),false);
+ }finally{
+  process.env.BEACON_OWNER_PASSWORD_SCRYPT=saved;
+ }
+ const unlocked=await attemptOwnerLogin();
+ assert.match(unlocked.submission.last.embeds[0].toJSON().title,/Bot Owner Dashboard/);
+});
+test('public Help never leaks the owner command, including forged old category navigation',async()=>{
+ const publicClient={commands:new Map([
+  ['bot-owner-dashboard',{...ownerstats,ownerOnly:true,category:'BotOwner'}],
+  ['example',{data:{name:'example',description:'Public example'},category:'Utility'}],
+ ])};
+ const overview=getHelpOverview(publicClient);
+ assert.equal(overview.categories.has('BotOwner'),false);
+ const all=await createAllCommandsMenu(1,publicClient);
+ assert.doesNotMatch(JSON.stringify(all.embeds[0].toJSON()),/bot-owner-dashboard/i);
+ const forced=await createCategoryCommandsMenu('BotOwner',publicClient);
+ assert.match(forced.embeds[0].toJSON().description,/No commands are available/);
+ assert.equal(searchBeaconCommands(publicClient,'developer').length,0);
+ assert.equal(searchBeaconCommands(publicClient,'bot-owner-dashboard').length,0);
+});
+
 test('retired /ownerstats is redirected, not registered again',()=>{
  assert.equal(isOwnerOnlyCommand('ownerstats'),false);
  assert.equal(resolveMovedSlashCommand('/ownerstats')?.command,'/bot-owner-dashboard');

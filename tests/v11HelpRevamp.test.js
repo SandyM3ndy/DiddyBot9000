@@ -23,26 +23,24 @@ function mockClient() {
 test('revamped help home includes feature entry points and a category menu', async () => {
   const client = mockClient();
   const overview = getHelpOverview(client);
-  assert.equal(overview.commands, 6);
-  assert.equal(overview.categories.size, 5);
+  assert.equal(overview.commands, 5);
+  assert.equal(overview.categories.size, 4);
   const view = await createInitialHelpMenu(client);
   assert.equal(view.embeds.length, 1);
   const embed = view.embeds[0].toJSON();
   assert.match(embed.title, /Command Center/);
   assert.match(JSON.stringify(embed.fields), /diagnose/);
   const select = view.components[1].toJSON().components[0];
-  assert.ok(select.options.some(o => o.value === 'BotOwner'));
+  assert.ok(!select.options.some(o => o.value === 'BotOwner'), 'owner commands must be invisible in public Help');
   assert.ok(select.options.some(o => o.value === 'help-all-commands'));
   assert.ok(select.options.length <= 25);
 });
 
-test('category pages show access and do not strip owner restrictions', async () => {
+test('even old BotOwner category links cannot reveal protected owner commands', async () => {
   const client = mockClient();
   const view = await createCategoryCommandsMenu('BotOwner', client);
-  const fields = view.embeds[0].toJSON().fields;
-  assert.equal(fields.length, 1);
-  assert.match(fields[0].value, /Bot Owner Only/);
-  assert.match(fields[0].name, /bot-owner-dashboard/);
+  assert.match(view.embeds[0].toJSON().description, /No commands are available/);
+  assert.doesNotMatch(JSON.stringify(view.embeds[0].toJSON()), /bot-owner-dashboard/);
 });
 
 test('all commands view includes administrator tools', async () => {
@@ -52,6 +50,7 @@ test('all commands view includes administrator tools', async () => {
   assert.match(content, /diagnose/);
   assert.match(content, /ticket/);
   assert.match(content, /roleaudit/);
+  assert.doesNotMatch(content, /bot-owner-dashboard/, 'owner command must not appear publicly');
 });
 
 test('Quick Start is prominent and gives three practical, no-setup-required paths',async()=>{

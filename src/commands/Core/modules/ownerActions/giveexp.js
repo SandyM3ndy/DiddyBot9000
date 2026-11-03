@@ -4,12 +4,12 @@ import { InteractionHelper } from '../../../../utils/interactionHelper.js';
 import { getGuildConfig } from '../../../../services/config/guildConfig.js';
 import { addServerXp } from '../../../../services/serverProgressionService.js';
 
-import { isBotOwner } from '../../../../config/bot.js';
+import { hasOwnerDashboardSession } from '../ownerDashboardSecurity.js';
 
 // Internal action owned by /bot-owner-dashboard. Not a standalone Discord command.
 export default {
   async execute(interaction) {
-    if (!isBotOwner(interaction.user.id)) {
+    if (!hasOwnerDashboardSession(interaction)) {
       return InteractionHelper.safeReply(interaction, {
         content: '❌ You do not have permission to use this command.',
         flags: MessageFlags.Ephemeral,
