@@ -16,6 +16,8 @@ import {
  ownerDashboardModal,withOwnerActionOptions,
 } from '../src/commands/Core/modules/ownerDashboardActions.js';
 import { isOwnerOnlyCommand } from '../src/config/commands/commandCategories.js';
+import { getHelpOverview,searchBeaconCommands } from '../src/commands/Core/help.js';
+import { createAllCommandsMenu,createCategoryCommandsMenu } from '../src/handlers/help/helpSelectMenus.js';
 import { resolveMovedSlashCommand } from '../src/utils/helpSearch.js';
 
 const owner=botConfig.commands.primaryOwnerId,guest='444444444444444444';
@@ -339,6 +341,21 @@ test('unset Railway password verifier fails closed without revealing credentials
  const unlocked=await attemptOwnerLogin();
  assert.match(unlocked.submission.last.embeds[0].toJSON().title,/Bot Owner Dashboard/);
 });
+test('public Help never leaks the owner command, including forged old category navigation',async()=>{
+ const publicClient={commands:new Map([
+  ['bot-owner-dashboard',{...ownerstats,ownerOnly:true,category:'BotOwner'}],
+  ['example',{data:{name:'example',description:'Public example'},category:'Utility'}],
+ ])};
+ const overview=getHelpOverview(publicClient);
+ assert.equal(overview.categories.has('BotOwner'),false);
+ const all=await createAllCommandsMenu(1,publicClient);
+ assert.doesNotMatch(JSON.stringify(all.embeds[0].toJSON()),/bot-owner-dashboard/i);
+ const forced=await createCategoryCommandsMenu('BotOwner',publicClient);
+ assert.match(forced.embeds[0].toJSON().description,/No commands are available/);
+ assert.equal(searchBeaconCommands(publicClient,'developer').length,0);
+ assert.equal(searchBeaconCommands(publicClient,'bot-owner-dashboard').length,0);
+});
+
 test('retired /ownerstats is redirected, not registered again',()=>{
  assert.equal(isOwnerOnlyCommand('ownerstats'),false);
  assert.equal(resolveMovedSlashCommand('/ownerstats')?.command,'/bot-owner-dashboard');
