@@ -313,7 +313,7 @@ test('password capitalization is exact; failed login never grants session',async
  assert.match(wrong.submission.last.content,/Incorrect password/);
  assert.equal(hasOwnerDashboardSession(fake()),false);
  const invalid=fake();invalid.fields={getTextInputValue:()=>TEST_OWNER_PASSWORD};
- await ownerModal.execute(invalid,wrong.args);
+ await ownerModal.execute(invalid,client,wrong.args);
  assert.match(invalid.last.content,/expired/,'login challenges are one-time');
  assert.equal(hasOwnerDashboardSession(fake()),false);
  const success=await attemptOwnerLogin();
@@ -322,7 +322,7 @@ test('password capitalization is exact; failed login never grants session',async
  assert.equal(success.submission.last.flags,MessageFlags.Ephemeral);
  assert.equal(hasOwnerDashboardSession(fake()),true);
  const replay=fake();replay.fields={getTextInputValue:()=>TEST_OWNER_PASSWORD};
- await ownerModal.execute(replay,success.args);
+ await ownerModal.execute(replay,client,success.args);
  assert.match(replay.last.content,/expired/);
 });
 test('unset Railway password verifier fails closed without revealing credentials',async()=>{
