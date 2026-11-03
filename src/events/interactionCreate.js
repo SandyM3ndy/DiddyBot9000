@@ -83,7 +83,7 @@ export default {
               interaction.guild &&
               isLockdownActive(client, interaction.guild.id) &&
               interaction.commandName !== 'unlockdown' &&
-              !(command?.ownerOnly && isBotOwner(interaction.user?.id))
+              !(command?.ownerOnly && isPrimaryBotOwner(interaction.user?.id))
             ) {
               await InteractionHelper.safeReply(interaction, {
                 content: '🔒 **SERVER LOCKDOWN ACTIVE** — Commands are disabled until the server owner uses /unlockdown.',
@@ -101,7 +101,7 @@ export default {
               );
             }
 
-            if (command.ownerOnly && !isBotOwner(interaction.user.id)) {
+            if (command.ownerOnly && !isPrimaryBotOwner(interaction.user.id)) {
               throw createError(
                 'Bot owner command denied',
                 ErrorTypes.PERMISSION,
