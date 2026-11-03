@@ -1,7 +1,7 @@
 import { SlashCommandBuilder, MessageFlags,InteractionContextType } from 'discord.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 import { isPrimaryBotOwner } from '../../config/bot.js';
-import { buildOwnerPasswordChallenge } from './modules/ownerDashboardSecurity.js';
+import { buildOwnerPasswordChallenge,revokeOwnerDashboardSession } from './modules/ownerDashboardSecurity.js';
 
 export default {
  data:new SlashCommandBuilder().setName('bot-owner-dashboard')
@@ -17,7 +17,9 @@ export default {
     content:'🔒 Access denied.',
     flags:MessageFlags.Ephemeral,allowedMentions:{parse:[]},
    });
-  // Never show dashboard data, buttons, or controls before password entry.
+  // Every new launch invalidates the previous session, so a failed/replayed
+  // password challenge can never fall back to an older authenticated panel.
+  revokeOwnerDashboardSession(interaction.user.id);
   return interaction.showModal(buildOwnerPasswordChallenge(interaction.user.id));
  },
 };
