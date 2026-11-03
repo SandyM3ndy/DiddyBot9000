@@ -190,7 +190,7 @@ export async function createCategoryCommandsMenu(category, client, page = 1) {
     // Use the actual loaded registry, not every JavaScript file on disk.
     for (const command of client?.commands?.values() || []) {
         const commandData = normalizeCommandData(command);
-        if (!commandData?.name || command.legacyOnly || command.category !== category) continue;
+        if (!commandData?.name || command.legacyOnly || command.ownerOnly || isOwnerOnlyCommand(commandData.name) || command.category !== category) continue;
         if (commandData.name === 'help' || commandData.name === 'commandlist') continue;
         categoryCommands.push(...buildHelpEntries(command, categoryName));
     }
@@ -237,7 +237,7 @@ export async function createAllCommandsMenu(page = 1, client) {
 
     for (const command of client?.commands?.values() || []) {
         const commandData = normalizeCommandData(command);
-        if (!commandData?.name || command.legacyOnly || commandData.name === 'help' || commandData.name === 'commandlist') continue;
+        if (!commandData?.name || command.legacyOnly || command.ownerOnly || isOwnerOnlyCommand(commandData.name) || commandData.name === 'help' || commandData.name === 'commandlist') continue;
         const categoryName = formatCategoryName(command.category || 'Other');
         allCommands.push(...buildHelpEntries(command, categoryName));
     }
